@@ -214,11 +214,34 @@ h1 {
 }
 
 .result {
-  display: block;
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
   padding: 0.55rem 0;
   border-bottom: 1px solid #e4e6e4;
   color: inherit;
   text-decoration: none;
+}
+
+.type-mark {
+  flex: none;
+  display: inline-flex;
+  margin-top: 0.2rem;
+  color: #486249;
+}
+
+.type-mark svg { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .record-export {

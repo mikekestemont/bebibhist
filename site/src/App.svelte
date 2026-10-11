@@ -351,6 +351,26 @@
   </div>
 {/snippet}
 
+{#snippet typeIcon(kind: string | undefined)}
+  {@const name = text.types[(kind || "other") as keyof typeof text.types] || text.types.other}
+  <span class="type-mark" title={name}>
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      {#if kind === "book"}
+        <path d="M3 2.5h7.5A1.5 1.5 0 0 1 12 4v9.5H4.5A1.5 1.5 0 0 0 3 15V2.5zM3 12.5h9" />
+      {:else if kind === "chapter"}
+        <path d="M3.5 2h6l3 3v9h-9V2zM9.5 2v3h3M5.5 8h5M5.5 10.5h3.5" />
+      {:else if kind === "journal-issue"}
+        <path d="M2.5 4h8v10h-8zM5.5 2.5h8v10" />
+      {:else if kind === "other"}
+        <path d="M4 4h8v8H4z" />
+      {:else}
+        <path d="M4 2h8v12H4zM6 5.5h4M6 8h4M6 10.5h2.5" />
+      {/if}
+    </svg>
+    <span class="sr-only">{name}</span>
+  </span>
+{/snippet}
+
 {#snippet exporter(hit: Hit)}
   <div class="export">
     <button
@@ -495,6 +515,7 @@
         </div>
         {#each hits as hit}
           <a class="result" href={hit.url}>
+            {@render typeIcon(hit.meta.kind)}
             <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta)}</span>
           </a>
         {/each}
