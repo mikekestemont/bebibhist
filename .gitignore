@@ -4,6 +4,7 @@
 __pycache__/
 *.egg-info/
 .venv/
+node_modules/
 
 # Large raw inputs: re-downloadable, see data/raw/pdf/SOURCES.md
 data/raw/pdf/*.pdf

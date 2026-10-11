@@ -13,6 +13,14 @@ python3 -m venv .venv
 
 `bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. Derived files go to `build/` (git-ignored). 1964–1965 are read from `data/interim/print-pdf/`. 2008 is rebuilt from `data/raw/pdf/BGB_2008.pdf` when that file is present.
 
+```bash
+.venv/bin/bhb gold sample          # 300 print entries → data/curated/gold/sample.xlsx
+.venv/bin/bhb gold score           # intern 1992 sheets, or data/curated/gold/gold.xlsx once it exists
+.venv/bin/bhb bench build         # synthetic 270k FTS5 database → build/bench/
+```
+
+The browser timings for that database are described in `bench/README.md`.
+
 ## Modules
 
 ### `bhb.ingest.jats` — STRAIVE years and PDF years

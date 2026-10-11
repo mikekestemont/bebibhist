@@ -13,6 +13,8 @@ import argparse
 import json
 from pathlib import Path
 
+from bhb.bench import build_database, load_corpus, serve
+from bhb.gold import format_score, load_gold, score_records, write_sample
 from bhb.ingest.jats import load_jats, straive_paths
 from bhb.ingest.pdf_volume import convert_pdf
 from bhb.ingest.vsmart import load_vsmart
@@ -40,6 +42,23 @@ def main(argv: list[str] | None = None) -> None:
     merge.add_argument("--out", type=Path)
     sub.add_parser("build", help="ingest every source and merge")
 
+    gold = sub.add_parser("gold", help="sample entries for correction, or score a corrected sheet")
+    gold_sub = gold.add_subparsers(dest="gold_command", required=True)
+    sample = gold_sub.add_parser("sample", help="write a stratified sample of print entries")
+    sample.add_argument("--n", type=int, default=300)
+    sample.add_argument("--seed", type=int, default=2026)
+    sample.add_argument("--out", type=Path)
+    score = gold_sub.add_parser("score", help="field accuracy against a corrected sheet")
+    score.add_argument("--gold", type=Path, nargs="*", help="defaults to the intern 1992 sheets")
+
+    bench = sub.add_parser("bench", help="synthetic search database for the browser benchmark")
+    bench_sub = bench.add_subparsers(dest="bench_command", required=True)
+    bench_build = bench_sub.add_parser("build", help="write build/bench from the merged records")
+    bench_build.add_argument("--n", type=int, default=270_000)
+    bench_build.add_argument("--seed", type=int, default=2026)
+    bench_serve = bench_sub.add_parser("serve", help="serve the repo with HTTP range responses")
+    bench_serve.add_argument("--port", type=int, default=8765)
+
     args = parser.parse_args(argv)
     if args.command == "build":
         build()
@@ -63,6 +82,18 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "merge":
         merged, labels = _merge_from_disk()
         _emit(merged, labels, args.out)
+        return
+    if args.command == "gold" and args.gold_command == "sample":
+        _gold_sample(args.n, args.seed, args.out)
+        return
+    if args.command == "gold" and args.gold_command == "score":
+        _gold_score(args.gold)
+        return
+    if args.command == "bench" and args.bench_command == "build":
+        _bench_build(args.n, args.seed)
+        return
+    if args.command == "bench" and args.bench_command == "serve":
+        serve(args.port)
         return
     parser.error(f"unknown command {args.command}")
 
@@ -129,6 +160,43 @@ def _merge_from_disk() -> tuple[list[Record], dict]:
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
     )
+
+
+def _gold_sample(n: int, seed: int, out: Path | None) -> None:
+    records = _load_built_records()
+    destination = out or repo_root() / "data" / "curated" / "gold" / "sample.xlsx"
+    count = write_sample(records, destination, n=n, seed=seed)
+    print(f"sample: {count} print entries → {destination}")
+
+
+def _gold_score(paths: list[Path] | None) -> None:
+    gold = load_gold(paths or None)
+    records = _load_built_records()
+    text = format_score(score_records(records, gold))
+    print(text)
+    report = build_dir() / "gold_score.md"
+    report.write_text("# Gold-standard score\n\n" + text, encoding="utf-8")
+    print(f"wrote {report}")
+
+
+def _bench_build(n: int, seed: int) -> None:
+    source = build_dir() / "records.jsonl"
+    if not source.is_file():
+        raise SystemExit("build/records.jsonl is missing; run bhb build first")
+    folder = build_dir() / "bench"
+    print(f"reading titles from {source}")
+    summary = build_database(load_corpus(source), folder / "bhb.sqlite", n=n, seed=seed)
+    print(
+        f"bench: {summary['records']} records, {summary['histoire_hits']} hits for 'histoire', "
+        f"{summary['bytes'] / 1_048_576:.0f} MB in {summary['chunks']} chunks → {folder}"
+    )
+
+
+def _load_built_records() -> list[Record]:
+    path = build_dir() / "records.jsonl"
+    if not path.is_file():
+        raise SystemExit("build/records.jsonl is missing; run bhb build first")
+    return read_jsonl(path)
 
 
 def _write_labels(labels: dict) -> None:
