@@ -13,6 +13,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+classify = ["scikit-learn>=1.4"]
 
 [project.scripts]
 bhb = "bhb.cli:main"
