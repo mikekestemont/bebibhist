@@ -6,6 +6,8 @@
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
   import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, type Hit } from "./lib/search";
 
+  const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
+
   type Lang = "fr" | "nl" | "en";
   const catalogs = { fr, nl, en };
   const groups = {
@@ -357,7 +359,7 @@
 
 <header class="bar">
   <a class="brand" href="#/">
-    <img src="/crh-logo.svg" alt="" />
+    <img src={asset("crh-logo.svg")} alt="" />
     <strong>{text.name}</strong>
   </a>
   {#if filtering || path.startsWith("/record/") || path === "/about"}
@@ -493,7 +495,7 @@
 
 <footer>
   <div class="footer">
-    <img class="crest" src="/crh-logo-footer.svg" alt="" />
+    <img class="crest" src={asset("crh-logo-footer.svg")} alt="" />
     <div>
       <h2>{text.commission}</h2>
       {#each text.address as line}
@@ -506,10 +508,10 @@
     <div>
       <p class="support">{text.support}</p>
       <div class="marks">
-        <img src="/marks/kvab.png" alt="KVAB" />
-        <img src="/marks/arb.png" alt="ARB" />
-        <img src="/marks/belspo.png" alt="BELSPO" />
-        <img src="/marks/rijksarchief.png" alt="Rijksarchief" />
+        <img src={asset("marks/kvab.png")} alt="KVAB" />
+        <img src={asset("marks/arb.png")} alt="ARB" />
+        <img src={asset("marks/belspo.png")} alt="BELSPO" />
+        <img src={asset("marks/rijksarchief.png")} alt="Rijksarchief" />
       </div>
     </div>
   </div>

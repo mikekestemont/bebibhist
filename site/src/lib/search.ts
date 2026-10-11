@@ -132,7 +132,7 @@ let engine: Pagefind | null = null;
 export async function loadEngine(): Promise<Pagefind> {
   if (engine) return engine;
   const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
-  const loaded = await importer("/pagefind/pagefind.js");
+  const loaded = await importer(`${import.meta.env.BASE_URL}pagefind/pagefind.js`);
   await loaded.init();
   await loaded.filters();
   engine = loaded;
