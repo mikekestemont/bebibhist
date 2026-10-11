@@ -668,7 +668,7 @@
       <div class="tools">
         <label class="sort">
           {text.perPage}
-          <select value={String(pageSize)} onchange={(event) => setPer(event.currentTarget.value)}>
+          <select value={pageSize} onchange={(event) => setPer(event.currentTarget.value)}>
             {#each pageSizes as size}
               <option value={size}>{size}</option>
             {/each}

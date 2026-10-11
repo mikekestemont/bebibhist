@@ -22,34 +22,20 @@
   src: url("./eb-garamond-semibold.woff2") format("woff2");
 }
 
+/* Sofia Sans (SIL OFL 1.1): open stand-in for the Commission's Proxima Nova Condensed / Extra Condensed.
+   Variable weight 400–700, subset to Latin, Latin-1, Latin Extended-A and common punctuation. */
 @font-face {
-  font-family: "Barlow Semi Condensed";
+  font-family: "Sofia Sans Semi Condensed";
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 700;
   font-display: swap;
-  src: url("./barlow-semi-condensed-regular.woff2") format("woff2");
+  src: url("./sofia-sans-semi-condensed.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "Barlow Semi Condensed";
+  font-family: "Sofia Sans Extra Condensed";
   font-style: normal;
-  font-weight: 500;
+  font-weight: 400 700;
   font-display: swap;
-  src: url("./barlow-semi-condensed-medium.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Barlow Semi Condensed";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("./barlow-semi-condensed-semibold.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Barlow Condensed";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("./barlow-condensed-semibold.woff2") format("woff2");
+  src: url("./sofia-sans-extra-condensed.woff2") format("woff2");
 }
