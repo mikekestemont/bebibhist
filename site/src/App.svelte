@@ -408,7 +408,7 @@
         </dl>
       {/if}
       {@const category = categoryOf(record)}
-      <p>
+      <p class="category-line">
         <span class="theme">{text.category}</span>
         {category || text.themes.unclassified}
         {#if category && record.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
