@@ -10,3 +10,5 @@ npm run dev
 ```
 
 Open http://127.0.0.1:5173/. The FR / NL / EN control changes the labels and leaves the query in place.
+
+GitHub Pages does not run the Python pipeline. It downloads `records.jsonl.gz` from the latest `data-` release, unpacks it to `build/records.jsonl`, and then runs `npm run index` and `npm run build`.
