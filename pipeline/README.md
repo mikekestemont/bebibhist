@@ -1,7 +1,7 @@
 # `bhb` pipeline
 
 Python package that turns the raw sources of the Bibliography of Belgian History into one dataset.
-See `../PLAN.md` for the overall design.
+See `../docs/PROTOTYPE_SPEC.md` for the overall design.
 
 ```bash
 cd pipeline
