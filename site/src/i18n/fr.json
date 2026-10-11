@@ -47,6 +47,7 @@
   "extent": "Étendue",
   "results": "résultats",
   "sort": "Trier",
+  "perPage": "Par page",
   "sorts": {
     "relevance": "Pertinence",
     "pubyear-desc": "Année de publication, la plus récente",

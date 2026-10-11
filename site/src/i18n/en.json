@@ -47,6 +47,7 @@
   "extent": "Extent",
   "results": "results",
   "sort": "Sort",
+  "perPage": "Per page",
   "sorts": {
     "relevance": "Relevance",
     "pubyear-desc": "Publication year, newest",

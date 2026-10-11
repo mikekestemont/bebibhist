@@ -47,6 +47,7 @@
   "extent": "Omvang",
   "results": "resultaten",
   "sort": "Sorteren",
+  "perPage": "Per pagina",
   "sorts": {
     "relevance": "Relevantie",
     "pubyear-desc": "Publicatiejaar, nieuwste eerst",

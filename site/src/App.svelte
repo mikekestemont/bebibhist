@@ -34,8 +34,10 @@
   let exporting = $state(false);
   let listed: { data: () => Promise<Hit> }[] = [];
 
+  const pageSizes = [10, 20, 50, 100];
   let page = $derived(Math.max(1, Number(params.get("page") || "1")));
-  let pages = $derived(Math.max(1, Math.ceil(total / 20)));
+  let pageSize = $derived(pageSizes.includes(Number(params.get("per"))) ? Number(params.get("per")) : 20);
+  let pages = $derived(Math.max(1, Math.ceil(total / pageSize)));
   let filtering = $derived(path === "/search");
 
   function initialLang(): Lang {
@@ -136,7 +138,7 @@
       );
       scope = nextScope;
     }
-    const slice = response.results.slice((page - 1) * 20, page * 20);
+    const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
     hits = await Promise.all(slice.map((item) => item.data()));
     remember(hits);
     loading = false;
@@ -146,6 +148,7 @@
     const copy = new URLSearchParams(search);
     copy.delete("page");
     copy.delete("sort");
+    copy.delete("per");
     return copy.toString();
   }
 
@@ -155,6 +158,14 @@
       return { [key]: direction };
     }
     return undefined;
+  }
+
+  function setPer(value: string) {
+    const next = new URLSearchParams(params);
+    if (!value || value === "20") next.delete("per");
+    else next.set("per", value);
+    next.delete("page");
+    go("/search", next);
   }
 
   function setSort(value: string) {
@@ -450,6 +461,14 @@
     {/snippet}
     {#snippet tools()}
       <div class="tools">
+        <label class="sort">
+          {text.perPage}
+          <select value={String(pageSize)} onchange={(event) => setPer(event.currentTarget.value)}>
+            {#each pageSizes as size}
+              <option value={size}>{size}</option>
+            {/each}
+          </select>
+        </label>
         <label class="sort">
           {text.sort}
           <select value={params.get("sort") || "relevance"} onchange={(event) => setSort(event.currentTarget.value)}>
