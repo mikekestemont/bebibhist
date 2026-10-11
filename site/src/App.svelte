@@ -14,7 +14,6 @@
     period: ["aux", "general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
     theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
-    source: ["print-straive", "print-pdf", "vsmart"],
     decade: ["1950", "1960", "1970", "1980", "1990", "2000", "2010"],
   } as const;
 
@@ -50,7 +49,6 @@
     if (group === "period") return text.periods[value as keyof typeof text.periods] || value;
     if (group === "theme") return text.themes[value as keyof typeof text.themes] || value;
     if (group === "type") return text.types[value as keyof typeof text.types] || value;
-    if (group === "source") return text.sources[value as keyof typeof text.sources] || value;
     return value;
   }
 
@@ -187,6 +185,7 @@
       [text.publisher, meta.publisher],
       [text.extent, meta.extent],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
+      [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
     return pairs.flatMap(([label, value, italic]) => (value ? [{ label, value, italic }] : []));
   }
@@ -428,7 +427,7 @@
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
-          <legend>{text[group as "period" | "theme" | "type" | "source" | "decade"]}</legend>
+          <legend>{text[group as "period" | "theme" | "type" | "decade"]}</legend>
           {#each values as value}
             {@const count = counts[group]?.[value] ?? 0}
             <label>
