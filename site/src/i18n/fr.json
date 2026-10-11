@@ -87,6 +87,12 @@
       "paragraphs": [
         "Il s’agit d’une version d’essai, et nous la proposons telle quelle. Les données sont incomplètes, une partie du texte provient de la reconnaissance des pages imprimées, et tous les champs n’ont pas encore été revus. Utilisez le site avec cette réserve."
       ]
+    },
+    {
+      "title": "Contributions",
+      "paragraphs": [
+        "Amélie Weyts et Daniel van Meer y ont contribué pendant leur stage dans le master Digital Text Analysis à l’Université d’Anvers (2025–2026). Le Dr Jens Lemmens, également de l’Université d’Anvers, a aidé à la programmation."
+      ]
     }
   ],
   "periods": {

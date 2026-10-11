@@ -87,6 +87,12 @@
       "paragraphs": [
         "This is a trial version, and we offer it as it stands. The data are incomplete, part of the text comes from recognition of the printed page, and not every field has been checked. Use the site with that reservation."
       ]
+    },
+    {
+      "title": "Contributions",
+      "paragraphs": [
+        "Amélie Weyts and Daniel van Meer contributed during their internship in the Master Digital Text Analysis at the University of Antwerp (2025–2026). Dr Jens Lemmens, also of the University of Antwerp, assisted with the code."
+      ]
     }
   ],
   "periods": {
