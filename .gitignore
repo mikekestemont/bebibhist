@@ -1,0 +1,17 @@
+# OS / editor
+.DS_Store
+.ipynb_checkpoints/
+__pycache__/
+*.egg-info/
+.venv/
+
+# Large raw inputs: re-downloadable, see data/raw/pdf/SOURCES.md
+data/raw/pdf/*.pdf
+
+# Pipeline outputs (regenerated; may exceed GitHub's file-size limit)
+build/
+
+# Students' bulky intermediate outputs (reproducible; archived elsewhere)
+legacy/stage-2026/Notebooks/output_alle_edities_5.csv
+legacy/stage-2026/Notebooks/Updated_Version/output_alle_edities_5.csv
+legacy/stage-2026/Notebooks/Output_all_editions/another_test_editions.xlsx
