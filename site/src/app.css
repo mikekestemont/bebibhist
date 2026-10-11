@@ -318,6 +318,14 @@ h1 {
   font-size: 0.75rem;
 }
 
+.suggested {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+  color: #486249;
+  border-bottom: 1px dotted #486249;
+  cursor: help;
+}
+
 .citation {
   font-family: "linotype-sabon", Palatino, "Palatino Linotype", Georgia, serif;
   font-size: 0.95rem;

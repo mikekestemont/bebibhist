@@ -6,5 +6,9 @@ export default defineConfig({
   // Relative so the same build works at /bebibhist/ and on a later custom domain.
   // Hash routing keeps the document at index.html, so ./ resolves there.
   base: "./",
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // The Pagefind index is hundreds of megabytes. Watching it makes the dev server spin.
+    watch: { ignored: ["**/public/pagefind/**"] },
+  },
 });

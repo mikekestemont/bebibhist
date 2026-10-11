@@ -12,6 +12,7 @@
   const catalogs = { fr, nl, en };
   const groups = {
     period: ["aux", "general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
+    theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
     source: ["print-straive", "print-pdf", "vsmart"],
     decade: ["1950", "1960", "1970", "1980", "1990", "2000", "2010"],
@@ -47,9 +48,18 @@
 
   function label(group: keyof typeof groups, value: string): string {
     if (group === "period") return text.periods[value as keyof typeof text.periods] || value;
+    if (group === "theme") return text.themes[value as keyof typeof text.themes] || value;
     if (group === "type") return text.types[value as keyof typeof text.types] || value;
     if (group === "source") return text.sources[value as keyof typeof text.sources] || value;
     return value;
+  }
+
+  function categoryOf(hit: Hit): string {
+    const meta = hit.meta;
+    const byLang = lang === "nl" ? meta.categoryNl : lang === "en" ? meta.categoryEn : meta.categoryFr;
+    if (byLang) return byLang;
+    if (meta.categoryTheme) return text.themes[meta.categoryTheme as keyof typeof text.themes] || meta.categoryTheme;
+    return meta.categoryFr || meta.categoryNl || meta.categoryEn || "";
   }
 
   function selected(group: string, value: string): boolean {
@@ -397,7 +407,16 @@
           {/each}
         </dl>
       {/if}
-      {#if record.meta.section}<p><span class="theme">{text.theme}</span> {record.meta.section}</p>{/if}
+      {@const category = categoryOf(record)}
+      <p>
+        <span class="theme">{text.category}</span>
+        {category || text.themes.unclassified}
+        {#if category && record.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
+        {#if category && record.meta.categoryMachine === "1"}
+          <span class="suggested" title={text.suggestedWhy[record.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{text.suggested}</span>
+        {/if}
+      </p>
+      {#if record.meta.section}<p><span class="theme">{text.printedTheme}</span> {record.meta.section}</p>{/if}
       <p class="imprint">{text.printed}{record.meta.year ? ` · BGB ${record.meta.year}` : ""}{record.meta.number ? ` · ${record.meta.number}` : ""}</p>
     {:else}
       <p>{text.notFound}</p>
@@ -409,7 +428,7 @@
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
-          <legend>{text[group as "period" | "type" | "source" | "decade"]}</legend>
+          <legend>{text[group as "period" | "theme" | "type" | "source" | "decade"]}</legend>
           {#each values as value}
             {@const count = counts[group]?.[value] ?? 0}
             <label>

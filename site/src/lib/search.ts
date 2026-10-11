@@ -8,6 +8,14 @@ export interface Hit {
     year: string;
     number: string;
     section: string;
+    source?: string;
+    categoryFr?: string;
+    categoryNl?: string;
+    categoryEn?: string;
+    categoryTheme?: string;
+    categoryDraft?: string;
+    categoryMachine?: string;
+    categorySource?: string;
     authors?: string;
     subtitle?: string;
     host?: string;

@@ -1,14 +1,19 @@
 import { createReadStream } from "node:fs";
-import { readFile, rename, rm, stat } from "node:fs/promises";
+import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
+const CROSS_REF =
+  /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
+
 const recordsPath = new URL("../../build/records.jsonl", import.meta.url);
 const synonymsPath = new URL("../../data/curated/place_synonyms.csv", import.meta.url);
+const schemePath = new URL("../../data/curated/scheme.csv", import.meta.url);
 const outputPath = new URL("../public/pagefind", import.meta.url).pathname;
 const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathname;
 
 const synonyms = await loadSynonyms(synonymsPath);
+const scheme = await loadScheme(schemePath);
 const language = "und";
 const { index, errors } = await createIndex({ forceLanguage: language });
 if (!index) {
@@ -51,6 +56,8 @@ for await (const line of lines) {
       year: record.bgb_year ? String(record.bgb_year) : "",
       number: record.print_number || "",
       section: (record.section_path || []).slice(-1)[0] || "",
+      source: record.source || "",
+      ...categoryMeta(record, scheme),
       authors: peopleLine(record).slice(0, 300),
       subtitle: (record.subtitle || "").slice(0, 300),
       host: (record.host?.title || "").slice(0, 300),
@@ -93,7 +100,28 @@ if (wasm.size < 1000) {
   console.error(`pagefind wasm is ${wasm.size} bytes; search cannot start`);
   process.exit(1);
 }
+await ensureEntry(outputPath, indexed);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
+
+/** Pagefind 1.4 sometimes leaves pagefind-entry.json empty, and search then never starts. */
+async function ensureEntry(dir, pageCount) {
+  const entryPath = `${dir}/pagefind-entry.json`;
+  const entry = await stat(entryPath).catch(() => null);
+  if (entry && entry.size > 20) return;
+  const names = await readdir(dir);
+  const meta = names.find((name) => name.startsWith("pagefind.") && name.endsWith(".pf_meta"));
+  const hash = meta?.slice("pagefind.".length, -".pf_meta".length);
+  if (!hash) {
+    console.error("pagefind-entry.json is empty and no metadata file was found");
+    process.exit(1);
+  }
+  const body = {
+    version: "1.4.0",
+    languages: { und: { hash, wasm: "unknown", page_count: pageCount } },
+  };
+  await writeFile(entryPath, `${JSON.stringify(body, null, 2)}\n`);
+  console.log("rewrote empty pagefind-entry.json");
+}
 
 function sortKeys(record) {
   const published = String(record.year || record.host?.year || "").match(/\d{4}/);
@@ -113,6 +141,7 @@ function filters(record) {
     source: [record.source || "unknown"],
   };
   if (record.period?.length) values.period = record.period;
+  values.theme = record.theme?.length ? record.theme : ["unclassified"];
   if (record.bgb_year) {
     values.year = [String(record.bgb_year)];
     values.decade = [String(Math.floor(record.bgb_year / 10) * 10)];
@@ -137,9 +166,6 @@ function nameLine(persons) {
   if (names.length > 1) return `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
   return names[0] || "";
 }
-
-const CROSS_REF =
-  /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
 
 function presentCitation(text) {
   return text
@@ -183,4 +209,96 @@ function stripMarks(text) {
 
 function fold(text) {
   return stripMarks(text).toLowerCase();
+}
+
+async function loadScheme(path) {
+  const rows = parseCsv(await readFile(path, "utf8"));
+  const header = rows[0] || [];
+  const column = Object.fromEntries(header.map((name, index) => [name, index]));
+  const scheme = {};
+  for (const row of rows.slice(1)) {
+    const code = row[column.code];
+    if (!code) continue;
+    scheme[code] = {
+      parent: row[column.parent] || "",
+      fr: row[column.label_fr] || "",
+      nl: row[column.label_nl] || "",
+      en: row[column.label_en] || "",
+    };
+  }
+  return scheme;
+}
+
+/** A parent such as II.B. has a code and no wording. Use the nearest labelled ancestor. */
+function labelled(labels, code) {
+  let current = code;
+  const seen = new Set();
+  while (current && labels[current] && !seen.has(current)) {
+    seen.add(current);
+    const row = labels[current];
+    if (row.fr || row.nl || row.en) return row;
+    current = row.parent;
+  }
+  return { fr: "", nl: "", en: "" };
+}
+
+function categoryMeta(record, labels) {
+  const categories = record.categories || [];
+  const coded = categories.filter((item) => item.code && labels[item.code]);
+  const primary = coded.find((item) => item.primary) || coded.sort((left, right) => right.code.length - left.code.length)[0];
+  if (primary) {
+    const names = labelled(labels, primary.code);
+    const hasLabel = names.fr || names.nl || names.en;
+    return {
+      categoryFr: names.fr,
+      categoryNl: names.nl,
+      categoryEn: names.en,
+      categoryTheme: hasLabel ? "" : (record.theme || [])[0] || "",
+      categoryDraft: names.en ? "1" : "",
+      categoryMachine: primary.machine ? "1" : "",
+      categorySource: primary.source || "",
+    };
+  }
+  const themed = categories.find((item) => item.primary) || categories[0];
+  return {
+    categoryFr: "",
+    categoryNl: "",
+    categoryEn: "",
+    categoryTheme: themed?.theme || (record.theme || [])[0] || "",
+    categoryDraft: "",
+    categoryMachine: themed?.machine ? "1" : "",
+    categorySource: themed?.source || "",
+  };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else quoted = false;
+      } else cell += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (char !== "\r") cell += char;
+  }
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
 }

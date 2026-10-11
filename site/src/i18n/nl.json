@@ -10,7 +10,27 @@
   "type": "Type",
   "source": "Bron",
   "decade": "Decennium",
-  "theme": "Thema:",
+  "theme": "Thema",
+  "category": "Categorie",
+  "printedTheme": "Thema zoals gedrukt",
+  "suggested": "voorgesteld",
+  "draftLabel": "voorlopige vertaling",
+  "suggestedWhy": {
+    "classifier": "Voorgesteld op grond van de titel. Het is niet nagekeken.",
+    "crosswalk": "Voorgesteld op grond van de gedrukte rubriek. De regel is niet nagekeken.",
+    "see-also": "Voorgesteld op grond van een zie-ook-verwijzing. Het is niet nagekeken."
+  },
+  "themes": {
+    "reference": "Bibliografieën en hulpwetenschappen",
+    "general": "Algemene werken en historiografie",
+    "local": "Lokale en regionale geschiedenis",
+    "political": "Instellingen, politiek, recht, oorlog",
+    "economic": "Economisch leven",
+    "social": "Sociale geschiedenis en demografie",
+    "religious": "Religie en vrijzinnigheid",
+    "cultural": "Cultuur, onderwijs, wetenschap, kunst",
+    "unclassified": "Niet geclassificeerd"
+  },
   "author": "Auteur",
   "fieldTitle": "Titel",
   "subtitle": "Ondertitel",

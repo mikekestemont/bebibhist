@@ -10,7 +10,27 @@
   "type": "Type",
   "source": "Source",
   "decade": "Décennie",
-  "theme": "Thème:",
+  "theme": "Thème",
+  "category": "Catégorie",
+  "printedTheme": "Thème tel qu’imprimé",
+  "suggested": "suggéré",
+  "draftLabel": "traduction provisoire",
+  "suggestedWhy": {
+    "classifier": "Suggéré à partir du titre. Ce n’est pas une relecture.",
+    "crosswalk": "Suggéré à partir de la rubrique imprimée. La ligne n’a pas été revue.",
+    "see-also": "Suggéré à partir d’un renvoi. Ce n’est pas une relecture."
+  },
+  "themes": {
+    "reference": "Bibliographies et sciences auxiliaires",
+    "general": "Travaux généraux et historiographie",
+    "local": "Histoire locale et régionale",
+    "political": "Institutions, politique, droit, guerres",
+    "economic": "Vie économique",
+    "social": "Histoire sociale et démographie",
+    "religious": "Vie religieuse et laïcité",
+    "cultural": "Culture, enseignement, sciences, arts",
+    "unclassified": "Non classé"
+  },
   "author": "Auteur",
   "fieldTitle": "Titre",
   "subtitle": "Sous-titre",
