@@ -63,17 +63,20 @@
         "/bench/vendor/sql.js-httpvfs/sqlite.worker.js",
         "/bench/vendor/sql.js-httpvfs/sql-wasm.wasm"
       );
-      const startup = await measure(ready.db, ready.worker, "SELECT count(*) AS n FROM records");
+      const startup = await measure(ready.db, ready.worker, "SELECT id FROM records WHERE rowid = 1");
       startup.ms = Math.round(performance.now() - started);
+      const wanted = new URLSearchParams(location.search).get("queries");
+      const names = wanted ? wanted.split(",") : Object.keys(QUERIES);
       const cold = {};
       const warm = {};
-      for (const [name, sql] of Object.entries(QUERIES)) {
+      for (const name of names) {
+        const sql = QUERIES[name];
         cold[name] = await measure(ready.db, ready.worker, sql);
         warm[name] = await measure(ready.db, ready.worker, sql);
       }
       const report = { startup, cold, warm };
       const body = document.querySelector("#results tbody");
-      for (const name of Object.keys(QUERIES)) {
+      for (const name of names) {
         const row = document.createElement("tr");
         row.append(
           cell(name),

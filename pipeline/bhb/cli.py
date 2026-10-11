@@ -58,6 +58,8 @@ def main(argv: list[str] | None = None) -> None:
     bench_build.add_argument("--seed", type=int, default=2026)
     bench_serve = bench_sub.add_parser("serve", help="serve the repo with HTTP range responses")
     bench_serve.add_argument("--port", type=int, default=8765)
+    bench_serve.add_argument("--latency-ms", type=int, default=0, help="extra delay per range response")
+    bench_serve.add_argument("--bytes-per-second", type=int, default=0, help="cap each range response")
 
     args = parser.parse_args(argv)
     if args.command == "build":
@@ -93,7 +95,7 @@ def main(argv: list[str] | None = None) -> None:
         _bench_build(args.n, args.seed)
         return
     if args.command == "bench" and args.bench_command == "serve":
-        serve(args.port)
+        serve(args.port, latency_ms=args.latency_ms, bytes_per_second=args.bytes_per_second)
         return
     parser.error(f"unknown command {args.command}")
 

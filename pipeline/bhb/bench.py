@@ -12,6 +12,7 @@ import json
 import os
 import random
 import sqlite3
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -188,7 +189,7 @@ def build_database(
     return summary
 
 
-def serve(port: int = 8765) -> None:
+def serve(port: int = 8765, latency_ms: int = 0, bytes_per_second: int = 0) -> None:
     """Serve the repository with HTTP range responses.
 
     ``sql.js-httpvfs`` reads the database in small ranges. Python's
@@ -219,13 +220,17 @@ def serve(port: int = 8765) -> None:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             self.send_header("Content-Length", str(length))
             self.end_headers()
+            if latency_ms:
+                time.sleep(latency_ms / 1000)
             with path.open("rb") as handle:
                 handle.seek(start)
                 remaining = length
                 while remaining:
-                    block = handle.read(min(remaining, 1024 * 1024))
+                    block = handle.read(min(remaining, 64 * 1024))
                     if not block:
                         break
+                    if bytes_per_second:
+                        time.sleep(len(block) / bytes_per_second)
                     self.wfile.write(block)
                     remaining -= len(block)
 
