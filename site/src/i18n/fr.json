@@ -10,6 +10,17 @@
   "type": "Type",
   "source": "Source",
   "decade": "Décennie",
+  "yearFilter": "Année de publication",
+  "yearFrom": "De",
+  "yearTo": "À",
+  "yearFromVolume": "Année du volume",
+  "fieldSearch": "Chercher dans",
+  "fields": {
+    "all": "Tout le texte",
+    "author": "Auteur",
+    "title": "Titre",
+    "host": "Revue ou livre"
+  },
   "theme": "Thème",
   "category": "Catégorie",
   "printedTheme": "Thème tel qu’imprimé",

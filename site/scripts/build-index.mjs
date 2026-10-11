@@ -33,6 +33,7 @@ for await (const line of lines) {
     continue;
   }
   const citation = record.printed || compose(record);
+  const when = chronology(record);
   const content = expand([
     citation,
     record.title,
@@ -47,7 +48,7 @@ for await (const line of lines) {
   ].filter(Boolean).join("\n"), synonyms);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    content: `${record.id}\n${stripMarks(content)}`.slice(0, 4000),
+    content: `${record.id}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}`,
     language,
     meta: {
       id: record.id,
@@ -67,6 +68,7 @@ for await (const line of lines) {
       issue: record.host?.issue || "",
       pages: record.host?.pages || "",
       pubyear: record.year ? String(record.year) : record.host?.year || "",
+      yearFromVolume: when.fromVolume ? "1" : "",
       place: record.publisher?.place || "",
       publisher: record.publisher?.name || "",
       extent: record.extent || "",
@@ -138,15 +140,41 @@ function sortKeys(record) {
 function filters(record) {
   const values = {
     type: [record.type || "other"],
-    source: [record.source || "unknown"],
   };
   if (record.period?.length) values.period = record.period;
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
-  if (record.bgb_year) {
-    values.year = [String(record.bgb_year)];
-    values.decade = [String(Math.floor(record.bgb_year / 10) * 10)];
-  }
+  const when = chronology(record);
+  if (when.pubyear) values.pubyear = [when.pubyear];
   return values;
+}
+
+/** Publication year, or the volume year when that year is missing or outside 1945–today. */
+function chronology(record) {
+  const published = yearOf(record.year) || yearOf(record.host?.year);
+  const volume = yearOf(record.bgb_year);
+  const today = new Date().getFullYear();
+  if (published >= 1945 && published <= today) return { pubyear: String(published), fromVolume: false };
+  if (volume) return { pubyear: String(volume), fromVolume: true };
+  return { pubyear: "", fromVolume: false };
+}
+
+function yearOf(value) {
+  const match = String(value ?? "").match(/\d{4}/);
+  return match ? Number(match[0]) : 0;
+}
+
+function fieldTokens(record) {
+  const authors = (record.persons || []).map((person) => [person.family, person.given].filter(Boolean).join(" ")).join(" ");
+  return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title)].filter(Boolean).join(" ");
+}
+
+function prefixed(tag, text) {
+  const seen = new Set();
+  const words = fold(String(text || "")).match(/[\p{L}\p{N}]+/gu) || [];
+  return words
+    .filter((word) => word.length > 1 && !seen.has(word) && seen.add(word))
+    .map((word) => `${tag}_${word}`)
+    .join(" ");
 }
 
 function people(record) {

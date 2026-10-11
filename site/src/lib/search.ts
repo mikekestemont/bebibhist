@@ -25,6 +25,7 @@ export interface Hit {
     issue?: string;
     pages?: string;
     pubyear?: string;
+    yearFromVolume?: string;
     place?: string;
     publisher?: string;
     extent?: string;
@@ -151,9 +152,14 @@ export function foldQuery(query: string): string {
   return query.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
+export type SearchField = "all" | "author" | "title" | "host";
+
 /** A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would drop every Laure. */
-export function searchQuery(query: string): string {
-  return foldQuery(query).replace(/-/g, " ");
+export function searchQuery(query: string, field: SearchField = "all"): string {
+  const words = foldQuery(query).replace(/-/g, " ").split(/\s+/).filter(Boolean);
+  if (field === "all") return words.join(" ");
+  const tag = field === "author" ? "au" : field === "title" ? "ti" : "in";
+  return words.map((word) => `${tag}_${word}`).join(" ");
 }
 
 export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | null> {

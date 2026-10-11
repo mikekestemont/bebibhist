@@ -10,6 +10,17 @@
   "type": "Type",
   "source": "Bron",
   "decade": "Decennium",
+  "yearFilter": "Publicatiejaar",
+  "yearFrom": "Van",
+  "yearTo": "Tot",
+  "yearFromVolume": "Jaar van de band",
+  "fieldSearch": "Zoeken in",
+  "fields": {
+    "all": "Alle tekst",
+    "author": "Auteur",
+    "title": "Titel",
+    "host": "Tijdschrift of boek"
+  },
   "theme": "Thema",
   "category": "Categorie",
   "printedTheme": "Thema zoals gedrukt",

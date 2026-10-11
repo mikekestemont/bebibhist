@@ -97,6 +97,16 @@ h1 {
   margin: 1.25rem 0;
 }
 
+.search select.field {
+  flex: none;
+  max-width: 9.5rem;
+  background: #fff;
+  color: #303133;
+  border: 1px solid #486249;
+  border-radius: 2px;
+  padding: 0.55rem 0.4rem;
+}
+
 .search input {
   flex: 1;
   color: #303133;
@@ -148,6 +158,58 @@ h1 {
   font-size: 14px;
   margin-left: 0.25rem;
   font-variant-numeric: tabular-nums;
+}
+
+.years { border: 0; margin: 0 0 1rem; padding: 0; }
+
+.hist { display: block; width: 100%; height: 40px; }
+
+.hist rect { fill: #486249; }
+
+.hist rect.dim { fill: #c5d4c9; }
+
+.handles { position: relative; height: 1.4rem; }
+
+.handles input[type="range"] {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+  appearance: none;
+  background: transparent;
+}
+
+.handles input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #486249;
+  cursor: pointer;
+}
+
+.handles input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #486249;
+  cursor: pointer;
+}
+
+.year-fields { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+
+.year-fields label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 14px; }
+
+.year-fields input {
+  width: 5.2rem;
+  border: 1px solid #b7c9bc;
+  border-radius: 2px;
+  padding: 0.2rem 0.35rem;
+  font-size: 14px;
 }
 
 .clear { background: transparent; color: #486249; padding-left: 0; }

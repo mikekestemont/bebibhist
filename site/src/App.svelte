@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, type Hit } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -14,7 +14,6 @@
     period: ["aux", "general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
     theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
-    decade: ["1950", "1960", "1970", "1980", "1990", "2000", "2010"],
   } as const;
 
   let lang = $state<Lang>(initialLang());
@@ -33,6 +32,10 @@
   let exportOpen = $state("");
   let exporting = $state(false);
   let listed: { data: () => Promise<Hit> }[] = [];
+  let yearCounts = $state<Record<string, number>>({});
+  let fieldChoice = $state("all");
+  let dragFrom = $state<number | null>(null);
+  let dragTo = $state<number | null>(null);
 
   const pageSizes = [10, 20, 50, 100];
   let page = $derived(Math.max(1, Number(params.get("page") || "1")));
@@ -72,6 +75,7 @@
     path = nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
     params = new URLSearchParams(search);
     query = params.get("q") || "";
+    fieldChoice = params.get("field") || "all";
     if (!query && path.startsWith("/record/")) {
       query = new URLSearchParams(sessionStorage.getItem("bhb-search") || "").get("q") || "";
     }
@@ -97,6 +101,15 @@
     for (const group of Object.keys(groups)) {
       const values = params.getAll(group);
       if (values.length) filters[group] = values;
+    }
+    const from = Number(params.get("from"));
+    const to = Number(params.get("to"));
+    if (from || to) {
+      const start = Math.min(from || 1945, to || new Date().getFullYear());
+      const end = Math.max(from || 1945, to || new Date().getFullYear());
+      const years: string[] = [];
+      for (let year = start; year <= end; year += 1) years.push(String(year));
+      filters.pubyear = years;
     }
     return Object.keys(filters).length ? filters : undefined;
   }
@@ -125,7 +138,8 @@
     if (hits.length === 0) loading = true;
     const filters = activeFilters();
     const sort = sortOf(params.get("sort"));
-    const response = await engine.search(query.trim() ? searchQuery(query) : null, {
+    const asked = query.trim() ? searchQuery(query, searchField(fieldChoice)) : null;
+    const response = await engine.search(asked, {
       ...(filters ? { filters } : {}),
       ...(sort ? { sort } : {}),
     });
@@ -137,6 +151,17 @@
         Object.entries(response.filters || {}).map(([key, values]) => [key, { ...values }]),
       );
       scope = nextScope;
+    }
+    if (filters?.pubyear) {
+      const rest = { ...filters };
+      delete rest.pubyear;
+      const broad = await engine.search(asked, {
+        ...(Object.keys(rest).length ? { filters: rest } : {}),
+        ...(sort ? { sort } : {}),
+      });
+      yearCounts = { ...(broad.filters?.pubyear || {}) };
+    } else {
+      yearCounts = { ...(response.filters?.pubyear || {}) };
     }
     const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
     hits = await Promise.all(slice.map((item) => item.data()));
@@ -191,7 +216,7 @@
       [text.volume, meta.volume],
       [text.issue, meta.issue],
       [text.pages, meta.pages],
-      [text.pubyear, meta.pubyear],
+      [meta.yearFromVolume === "1" ? text.yearFromVolume : text.pubyear, meta.yearFromVolume === "1" ? meta.year : meta.pubyear],
       [text.place, meta.place],
       [text.publisher, meta.publisher],
       [text.extent, meta.extent],
@@ -258,10 +283,90 @@
     sessionStorage.setItem("bhb-hits", JSON.stringify(cache));
   }
 
+  function searchField(value: string | null): SearchField {
+    return value === "author" || value === "title" || value === "host" ? value : "all";
+  }
+
+  function yearDomain(): { min: number; max: number } {
+    const now = new Date().getFullYear();
+    const keys = Object.keys(yearCounts).map(Number).filter((year) => year >= 1800 && year <= now);
+    if (!keys.length) return { min: 1945, max: now };
+    return { min: Math.min(...keys), max: Math.max(...keys) };
+  }
+
+  function selectedYears(): { from: number; to: number } {
+    const domain = yearDomain();
+    const from = dragFrom ?? (Number(params.get("from")) || domain.min);
+    const to = dragTo ?? (Number(params.get("to")) || domain.max);
+    return { from: Math.min(from, to), to: Math.max(from, to) };
+  }
+
+  function histogram() {
+    const domain = yearDomain();
+    const span = domain.max - domain.min + 1;
+    const bin = span > 90 ? 2 : 1;
+    const chosen = selectedYears();
+    const buckets: { count: number; year: number }[] = [];
+    for (let year = domain.min; year <= domain.max; year += bin) {
+      let count = 0;
+      for (let step = 0; step < bin && year + step <= domain.max; step += 1) count += yearCounts[String(year + step)] || 0;
+      buckets.push({ year, count });
+    }
+    const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
+    return buckets.map((bucket, index) => ({
+      x: (index / buckets.length) * 100,
+      y: 32 - (bucket.count / peak) * 32,
+      w: Math.max(0.4, 100 / buckets.length - 0.2),
+      h: (bucket.count / peak) * 32,
+      dim: bucket.year > chosen.to || bucket.year + bin - 1 < chosen.from,
+    }));
+  }
+
+  function commitYears(from: number, to: number) {
+    dragFrom = null;
+    dragTo = null;
+    const domain = yearDomain();
+    const next = new URLSearchParams(params);
+    const start = Math.max(domain.min, Math.min(from, to));
+    const end = Math.min(domain.max, Math.max(from, to));
+    if (start <= domain.min && end >= domain.max) {
+      next.delete("from");
+      next.delete("to");
+    } else {
+      next.set("from", String(start));
+      next.set("to", String(end));
+    }
+    next.delete("page");
+    if (!next.get("q") && query) next.set("q", query);
+    go("/search", next);
+  }
+
+  function nudgeYear(which: "from" | "to", event: KeyboardEvent) {
+    const step = event.key === "PageUp" ? 10 : event.key === "PageDown" ? -10 : event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const domain = yearDomain();
+    const chosen = selectedYears();
+    if (which === "from") commitYears(Math.min(chosen.to, Math.max(domain.min, chosen.from + step)), chosen.to);
+    else commitYears(chosen.from, Math.max(chosen.from, Math.min(domain.max, chosen.to + step)));
+  }
+
+  function setField(value: string) {
+    fieldChoice = value;
+    if (path !== "/search") return;
+    const next = new URLSearchParams(params);
+    if (value && value !== "all") next.set("field", value);
+    else next.delete("field");
+    next.delete("page");
+    go("/search", next);
+  }
+
   function submit(event: SubmitEvent) {
     event.preventDefault();
     const next = new URLSearchParams(path === "/search" ? params : undefined);
     next.set("q", query);
+    if (fieldChoice && fieldChoice !== "all") next.set("field", fieldChoice);
+    else next.delete("field");
     next.delete("page");
     go("/search", next);
   }
@@ -280,6 +385,11 @@
   function clearFilters() {
     const next = new URLSearchParams();
     if (query) next.set("q", query);
+    const sort = params.get("sort");
+    const per = params.get("per");
+    if (sort) next.set("sort", sort);
+    if (per) next.set("per", per);
+    if (fieldChoice && fieldChoice !== "all") next.set("field", fieldChoice);
     go("/search", next);
   }
 
@@ -351,6 +461,15 @@
   </div>
 {/snippet}
 
+{#snippet fieldSelect()}
+  <select class="field" aria-label={text.fieldSearch} value={fieldChoice} onchange={(event) => setField(event.currentTarget.value)}>
+    <option value="all">{text.fields.all}</option>
+    <option value="author">{text.fields.author}</option>
+    <option value="title">{text.fields.title}</option>
+    <option value="host">{text.fields.host}</option>
+  </select>
+{/snippet}
+
 {#snippet typeIcon(kind: string | undefined)}
   {@const name = text.types[(kind || "other") as keyof typeof text.types] || text.types.other}
   <span class="type-mark" title={name}>
@@ -404,6 +523,7 @@
   </a>
   {#if filtering || path.startsWith("/record/") || path === "/about"}
     <form class="search" onsubmit={submit}>
+      {@render fieldSelect()}
       <input bind:value={query} type="search" aria-label={text.search} />
       <button type="submit">{text.search}</button>
     </form>
@@ -458,7 +578,7 @@
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
-          <legend>{text[group as "period" | "theme" | "type" | "decade"]}</legend>
+          <legend>{text[group as "period" | "theme" | "type"]}</legend>
           {#each values as value}
             {@const count = counts[group]?.[value] ?? 0}
             <label>
@@ -468,6 +588,24 @@
           {/each}
         </fieldset>
       {/each}
+      {@const domain = yearDomain()}
+      {@const chosen = selectedYears()}
+      <fieldset class="years">
+        <legend>{text.yearFilter}</legend>
+        <svg class="hist" viewBox="0 0 100 32" aria-hidden="true">
+          {#each histogram() as bar}
+            <rect x={bar.x} y={bar.y} width={bar.w} height={bar.h} class:dim={bar.dim} />
+          {/each}
+        </svg>
+        <div class="handles">
+          <input type="range" min={domain.min} max={domain.max} value={chosen.from} aria-label={text.yearFrom} oninput={(event) => { dragFrom = Number(event.currentTarget.value); }} onchange={(event) => commitYears(Number(event.currentTarget.value), chosen.to)} onkeydown={(event) => nudgeYear("from", event)} />
+          <input type="range" min={domain.min} max={domain.max} value={chosen.to} aria-label={text.yearTo} oninput={(event) => { dragTo = Number(event.currentTarget.value); }} onchange={(event) => commitYears(chosen.from, Number(event.currentTarget.value))} onkeydown={(event) => nudgeYear("to", event)} />
+        </div>
+        <div class="year-fields">
+          <label>{text.yearFrom} <input type="number" min={domain.min} max={chosen.to} value={chosen.from} onchange={(event) => commitYears(Number(event.currentTarget.value), chosen.to)} /></label>
+          <label>{text.yearTo} <input type="number" min={chosen.from} max={domain.max} value={chosen.to} onchange={(event) => commitYears(chosen.from, Number(event.currentTarget.value))} /></label>
+        </div>
+      </fieldset>
       <button class="clear" type="button" onclick={clearFilters}>{text.clear}</button>
     </aside>
     {#snippet pager()}
@@ -539,6 +677,7 @@
     <h1>{text.name}</h1>
     <p>{text.tagline}</p>
     <form class="search" onsubmit={submit}>
+      {@render fieldSelect()}
       <input bind:value={query} type="search" placeholder={text.placeholder} aria-label={text.search} />
       <button type="submit">{text.search}</button>
     </form>
