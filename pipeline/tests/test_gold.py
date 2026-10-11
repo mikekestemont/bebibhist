@@ -37,6 +37,28 @@ def test_score_matches_a_normalised_title_and_surname():
     assert score.missing_records == 0
 
 
+def test_the_full_sample_adds_pre1993_rows_and_a_theme_column(tmp_path):
+    records = []
+    for index in range(180):
+        records.append(
+            Record(id=f"bhb:1960-{index}", source="print-straive", bgb_year=1960, print_number=str(index), role="entry", title="t")
+        )
+    for index in range(40):
+        records.append(
+            Record(id=f"bhb:2000-{index}", source="print-straive", bgb_year=2000, print_number=str(index), role="entry", title="t")
+        )
+    path = tmp_path / "sample.xlsx"
+    assert write_sample(records, path, n=300, seed=1) == 220
+    from openpyxl import load_workbook
+
+    book = load_workbook(path, read_only=True)
+    rows = list(book.active.iter_rows(values_only=True))
+    book.close()
+    assert rows[0][-1] == "theme"
+    ids = [row[0] for row in rows[1:]]
+    assert len(ids) == len(set(ids)) == 220
+
+
 def test_sample_spreadsheet_round_trip(tmp_path):
     path = tmp_path / "sample.xlsx"
     assert write_sample([_record()], path, n=10, seed=1) == 1

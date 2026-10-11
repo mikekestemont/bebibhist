@@ -33,6 +33,7 @@ SAMPLE_COLUMNS = (
     "publisher_place",
     "publisher_name",
     "note",
+    "theme",
 )
 
 SMOKE_FILES = (
@@ -75,17 +76,22 @@ class Score:
 
 
 def write_sample(records: list[Record], path: Path, n: int = 300, seed: int = 2026) -> int:
-    """Stratified random print entries, pre-filled with the parser output."""
+    """Stratified random print entries, pre-filled with the parser output.
+
+    The 300-entry sheet also carries 100 further pre-1993 rows, with an empty
+    ``theme`` column, so that pass can check the classifier on the older schemes.
+    """
     chosen = stratified_sample(records, n, seed)
+    extra = extra_pre1993(records, chosen, 100, seed) if n >= 300 else []
     book = Workbook()
     sheet = book.active
     sheet.title = "gold"
     sheet.append(list(SAMPLE_COLUMNS))
-    for record in chosen:
+    for record in [*chosen, *extra]:
         sheet.append([_cell(record, column) for column in SAMPLE_COLUMNS])
     path.parent.mkdir(parents=True, exist_ok=True)
     book.save(path)
-    return len(chosen)
+    return len(chosen) + len(extra)
 
 
 def stratified_sample(records: list[Record], n: int, seed: int) -> list[Record]:
@@ -111,6 +117,26 @@ def stratified_sample(records: list[Record], n: int, seed: int) -> list[Record]:
         chosen.extend(group[:want])
     chosen.sort(key=lambda record: (record.bgb_year or 0, record.print_number or ""))
     return chosen
+
+
+def extra_pre1993(records: list[Record], chosen: list[Record], n: int, seed: int) -> list[Record]:
+    """Pre-1993 print entries that the stratified draw did not already take."""
+    taken = {record.id for record in chosen}
+    pool = [
+        record
+        for record in records
+        if record.source.startswith("print")
+        and record.role == "entry"
+        and not record.is_cross_listing
+        and record.bgb_year
+        and record.bgb_year < 1993
+        and record.id not in taken
+    ]
+    rng = random.Random(seed)
+    rng.shuffle(pool)
+    extra = pool[:n]
+    extra.sort(key=lambda record: (record.bgb_year or 0, record.print_number or ""))
+    return extra
 
 
 def load_gold(paths: list[Path] | None = None) -> list[GoldRow]:
@@ -275,5 +301,6 @@ def _cell(record: Record, column: str) -> str:
         "publisher_place": record.publisher.place if record.publisher and record.publisher.place else "",
         "publisher_name": record.publisher.name if record.publisher and record.publisher.name else "",
         "note": record.note or "",
+        "theme": "",
     }
     return values[column]

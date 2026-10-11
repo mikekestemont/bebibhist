@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from bhb.model import (
+    Category,
     Host,
     PdfLink,
     Person,
@@ -45,6 +46,17 @@ def _host(data: dict | None) -> Host | None:
     return Host(editors=editors, **raw)
 
 
+def _category(data: dict) -> Category:
+    return Category(
+        code=data.get("code"),
+        source=data.get("source") or "",
+        confidence=float(data.get("confidence") or 0),
+        machine=bool(data.get("machine")),
+        primary=bool(data.get("primary")),
+        theme=data.get("theme"),
+    )
+
+
 def record_from_dict(data: dict) -> Record:
     persons = [Person(**person) for person in data.get("persons") or []]
     host = _host(data.get("host"))
@@ -74,6 +86,8 @@ def record_from_dict(data: dict) -> Record:
         section_path=list(data.get("section_path") or []),
         secondary_sections=[list(item) for item in data.get("secondary_sections") or []],
         bhb_codes=list(data.get("bhb_codes") or []),
+        categories=[_category(item) for item in data.get("categories") or []],
+        theme=list(data.get("theme") or []),
         period=list(data.get("period") or []),
         places=list(data.get("places") or []),
         cross_refs=list(data.get("cross_refs") or []),

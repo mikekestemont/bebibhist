@@ -54,6 +54,18 @@ class PdfLink:
 
 
 @dataclass
+class Category:
+    """One code or, when the code is uncertain, one theme. ``machine`` is true unless a person or the printed volume set it."""
+
+    code: str | None = None
+    source: str = ""
+    confidence: float = 0.0
+    machine: bool = False
+    primary: bool = False
+    theme: str | None = None
+
+
+@dataclass
 class Provenance:
     file: str | None = None
     xml_id: str | None = None
@@ -87,6 +99,8 @@ class Record:
     section_path: list[str] = field(default_factory=list)
     secondary_sections: list[list[str]] = field(default_factory=list)
     bhb_codes: list[str] = field(default_factory=list)
+    categories: list[Category] = field(default_factory=list)
+    theme: list[str] = field(default_factory=list)
     period: list[str] = field(default_factory=list)
     places: list[str] = field(default_factory=list)
     cross_refs: list[str] = field(default_factory=list)

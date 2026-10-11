@@ -1,7 +1,7 @@
 from lxml import etree
 
 from bhb.ingest.jats import load_jats
-from bhb.model import Host, Person, Provenance, Publisher, Record
+from bhb.model import Category, Host, Person, Provenance, Publisher, Record
 from bhb.mods import export_mods, to_mods
 
 NS = {"m": "http://www.loc.gov/mods/v3"}
@@ -34,7 +34,30 @@ def test_book_mods_keeps_the_printed_line_and_the_imprint():
     assert root.findtext("m:physicalDescription/m:extent", namespaces=NS) == "359 p."
     assert root.findtext("m:note[@type='printed citation']", namespaces=NS) == record.printed
     assert root.findtext("m:classification[@authority='bhb-period']", namespaces=NS) == "contemporary"
+    assert root.findtext("m:classification[@authority='bhb']", namespaces=NS) == "III.D.2.a.4.i."
     assert root.findtext("m:recordInfo/m:recordContentSource", namespaces=NS) == "ARA V-Smart record 1177675"
+
+
+def test_a_machine_category_is_marked_suggested():
+    record = Record(
+        id="bhb:1972-1",
+        source="print-straive",
+        bgb_year=1972,
+        title="Un titre",
+        categories=[
+            Category(code="III.B.2.", source="classifier", confidence=0.74, machine=True, primary=True),
+            Category(code="I.A.", source="see-also", confidence=1.0, machine=False, primary=False),
+        ],
+    )
+    root = to_mods(record)
+    primary = root.find("m:classification[@usage='primary']", namespaces=NS)
+    assert primary is not None
+    assert primary.text == "III.B.2."
+    assert primary.get("displayLabel") == "machine-suggested"
+    codes = root.findall("m:classification[@authority='bhb']", namespaces=NS)
+    secondary = next(item for item in codes if item.get("usage") is None)
+    assert secondary.text == "I.A."
+    assert secondary.get("displayLabel") is None
 
 
 def test_article_host_pages_split_and_uri_is_kept(tmp_path):

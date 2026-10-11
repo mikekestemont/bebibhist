@@ -40,7 +40,14 @@ def main(argv: list[str] | None = None) -> None:
 
     merge = sub.add_parser("merge", help="combine the three JSON Lines files")
     merge.add_argument("--out", type=Path)
-    sub.add_parser("build", help="ingest every source and merge")
+    sub.add_parser("build", help="ingest every source, merge, and categorise")
+
+    categorise = sub.add_parser("categorise", help="assign period and theme")
+    categorise_sub = categorise.add_subparsers(dest="categorise_command", required=True)
+    draft = categorise_sub.add_parser("draft", help="refresh heading proposals and categorise the built records")
+    draft.add_argument("--tau-code", type=float)
+    draft.add_argument("--tau-theme", type=float)
+    draft.add_argument("--records", type=Path)
 
     gold = sub.add_parser("gold", help="sample entries for correction, or score a corrected sheet")
     gold_sub = gold.add_subparsers(dest="gold_command", required=True)
@@ -59,6 +66,9 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.command == "build":
         build()
+        return
+    if args.command == "categorise" and args.categorise_command == "draft":
+        _categorise_draft(args.tau_code, args.tau_theme, args.records)
         return
     if args.command == "export" and args.export_command == "mods":
         source = build_dir() / "records.jsonl"
@@ -107,6 +117,10 @@ def build() -> list[Record]:
     write_jsonl(build_dir() / "vsmart.jsonl", vsmart)
     _write_labels(labels)
     merged, labels = merge_records(straive, pdf, vsmart, labels)
+    from bhb.categorise import categorise
+
+    print("categorise…")
+    categorise(merged)
     _emit(merged, labels, None)
     return merged
 
@@ -160,6 +174,18 @@ def _merge_from_disk() -> tuple[list[Record], dict]:
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
     )
+
+
+def _categorise_draft(tau_code: float | None, tau_theme: float | None, records_path: Path | None) -> None:
+    from bhb.categorise import categorise
+
+    path = records_path or build_dir() / "records.jsonl"
+    if not path.is_file():
+        raise SystemExit("build/records.jsonl is missing; run bhb build first")
+    records = read_jsonl(path)
+    categorise(records, tau_code=tau_code, tau_theme=tau_theme)
+    count = write_jsonl(path, records)
+    print(f"categorise: {count} records → {path}")
 
 
 def _gold_sample(n: int, seed: int, out: Path | None) -> None:

@@ -89,8 +89,18 @@ def to_mods(record: Record) -> etree._Element:
         _text(_sub(mods, "note", type="annotation"), record.note)
     if record.section_path:
         _text(_sub(mods, "note", type="section"), " — ".join(record.section_path))
-    for code in record.bhb_codes:
-        _text(_sub(mods, "classification", authority="bhb"), code)
+    coded = [category for category in record.categories if category.code]
+    if coded:
+        for category in coded:
+            attrib = {"authority": "bhb"}
+            if category.primary:
+                attrib["usage"] = "primary"
+            if category.machine:
+                attrib["displayLabel"] = "machine-suggested"
+            _text(_sub(mods, "classification", **attrib), category.code or "")
+    else:
+        for code in record.bhb_codes:
+            _text(_sub(mods, "classification", authority="bhb"), code)
     for period in record.period:
         _text(_sub(mods, "classification", authority="bhb-period"), period)
     for place in record.places:
