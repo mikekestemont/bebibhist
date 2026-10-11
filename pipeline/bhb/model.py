@@ -85,6 +85,7 @@ class Record:
     note: str | None = None
     language: str | None = None
     section_path: list[str] = field(default_factory=list)
+    secondary_sections: list[list[str]] = field(default_factory=list)
     bhb_codes: list[str] = field(default_factory=list)
     period: list[str] = field(default_factory=list)
     places: list[str] = field(default_factory=list)

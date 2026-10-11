@@ -217,3 +217,37 @@ def test_real_1975_volume_round_trips_a_known_entry():
     assert first.persons[0].family == "Van Eenoo"
     assert "Bibliographie" in (first.title or "")
     assert first.printed and "Van Eenoo" in first.printed
+
+
+def test_see_also_line_is_a_secondary_section_not_a_heading(tmp_path: Path):
+    path = tmp_path / "BGB_1972.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back>
+        <ref-list><title>I. Bibliographies et sciences auxiliaires</title>
+          <ref-list><title>A. Méthodologie</title>
+            <ref id="a"><label>100</label><mixed-citation>Auteur. Titre. Bruxelles, 1972, 10 p.</mixed-citation></ref>
+            <ref-list><title>(Voir aussi - Zie ook: 8447, 99999)</title></ref-list>
+            <ref id="b"><label>101</label><mixed-citation>Autre. Titre. Gent, 1972, 12 p.</mixed-citation></ref>
+          </ref-list>
+          <ref-list><title>K. Folklore (Cfr n° 100)</title>
+            <ref id="c"><label>8447</label><mixed-citation>Cible. Titre. Leuven, 1972, 8 p.</mixed-citation></ref>
+          </ref-list>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    records = {record.print_number: record for record in load_jats(path, "print-straive")}
+    assert all("Voir aussi" not in " ".join(record.section_path) for record in records.values())
+    assert records["101"].section_path == [
+        "I. Bibliographies et sciences auxiliaires",
+        "A. Méthodologie",
+    ]
+    folklore = [
+        "I. Bibliographies et sciences auxiliaires",
+        "K. Folklore (Cfr n° 100)",
+    ]
+    assert records["8447"].section_path == folklore
+    assert records["8447"].secondary_sections == [
+        ["I. Bibliographies et sciences auxiliaires", "A. Méthodologie"]
+    ]
+    assert records["100"].secondary_sections == [folklore]
+    assert "see-also-unresolved" in records["101"].provenance.flags

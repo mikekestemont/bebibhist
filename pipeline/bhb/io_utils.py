@@ -72,6 +72,7 @@ def record_from_dict(data: dict) -> Record:
         note=data.get("note"),
         language=data.get("language"),
         section_path=list(data.get("section_path") or []),
+        secondary_sections=[list(item) for item in data.get("secondary_sections") or []],
         bhb_codes=list(data.get("bhb_codes") or []),
         period=list(data.get("period") or []),
         places=list(data.get("places") or []),

@@ -11,7 +11,7 @@ from bhb.labels import repair_labels
 from bhb.model import Host, PdfLink, Person, Provenance, Publisher, Record, Series
 from bhb.parse.citation import cross_references, parse_citation
 from bhb.paths import rel
-from bhb.sections import path_of, push_heading
+from bhb.sections import is_see_also_heading, path_of, push_heading, see_also_numbers
 from bhb.textutil import clean_heading, squash, superscript
 
 XML = etree.XMLParser(load_dtd=False, no_network=True, recover=True, resolve_entities=False, huge_tree=True)
@@ -65,12 +65,21 @@ def load_jats(path: Path, source: str) -> list[Record]:
         return []
     stack: list[tuple[int, str]] = []
     pending: list[tuple[Record, list[tuple[int | None, str]]]] = []
+    # path where the pointer stands, the numbers it lists, and the next entry's index
+    see_also: list[tuple[list[str], list[str], int]] = []
     for element in back.iter():
         parent = element.getparent()
         if element.tag == "title" and parent is not None and parent.tag == "ref-list":
             heading = clean_heading(_plain(element))
             if heading:
+                numbers = see_also_numbers(heading)
+                if is_see_also_heading(heading):
+                    if numbers:
+                        see_also.append((path_of(stack), numbers, len(pending)))
+                    continue
                 stack = push_heading(stack, heading)
+                if numbers:
+                    see_also.append((path_of(stack), numbers, len(pending)))
             continue
         if element.tag != "ref":
             continue
@@ -87,7 +96,30 @@ def load_jats(path: Path, source: str) -> list[Record]:
             if target not in known:
                 record.provenance.flags.append("cross-ref-unresolved")
         record.provenance.flags = list(dict.fromkeys(record.provenance.flags))
+    _apply_see_also(records, see_also)
     return records
+
+
+def _apply_see_also(records: list[Record], notes: list[tuple[list[str], list[str], int]]) -> None:
+    by_number: dict[str, list[Record]] = {}
+    for record in records:
+        for key in (record.print_number, record.provenance.label_raw):
+            if key:
+                by_number.setdefault(key.lower(), []).append(record)
+    for path, numbers, index in notes:
+        missed = False
+        for number in numbers:
+            targets = by_number.get(number.lower(), [])
+            if not targets:
+                missed = True
+                continue
+            for target in targets:
+                if path not in target.secondary_sections:
+                    target.secondary_sections.append(list(path))
+        if missed and records:
+            host = records[min(index, len(records) - 1)]
+            if "see-also-unresolved" not in host.provenance.flags:
+                host.provenance.flags.append("see-also-unresolved")
 
 
 def _apply_labels(pending: list[tuple[Record, list]]) -> None:
