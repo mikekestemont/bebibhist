@@ -13,7 +13,6 @@ import argparse
 import json
 from pathlib import Path
 
-from bhb.bench import build_database, load_corpus, serve
 from bhb.gold import format_score, load_gold, score_records, write_sample
 from bhb.ingest.jats import load_jats, straive_paths
 from bhb.ingest.pdf_volume import convert_pdf
@@ -51,16 +50,6 @@ def main(argv: list[str] | None = None) -> None:
     sample.add_argument("--out", type=Path)
     score = gold_sub.add_parser("score", help="field accuracy against a corrected sheet")
     score.add_argument("--gold", type=Path, nargs="*", help="defaults to the intern 1992 sheets")
-
-    bench = sub.add_parser("bench", help="synthetic search database for the browser benchmark")
-    bench_sub = bench.add_subparsers(dest="bench_command", required=True)
-    bench_build = bench_sub.add_parser("build", help="write build/bench from the merged records")
-    bench_build.add_argument("--n", type=int, default=270_000)
-    bench_build.add_argument("--seed", type=int, default=2026)
-    bench_serve = bench_sub.add_parser("serve", help="serve the repo with HTTP range responses")
-    bench_serve.add_argument("--port", type=int, default=8765)
-    bench_serve.add_argument("--latency-ms", type=int, default=0, help="extra delay per range response")
-    bench_serve.add_argument("--bytes-per-second", type=int, default=0, help="cap each range response")
 
     export = sub.add_parser("export", help="write the semantic record out for archive and exchange")
     export_sub = export.add_subparsers(dest="export_command", required=True)
@@ -105,12 +94,6 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "gold" and args.gold_command == "score":
         _gold_score(args.gold)
-        return
-    if args.command == "bench" and args.bench_command == "build":
-        _bench_build(args.n, args.seed)
-        return
-    if args.command == "bench" and args.bench_command == "serve":
-        serve(args.port, latency_ms=args.latency_ms, bytes_per_second=args.bytes_per_second)
         return
     parser.error(f"unknown command {args.command}")
 
@@ -194,19 +177,6 @@ def _gold_score(paths: list[Path] | None) -> None:
     report = build_dir() / "gold_score.md"
     report.write_text("# Gold-standard score\n\n" + text, encoding="utf-8")
     print(f"wrote {report}")
-
-
-def _bench_build(n: int, seed: int) -> None:
-    source = build_dir() / "records.jsonl"
-    if not source.is_file():
-        raise SystemExit("build/records.jsonl is missing; run bhb build first")
-    folder = build_dir() / "bench"
-    print(f"reading titles from {source}")
-    summary = build_database(load_corpus(source), folder / "bhb.sqlite", n=n, seed=seed)
-    print(
-        f"bench: {summary['records']} records, {summary['histoire_hits']} hits for 'histoire', "
-        f"{summary['bytes'] / 1_048_576:.0f} MB in {summary['chunks']} chunks → {folder}"
-    )
 
 
 def _load_built_records() -> list[Record]:

@@ -1,6 +1,6 @@
 # Search benchmark (P1)
 
-Measured on 11 Oct 2026. Database: 270,000 synthetic records built by `bhb bench build` from real titles (327 MB, page size 4096, seven 50 MB chunks). Queries run in Chrome through the vendored `sql.js-httpvfs`, against `bhb bench serve`, which answers HTTP range requests.
+Measured on 11 Oct 2026. Database: 270,000 synthetic records built by `bhb bench build` from real titles (327 MB, page size 4096, seven 50 MB chunks). Queries run in Chrome through the vendored `sql.js-httpvfs`, against `bhb bench serve`, which answers HTTP range requests. Those commands and the `bench/` directory were removed once Pagefind was chosen; this note is the record of the measurement.
 
 Fast 4G is the Chrome preset applied in the server: 150 ms delay per range response and 1.6 Mbit/s. SQLite has to read one page before it knows the next, so the requests stay serial. GitHub Pages was not used; a faster pipe would not remove that serial wait.
 
