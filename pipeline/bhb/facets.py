@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 
+from bhb.sections import part_kind
+
 # Order is the order in which values are stored when several match.
+# 1789 is not here: a date alone is not a period. See ``_contemporary``.
 _KEYWORDS: list[tuple[str, re.Pattern[str]]] = [
     (
         "ancient",
@@ -30,11 +33,13 @@ _KEYWORDS: list[tuple[str, re.Pattern[str]]] = [
             re.IGNORECASE,
         ),
     ),
-    ("contemporary", re.compile(r"contemporaine|hedendaags|1789", re.IGNORECASE)),
+    ("contemporary", re.compile(r"contemporain|hedendaags", re.IGNORECASE)),
 ]
 
-_PART_I = re.compile(r"^\s*I\.\s")
-_PART_II = re.compile(r"^\s*II\.\s")
+_ERA_WITH_1789 = re.compile(
+    r"nos jours|tot heden|contemporain|hedendaags|eigentijds",
+    re.IGNORECASE,
+)
 _CODE_MEDIEVAL = re.compile(r"^III\.B\.[12](?:\.|$)")
 _CODE_BURGUNDIAN = re.compile(r"^III\.B\.3(?:\.|$)")
 
@@ -42,13 +47,25 @@ _CODE_BURGUNDIAN = re.compile(r"^III\.B\.3(?:\.|$)")
 def periods_from_path(section_path: list[str]) -> list[str]:
     if not section_path:
         return []
-    head = section_path[0]
-    if _PART_I.match(head):
+    kind = part_kind(section_path[0])
+    # Bibliography and general-works parts are one period. History-by-period
+    # takes its period from the headings underneath, not from the part title.
+    if kind == "aux":
         return ["aux"]
-    if _PART_II.match(head):
+    if kind == "general":
         return ["general"]
     blob = " ".join(section_path)
-    return [name for name, pattern in _KEYWORDS if pattern.search(blob)]
+    found = [name for name, pattern in _KEYWORDS if pattern.search(blob)]
+    if "contemporary" not in found and any(_contemporary(heading) for heading in section_path):
+        found.append("contemporary")
+    return found
+
+
+def _contemporary(heading: str) -> bool:
+    """1789 counts only in the heading that also names the era, not in a date range."""
+    if re.search(r"contemporain|hedendaags", heading, re.IGNORECASE):
+        return True
+    return "1789" in heading and _ERA_WITH_1789.search(heading) is not None
 
 
 def periods_from_codes(codes: list[str]) -> list[str]:

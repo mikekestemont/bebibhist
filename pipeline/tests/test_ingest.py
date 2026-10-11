@@ -9,7 +9,7 @@ from bhb.paths import repo_root
 STRAIVE = """<?xml version="1.0"?>
 <article>
  <back>
-  <ref-list><title>I. Bibliographies (1)</title>
+  <ref-list><title>I. Bibliographies et sciences auxiliaires (1)</title>
    <ref-list><title>A. Méthodologie — Methodologie</title>
     <ref id="ref1"><label>100</label>
      <mixed-citation publication-type="jounal">

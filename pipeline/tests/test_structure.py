@@ -19,27 +19,71 @@ def test_label_repair_keeps_bis_and_real_gaps():
 
 def test_letter_i_after_h_is_not_a_new_part():
     stack: list[tuple[int, str]] = []
-    stack = push_heading(stack, "I. Bibliographies")
+    stack = push_heading(stack, "I. Bibliographies et sciences auxiliaires")
     stack = push_heading(stack, "H. Géographie")
     stack = push_heading(stack, "I. Sciences linguistiques")
-    # Letter I continues the A–Z series, so it stays under part I instead of opening a new part.
-    assert path_of(stack) == ["I. Bibliographies", "I. Sciences linguistiques"]
+    # Letter I continues the A–Z series, so it stays under the bibliography part.
+    assert path_of(stack) == [
+        "I. Bibliographies et sciences auxiliaires",
+        "I. Sciences linguistiques",
+    ]
     assert [level for level, _text in stack] == [1, 2]
 
 
-def test_unnumbered_heading_is_a_child():
+def test_unnumbered_heading_is_a_child_of_the_last_numbered():
     stack: list[tuple[int, str]] = []
     stack = push_heading(stack, "A. Bibliographies")
     stack = push_heading(stack, "Les villes — De steden")
     assert [level for level, _text in stack] == [2, 3]
 
 
+def test_unnumbered_themes_are_siblings():
+    # 1955: L'Expansion coloniale sits next to Les mouvements ouvriers, not under it.
+    stack: list[tuple[int, str]] = []
+    for text in (
+        "II. Histoire par époques — Geschiedenis in tijdvakken",
+        "F. De 1789 à nos jours. — Van 1789 tot heden.",
+        "4. Après 1830. — Sedert 1830.",
+        "La dynastie, les événements militaires et diplomatiques.",
+        "La politique intérieure. — Binnenlandse politiek.",
+        "Les mouvements ouvriers. — De arbeidersbewegingen.",
+        "L'Expansion coloniale. — De coloniale expansie.",
+    ):
+        stack = push_heading(stack, text)
+    assert [level for level, _text in stack] == [1, 2, 3, 4]
+    assert stack[-1][1].startswith("L'Expansion coloniale")
+    assert stack[-2][1].startswith("4. Après 1830")
+    assert all("mouvements ouvriers" not in text for _level, text in stack)
+
+
+def test_brabant_is_a_letter_not_a_part():
+    for heading in (
+        "I. Brabant, Limbourg, Outre-Meuse, Malines — Brabant, Limburg, Overmaas, Mechelen",
+        "I. Brabant, Lim bourg, Outre-Meuse, Malines Brabant, Limburg, Over-Maas, Mechelen",
+        "I. Brabant, Limbourg, Outre-M euse, Malines—Brabant, Limburg, Over-maas en Mechelen",
+    ):
+        stack: list[tuple[int, str]] = []
+        stack = push_heading(stack, "III. Histoire par époques — Geschiedenis in tijdvakken")
+        stack = push_heading(stack, "C. Les différentes principautés — De vorstendommen")
+        stack = push_heading(stack, heading)
+        assert [level for level, _text in stack] == [1, 2]
+        assert stack[-1][1] == heading
+        assert "aux" not in periods_from_path(path_of(stack))
+
+
 def test_part_one_is_auxiliary_and_part_three_uses_keywords():
     assert periods_from_path(["I. Bibliographies et sciences auxiliaires"]) == ["aux"]
     assert periods_from_path(["II. Ouvrages généraux"]) == ["general"]
+    assert periods_from_path(["I. Généralités — Algemeenheden"]) == ["general"]
     assert periods_from_path(
         ["III. Histoire par époques", "D. Époque contemporaine", "1789"]
     ) == ["contemporary"]
+    assert periods_from_path(
+        ["II. Histoire par époques — Geschiedenis in tijdvakken", "F. De 1789 à nos jours."]
+    ) == ["contemporary"]
+    assert periods_from_path(
+        ["III. Histoire par époques", "Histoire sociale et économique, 1789–1970"]
+    ) == []
     assert "early-modern" in periods_from_path(
         ["III. Histoire par époques", "Les Pays-Bas espagnols et la principauté de Liège"]
     )

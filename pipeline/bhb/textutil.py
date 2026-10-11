@@ -35,6 +35,15 @@ _SUP = {
 }
 
 
+def fold(text: str) -> str:
+    """Accent-folded lowercase, punctuation turned into spaces. For matching, not display."""
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+    text = text.lower().replace("œ", "oe").replace("æ", "ae")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def squash(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
     text = text.replace("\u00a0", " ").replace("\u2009", " ").replace("\u202f", " ")
