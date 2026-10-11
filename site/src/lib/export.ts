@@ -10,6 +10,8 @@ interface Name {
   given: string;
 }
 
+const DATA_RIGHTS = "CC BY-NC 4.0. https://creativecommons.org/licenses/by-nc/4.0/";
+
 const BIB = {
   article: "article",
   chapter: "incollection",
@@ -73,7 +75,7 @@ function bundle(hits: Hit[], kind: ExportKind, source: string, sourceLabel: stri
   const capped = total > hits.length ? `${hits.length} / ${total}` : "";
   if (kind === "txt") {
     const citations = hits.map((hit) => presentCitation(hit.meta.citation || hit.meta.title || "")).join("\n\n");
-    return `${capped ? `${capped}\n\n` : ""}${citations}\n\n${sourceLabel}: ${source}\n`;
+    return `${capped ? `${capped}\n\n` : ""}${citations}\n\n${sourceLabel}: ${source}\n${DATA_RIGHTS}\n`;
   }
   if (kind === "mods") {
     const entries = hits.map((hit) => mods(hit, source).replace(/^<\?xml[^>]*>\n/, "")).join("\n");
@@ -81,11 +83,13 @@ function bundle(hits: Hit[], kind: ExportKind, source: string, sourceLabel: stri
     return `<?xml version="1.0" encoding="utf-8"?>\n<modsCollection xmlns="http://www.loc.gov/mods/v3">\n${note}${entries}</modsCollection>\n`;
   }
   const joined = hits.map((hit) => writers[kind](hit, source, sourceLabel)).join(kind === "bibtex" ? "\n" : "");
-  return kind === "bibtex" && capped ? `% ${capped}\n\n${joined}` : joined;
+  if (kind === "bibtex") return `% ${DATA_RIGHTS}\n${capped ? `% ${capped}\n` : ""}\n${joined}`;
+  return joined;
 }
 
 const writers: Record<ExportKind, (hit: Hit, source: string, sourceLabel: string) => string> = {
-  txt: (hit, source, sourceLabel) => `${presentCitation(hit.meta.citation || hit.meta.title || "")}\n\n${sourceLabel}: ${source}\n`,
+  txt: (hit, source, sourceLabel) =>
+    `${presentCitation(hit.meta.citation || hit.meta.title || "")}\n\n${sourceLabel}: ${source}\n${DATA_RIGHTS}\n`,
   bibtex: (hit, source) => bibtex(hit, source),
   ris: (hit, source) => ris(hit, source),
   mods: (hit, source) => mods(hit, source),
@@ -109,6 +113,7 @@ function bibtex(hit: Hit, source: string): string {
     ["address", meta.place || ""],
     ["publisher", meta.publisher || ""],
     ["note", presentCitation(meta.citation || "")],
+    ["rights", DATA_RIGHTS],
     ["source", source],
   ];
   const body = fields
@@ -139,6 +144,7 @@ function ris(hit: Hit, source: string): string {
   push(lines, "CY", meta.place);
   push(lines, "PB", meta.publisher);
   push(lines, "N1", presentCitation(meta.citation || ""));
+  push(lines, "N1", DATA_RIGHTS);
   push(lines, "ID", meta.id);
   push(lines, "DB", source);
   lines.push("ER  - ");
@@ -149,7 +155,7 @@ function mods(hit: Hit, source: string): string {
   const meta = hit.meta;
   const parts: string[] = [
     `<?xml version="1.0" encoding="utf-8"?>`,
-    `<mods xmlns="http://www.loc.gov/mods/v3" version="3.8">`,
+    `<mods xmlns="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" version="3.8">`,
     `  <titleInfo>`,
     `    <title>${xml(meta.title || "")}</title>`,
   ];
@@ -193,6 +199,7 @@ function mods(hit: Hit, source: string): string {
   if (meta.id) parts.push(`  <identifier type="bhb">${xml(meta.id)}</identifier>`);
   parts.push(`  <recordInfo><recordContentSource>${xml(source)}</recordContentSource></recordInfo>`);
   if (meta.citation) parts.push(`  <note type="printed citation">${xml(presentCitation(meta.citation))}</note>`);
+  parts.push(`  <accessCondition type="use and reproduction" xlink:href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</accessCondition>`);
   parts.push(`</mods>`, ``);
   return parts.join("\n");
 }

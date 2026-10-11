@@ -17,6 +17,9 @@ from bhb.io_utils import record_from_dict
 from bhb.model import Record
 
 NS = "http://www.loc.gov/mods/v3"
+XLINK = "http://www.w3.org/1999/xlink"
+DATA_LICENCE = "CC BY-NC 4.0"
+DATA_LICENCE_URL = "https://creativecommons.org/licenses/by-nc/4.0/"
 ROLES = {
     "author": "aut",
     "editor": "edt",
@@ -60,7 +63,7 @@ def export_mods(jsonl: Path, out_dir: Path) -> dict[str, int]:
 
 
 def to_mods(record: Record) -> etree._Element:
-    mods = etree.Element(f"{{{NS}}}mods", nsmap={None: NS})
+    mods = etree.Element(f"{{{NS}}}mods", nsmap={None: NS, "xlink": XLINK})
     _title(mods, record.title, record.subtitle, None)
     if record.title_translated:
         _title(mods, record.title_translated, None, "translated")
@@ -127,10 +130,9 @@ def to_mods(record: Record) -> etree._Element:
     _text(_sub(info, "recordOrigin"), _origin(record))
     if record.printed:
         _text(_sub(mods, "note", type="printed citation"), record.printed)
-    _text(
-        _sub(mods, "accessCondition", type="use and reproduction"),
-        "CC BY 4.0",
-    )
+    condition = _sub(mods, "accessCondition", type="use and reproduction")
+    condition.set(f"{{{XLINK}}}href", DATA_LICENCE_URL)
+    _text(condition, DATA_LICENCE)
     return mods
 
 
