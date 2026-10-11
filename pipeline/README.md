@@ -11,7 +11,9 @@ python3 -m venv .venv
 .venv/bin/pytest
 ```
 
-`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. Derived files go to `build/` (git-ignored). 1964–1965 are read from `data/interim/print-pdf/`. 2008 is rebuilt from `data/raw/pdf/BGB_2008.pdf` when that file is present.
+`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. Derived files go to `build/` (git-ignored).
+
+Raw inputs are not in this repository. Set `BHB_RAW` to the folder that holds them, or place that folder at `../bebibhist-raw`. It contains `2023-12-29/`, `exports Rijksarchief/`, `data/raw/`, `data/interim/` and `legacy/`. A missing folder stops the ingest with one error that names `BHB_RAW`. 1964–1965 are read from `$BHB_RAW/data/interim/print-pdf/`. 2008 is rebuilt from `$BHB_RAW/data/raw/pdf/BGB_2008.pdf` when that file is present; the regenerated XML is written to `build/print-pdf/BGB_2008.xml`.
 
 ```bash
 .venv/bin/bhb gold sample          # 300 print entries → data/curated/gold/sample.xlsx
@@ -28,7 +30,7 @@ Reads `BGB_YYYY.xml`. Vendor tags fill the record when they exist; a plain-text 
 
 ### `bhb.ingest.pdf_volume` — BGB 2008
 
-Born-digital yearly PDF (no outline). Writes `data/interim/print-pdf/BGB_2008.xml` in the same plain-text JATS shape as the Persée recovery.
+Born-digital yearly PDF (no outline). Writes `build/print-pdf/BGB_2008.xml` in the same plain-text JATS shape as the Persée recovery. The PDF itself stays in the raw folder.
 
 ### `bhb.ingest.vsmart` — catalogue exports 2009–2017
 
@@ -39,9 +41,9 @@ STRAIVE files (nested `<ref-list>` sections, one `<ref>` per printed entry), so 
 flow through the same downstream steps. Used for **1964 and 1965**, which STRAIVE did not deliver.
 
 ```bash
-python -m bhb.ingest.persee_pdf ../data/raw/pdf/BGB_1960-69.pdf 1964 \
-    --headings-from ../2023-12-29/BGB_1960-69 \
-    --out ../data/interim/print-pdf/BGB_1964.xml
+python -m bhb.ingest.persee_pdf "$BHB_RAW/data/raw/pdf/BGB_1960-69.pdf" 1964 \
+    --headings-from "$BHB_RAW/2023-12-29/BGB_1960-69" \
+    --out "$BHB_RAW/data/interim/print-pdf/BGB_1964.xml"
 ```
 
 Writes `BGB_1964.xml` plus `BGB_1964.report.json` (counts, numbers absent from the print sequence,

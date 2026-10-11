@@ -16,7 +16,7 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 
 from bhb.model import Record
-from bhb.paths import repo_root
+from bhb.paths import raw_root, repo_root
 from bhb.textutil import squash
 
 SAMPLE_COLUMNS = (
@@ -194,7 +194,7 @@ def _default_gold_files() -> list[Path]:
     curated = root / "data" / "curated" / "gold" / "gold.xlsx"
     if curated.is_file():
         return [curated]
-    return [root / relative for relative in SMOKE_FILES]
+    return [raw_root() / relative for relative in SMOKE_FILES]
 
 
 def _read_sheet(path: Path) -> list[GoldRow]:

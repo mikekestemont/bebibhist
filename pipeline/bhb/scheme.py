@@ -1,6 +1,6 @@
 """The modern BHB scheme and the period × theme map.
 
-English labels are drafts. ``note`` says so. The bibliography's editor or Mike reviews them.
+English labels are drafts. ``note`` says so. The bibliography's editor reviews them.
 """
 
 from __future__ import annotations

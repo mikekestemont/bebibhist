@@ -156,9 +156,10 @@ def _is_heading(text: str, labels: list[str]) -> bool:
 @lru_cache(maxsize=1)
 def known_heading_labels() -> list[str]:
     """Folded labels from the 2005–2007 print headings and, when present, the scheme file."""
-    from bhb.paths import repo_root
+    from bhb.paths import raw_available, raw_root, repo_root
 
-    root = repo_root()
+    root = raw_root() if raw_available() else None
+    code_root = repo_root()
     found: list[str] = []
     seen: set[str] = set()
 
@@ -170,6 +171,8 @@ def known_heading_labels() -> list[str]:
         found.append(folded)
 
     for year in ("2005", "2006", "2007"):
+        if root is None:
+            break
         matches = list((root / "2023-12-29").rglob(f"BGB_{year}.xml"))
         if not matches:
             continue
@@ -185,7 +188,7 @@ def known_heading_labels() -> list[str]:
             add(body)
             for piece in re.split(r"[—–]|-", body):
                 add(piece)
-    scheme = root / "build" / "scheme.json"
+    scheme = code_root / "build" / "scheme.json"
     if scheme.is_file():
         for row in json.loads(scheme.read_text(encoding="utf-8")):
             for key in ("label_fr", "label_nl"):

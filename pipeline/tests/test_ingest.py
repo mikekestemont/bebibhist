@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from bhb.ingest.jats import load_jats
 from bhb.ingest.pdf_volume import PdfLine, segment
+from bhb.textutil import fold
 from bhb.ingest.vsmart import load_vsmart, render_printed_fields
 from bhb.model import Host, Person
-from bhb.paths import repo_root
+from bhb.paths import raw_available, raw_root
 
 STRAIVE = """<?xml version="1.0"?>
 <article>
@@ -123,7 +126,8 @@ def test_pdf_segmentation_joins_entries_and_keeps_bis():
         PdfLine(4, "61024 750e anniversaire de Gérouville, 1258-2008. Virton, Chronique, 2008, 40 p."),
         PdfLine(4, "63371 vanden Daelen (Veerle). Jews, cemeteries, and the city. In: A perspective."),
     ]
-    blocks = segment(lines)
+    labels = [fold("BIBLIOGRAPHIES ET SCIENCES AUXILIAIRES"), fold("Codicologie - Handschriftkunde")]
+    blocks = segment(lines, labels)
     headings = [block.text for block in blocks if block.kind == "heading"]
     entries = [block for block in blocks if block.kind == "entry"]
     assert headings[0].startswith("I. BIBLIOGRAPHIES")
@@ -223,10 +227,9 @@ def test_editor_group_after_the_title_belongs_to_the_host(tmp_path: Path):
     assert "bhb:2000-29240" in record.cross_refs
 
 
+@pytest.mark.skipif(not raw_available(), reason="set BHB_RAW or provide ../bebibhist-raw")
 def test_real_1975_volume_round_trips_a_known_entry():
-    path = repo_root() / "2023-12-29" / "BGB_1970-79" / "BGB_1975.xml"
-    if not path.is_file():
-        return
+    path = raw_root() / "2023-12-29" / "BGB_1970-79" / "BGB_1975.xml"
     records = load_jats(path, "print-straive")
     assert len(records) > 2000
     first = records[0]

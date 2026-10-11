@@ -21,7 +21,7 @@ from bhb.io_utils import read_jsonl, write_jsonl
 from bhb.merge import heading_warnings, merge_records, write_report, write_scheme
 from bhb.mods import export_mods
 from bhb.model import Record
-from bhb.paths import build_dir, repo_root
+from bhb.paths import build_dir, raw_root, repo_root
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -127,7 +127,7 @@ def build() -> list[Record]:
 
 def ingest_straive() -> list[Record]:
     records: list[Record] = []
-    for path in straive_paths(repo_root()):
+    for path in straive_paths(raw_root()):
         year_records = load_jats(path, "print-straive")
         print(f"  {path.name}: {len(year_records)}")
         records.extend(year_records)
@@ -135,19 +135,19 @@ def ingest_straive() -> list[Record]:
 
 
 def ingest_pdf(convert: bool = True) -> list[Record]:
-    root = repo_root()
-    interim = root / "data" / "interim" / "print-pdf"
-    interim.mkdir(parents=True, exist_ok=True)
-    pdf = root / "data" / "raw" / "pdf" / "BGB_2008.pdf"
-    target = interim / "BGB_2008.xml"
+    interim = raw_root() / "data" / "interim" / "print-pdf"
+    pdf = raw_root() / "data" / "raw" / "pdf" / "BGB_2008.pdf"
+    # A regenerated 2008 file is derived, so it is written under build/ and the raw copy stays untouched.
+    generated = build_dir() / "print-pdf" / "BGB_2008.xml"
     if convert and pdf.is_file():
-        report = convert_pdf(pdf, target, "2008")
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        report = convert_pdf(pdf, generated, "2008")
         print(f"  2008 PDF: {report['entries']} entries ({report['first']}–{report['last']})")
-    elif not target.is_file():
+    elif not (interim / "BGB_2008.xml").is_file() and not generated.is_file():
         print("  2008 PDF not found and no BGB_2008.xml yet; that year is skipped")
     records: list[Record] = []
     for name in ("BGB_1964.xml", "BGB_1965.xml", "BGB_2008.xml"):
-        path = interim / name
+        path = generated if name == "BGB_2008.xml" and generated.is_file() else interim / name
         if not path.is_file():
             print(f"  missing {path.name}")
             continue
@@ -158,7 +158,7 @@ def ingest_pdf(convert: bool = True) -> list[Record]:
 
 
 def ingest_vsmart_records() -> tuple[list[Record], dict]:
-    directory = repo_root() / "exports Rijksarchief"
+    directory = raw_root() / "exports Rijksarchief"
     return load_vsmart(directory)
 
 
