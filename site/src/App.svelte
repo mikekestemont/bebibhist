@@ -633,6 +633,7 @@
           {/each}
         </fieldset>
       {/each}
+      {#if true}
       {@const domain = yearDomain()}
       {@const chosen = selectedYears()}
       <fieldset class="years">
@@ -651,6 +652,7 @@
           <label>{text.yearTo} <input type="number" min={chosen.from} max={domain.max} value={chosen.to} onchange={(event) => commitYears(chosen.from, Number(event.currentTarget.value))} /></label>
         </div>
       </fieldset>
+      {/if}
       <button class="clear" type="button" onclick={clearFilters}>{text.clear}</button>
     </aside>
     {#snippet pager()}
