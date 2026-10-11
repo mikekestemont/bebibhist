@@ -18,6 +18,13 @@ Raw inputs are not in this repository. Set `BHB_RAW` to the folder that holds th
 ```bash
 .venv/bin/bhb gold sample          # 300 print entries → data/curated/gold/sample.xlsx
 .venv/bin/bhb gold score           # intern 1992 sheets, or data/curated/gold/gold.xlsx once it exists
+.venv/bin/bhb release             # build/release/records.jsonl.gz and NOTES.md
+```
+
+`bhb release` does not publish anything. After it has run, this command creates the data release (replace `YYYY-MM-DD` with the build date printed in `NOTES.md`):
+
+```bash
+gh release create data-YYYY-MM-DD build/release/records.jsonl.gz build/release/NOTES.md --title "BHB-BGB data YYYY-MM-DD" --notes-file build/release/NOTES.md
 ```
 
 The search benchmark that chose Pagefind over browser SQLite is recorded in `docs/BENCHMARK.md`. The benchmark code itself has been removed.

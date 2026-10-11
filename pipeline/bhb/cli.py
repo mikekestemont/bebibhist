@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from bhb.gold import format_score, load_gold, score_records, write_sample
@@ -22,6 +23,7 @@ from bhb.merge import heading_warnings, merge_records, write_report, write_schem
 from bhb.mods import export_mods
 from bhb.model import Record
 from bhb.paths import build_dir, raw_root, repo_root
+from bhb.release import release_command, write_release
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -63,6 +65,10 @@ def main(argv: list[str] | None = None) -> None:
     mods = export_sub.add_parser("mods", help="MODS 3.8, one collection per BGB year")
     mods.add_argument("--out", type=Path)
 
+    release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
+    release.add_argument("--records", type=Path)
+    release.add_argument("--out", type=Path)
+
     args = parser.parse_args(argv)
     if args.command == "build":
         build()
@@ -78,6 +84,16 @@ def main(argv: list[str] | None = None) -> None:
         counts = export_mods(source, destination)
         total = sum(counts.values())
         print(f"mods: {total} records in {len(counts)} files → {destination}")
+        return
+    if args.command == "release":
+        records = args.records or build_dir() / "records.jsonl"
+        destination = args.out or build_dir() / "release"
+        try:
+            notes = write_release(records, destination)
+        except FileNotFoundError as error:
+            raise SystemExit(str(error)) from error
+        print(f"release: {notes.parent / 'records.jsonl.gz'}")
+        print(release_command(date.today().isoformat()))
         return
     if args.command == "ingest" and args.source == "straive":
         records = ingest_straive()
