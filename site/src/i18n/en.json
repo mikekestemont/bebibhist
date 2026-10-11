@@ -82,6 +82,7 @@
   "loading": "Searching…",
   "missing": "The search index has not been built. In the site directory: npm run index",
   "back": "Back to results",
+  "recordLink": "Full record",
   "printed": "As printed",
   "notFound": "This record is not in the index.",
   "beta": "Beta — printed volumes 1952–2008; partial export 2009–2017.",

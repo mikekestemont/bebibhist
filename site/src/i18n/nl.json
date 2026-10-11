@@ -82,6 +82,7 @@
   "loading": "Bezig met zoeken…",
   "missing": "De zoekindex is nog niet gebouwd. In de map site: npm run index",
   "back": "Terug naar de resultaten",
+  "recordLink": "Volledige beschrijving",
   "printed": "Zoals gedrukt",
   "notFound": "Dit lemma staat niet in de index.",
   "beta": "Bèta — gedrukte delen 1952–2008; gedeeltelijke export 2009–2017.",

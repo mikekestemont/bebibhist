@@ -82,6 +82,7 @@
   "loading": "Recherche en cours…",
   "missing": "L’index de recherche n’est pas construit. Dans le dossier site : npm run index",
   "back": "Retour aux résultats",
+  "recordLink": "Notice complète",
   "printed": "Tel qu’imprimé",
   "notFound": "Cette notice est introuvable dans l’index.",
   "beta": "Bêta — volumes imprimés 1952–2008 ; export partiel 2009–2017.",

@@ -276,13 +276,44 @@ h1 {
 }
 
 .result {
-  display: flex;
-  gap: 0.55rem;
-  align-items: flex-start;
   padding: 0.55rem 0;
   border-bottom: 1px solid #e4e6e4;
   color: inherit;
-  text-decoration: none;
+}
+
+.result-toggle {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chevron {
+  flex: none;
+  margin-left: auto;
+  margin-top: 0.25rem;
+  fill: none;
+  stroke: #486249;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.result-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+.expanded { padding: 0.35rem 0 0.6rem 1.6rem; }
+
+.expanded-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 0.7rem;
 }
 
 .type-mark {

@@ -36,6 +36,7 @@
   let fieldChoice = $state("all");
   let dragFrom = $state<number | null>(null);
   let dragTo = $state<number | null>(null);
+  let openId = $state("");
 
   const pageSizes = [10, 20, 50, 100];
   let page = $derived(Math.max(1, Number(params.get("page") || "1")));
@@ -461,6 +462,18 @@
   </div>
 {/snippet}
 
+{#snippet categoryBlock(hit: Hit)}
+  {@const category = categoryOf(hit)}
+  <p class="category-line">
+    <span class="theme">{text.category}</span>
+    {category || text.themes.unclassified}
+    {#if category && hit.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
+    {#if category && hit.meta.categoryMachine === "1"}
+      <span class="suggested" title={text.suggestedWhy[hit.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{text.suggested}</span>
+    {/if}
+  </p>
+{/snippet}
+
 {#snippet fieldSelect()}
   <select class="field" aria-label={text.fieldSearch} value={fieldChoice} onchange={(event) => setField(event.currentTarget.value)}>
     <option value="all">{text.fields.all}</option>
@@ -557,15 +570,7 @@
           {/each}
         </dl>
       {/if}
-      {@const category = categoryOf(record)}
-      <p class="category-line">
-        <span class="theme">{text.category}</span>
-        {category || text.themes.unclassified}
-        {#if category && record.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
-        {#if category && record.meta.categoryMachine === "1"}
-          <span class="suggested" title={text.suggestedWhy[record.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{text.suggested}</span>
-        {/if}
-      </p>
+      {@render categoryBlock(record)}
       {#if record.meta.section}<p><span class="theme">{text.printedTheme}</span> {record.meta.section}</p>{/if}
       <p class="imprint">{text.printed}{record.meta.year ? ` · BGB ${record.meta.year}` : ""}{record.meta.number ? ` · ${record.meta.number}` : ""}</p>
     {:else}
@@ -652,10 +657,34 @@
           {@render tools()}
         </div>
         {#each hits as hit}
-          <a class="result" href={hit.url}>
-            {@render typeIcon(hit.meta.kind)}
-            <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta)}</span>
-          </a>
+          {@const open = openId === hit.meta.id}
+          <article class="result">
+            <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
+              {@render typeIcon(hit.meta.kind)}
+              <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta)}</span>
+              <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+            </button>
+            {#if open}
+              <div class="expanded">
+                {#if rows(hit).length}
+                  <dl class="fields">
+                    {#each rows(hit) as row}
+                      <div>
+                        <dt>{row.label}</dt>
+                        <dd>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</dd>
+                      </div>
+                    {/each}
+                  </dl>
+                {/if}
+                {@render categoryBlock(hit)}
+                {#if hit.meta.section}<p><span class="theme">{text.printedTheme}</span> {hit.meta.section}</p>{/if}
+                <div class="expanded-actions">
+                  {@render exporter(hit)}
+                  <a href={hit.url}>{text.recordLink}</a>
+                </div>
+              </div>
+            {/if}
+          </article>
         {/each}
         <div class="results-foot">{@render tools()}</div>
       {/if}
