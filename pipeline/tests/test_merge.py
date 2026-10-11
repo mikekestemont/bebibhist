@@ -1,5 +1,5 @@
 from bhb.io_utils import record_from_dict
-from bhb.merge import merge_records
+from bhb.merge import heading_report_lines, heading_warnings, merge_records
 from bhb.model import Host, Person, Record
 from bhb.mods import to_mods
 
@@ -53,3 +53,30 @@ def test_chapter_copies_the_book_subtitle_and_editors():
         "Faems",
         "Hogenbirk",
     ]
+
+
+def test_heading_report_warns_when_a_top_heading_is_not_a_part():
+    records = [
+        Record(
+            id="bhb:1972-1",
+            source="print-straive",
+            bgb_year=1972,
+            role="entry",
+            section_path=["I. Brabant, Limbourg, Outre-Meuse"],
+            period=[],
+        ),
+        Record(
+            id="bhb:1972-2",
+            source="print-straive",
+            bgb_year=1972,
+            role="entry",
+            section_path=["III. Histoire par époques — Geschiedenis in tijdvakken", "B. Moyen âge"],
+            period=["medieval"],
+        ),
+    ]
+    warnings = heading_warnings(records)
+    assert any("Brabant" in warning for warning in warnings)
+    assert not any("Histoire par époques" in warning for warning in warnings)
+    text = "\n".join(heading_report_lines(records))
+    assert "| 1972 |" in text
+    assert "50.0%" in text

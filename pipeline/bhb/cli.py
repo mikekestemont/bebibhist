@@ -18,7 +18,7 @@ from bhb.ingest.jats import load_jats, straive_paths
 from bhb.ingest.pdf_volume import convert_pdf
 from bhb.ingest.vsmart import load_vsmart
 from bhb.io_utils import read_jsonl, write_jsonl
-from bhb.merge import merge_records, write_report, write_scheme
+from bhb.merge import heading_warnings, merge_records, write_report, write_scheme
 from bhb.mods import export_mods
 from bhb.model import Record
 from bhb.paths import build_dir, repo_root
@@ -199,3 +199,5 @@ def _emit(records: list[Record], labels: dict, out: Path | None) -> None:
     hits = sum(1 for record in records if record.role == "entry" and not record.is_cross_listing)
     print(f"merged: {count} records, {hits} search hits → {destination}")
     print(f"report: {build_dir() / 'ingest_report.md'}")
+    for warning in heading_warnings(records):
+        print(f"warning: {warning}")

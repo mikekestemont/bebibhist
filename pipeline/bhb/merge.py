@@ -9,6 +9,7 @@ from pathlib import Path
 from bhb.facets import assign_period
 from bhb.ingest.vsmart import render_printed
 from bhb.model import Person, Record
+from bhb.sections import is_part_heading
 
 HOST_MISSING = "[host record not exported]"
 
@@ -125,8 +126,72 @@ def write_report(path: Path, records: list[Record]) -> None:
     lines.extend(["", "## Flags", ""])
     for name, count in flags.most_common(40):
         lines.append(f"- `{name}`: {count}")
+    lines.extend(heading_report_lines(records))
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def heading_report_lines(records: list[Record]) -> list[str]:
+    """One row per BGB year for the printed heading tree (plan B6)."""
+    by_year: dict[int, list[Record]] = {}
+    for record in records:
+        if record.role != "entry" or record.bgb_year is None:
+            continue
+        by_year.setdefault(record.bgb_year, []).append(record)
+    lines = [
+        "",
+        "## Headings",
+        "",
+        "Level-1 headings are the printed parts (Bibliographies, Généralités, Travaux généraux, "
+        "Histoire par époques, and the Dutch titles). A roman numeral that is not one of those "
+        "is listed in the last column.",
+        "",
+        "| BGB year | entries | distinct paths | max depth | depth > 6 | without period | level-1 outside the part list |",
+        "|---|---:|---:|---:|---:|---:|---|",
+    ]
+    for year in sorted(by_year):
+        group = by_year[year]
+        total = len(group)
+        paths = {tuple(record.section_path) for record in group if record.section_path}
+        depths = [len(record.section_path) for record in group if record.section_path]
+        deep = sum(1 for depth in depths if depth > 6)
+        missing = sum(1 for record in group if not record.period)
+        outside: dict[str, int] = {}
+        for record in group:
+            head = record.section_path[0] if record.section_path else ""
+            if head and not is_part_heading(head):
+                outside[head] = outside.get(head, 0) + 1
+        outside_text = "; ".join(
+            f"{text[:70]} ({count})" for text, count in sorted(outside.items(), key=lambda item: -item[1])
+        )
+        depth_share = f"{deep / total:.1%}" if total else "0"
+        period_share = f"{missing / total:.1%}" if total else "0"
+        lines.append(
+            f"| {year} | {total} | {len(paths)} | {max(depths, default=0)} | {depth_share} "
+            f"| {period_share} | {outside_text} |"
+        )
+    return lines
+
+
+def heading_warnings(records: list[Record]) -> list[str]:
+    """Years whose tree is still too deep, or whose top heading is not a known part."""
+    by_year: dict[int, list[Record]] = {}
+    for record in records:
+        if record.role != "entry" or record.bgb_year is None or not record.section_path:
+            continue
+        by_year.setdefault(record.bgb_year, []).append(record)
+    warnings: list[str] = []
+    for year in sorted(by_year):
+        group = by_year[year]
+        deepest = max(len(record.section_path) for record in group)
+        if deepest > 8:
+            warnings.append(f"{year}: heading depth {deepest} is above 8")
+        outside = sorted(
+            {record.section_path[0] for record in group if not is_part_heading(record.section_path[0])}
+        )
+        for heading in outside:
+            warnings.append(f"{year}: level-1 heading is not a part title: {heading[:90]}")
+    return warnings
 
 
 def _parent(code: str) -> str | None:
