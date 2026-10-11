@@ -8,14 +8,18 @@ reader turns it into records.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from lxml import etree
+from rapidfuzz import fuzz, process
 
 from bhb.sections import heading_level
+from bhb.textutil import fold
 
 # 2008 print numbers are five digits (the series is in the 60,000s). A four-digit
 # line is a year or a page count, not an entry. Particles such as "de", "van" and
@@ -55,7 +59,7 @@ class Block:
 
 def convert_pdf(pdf: Path, out: Path, year: str = "2008") -> dict:
     lines = extract_lines(pdf)
-    blocks = segment(lines)
+    blocks = segment(lines, known_heading_labels())
     out.parent.mkdir(parents=True, exist_ok=True)
     _write_jats(blocks, out, year, pdf.name)
     entries = [block for block in blocks if block.kind == "entry"]
@@ -85,7 +89,8 @@ def extract_lines(pdf: Path) -> list[PdfLine]:
     return lines
 
 
-def segment(lines: list[PdfLine]) -> list[Block]:
+def segment(lines: list[PdfLine], labels: list[str] | None = None) -> list[Block]:
+    known = known_heading_labels() if labels is None else labels
     start = _bibliography_start(lines)
     blocks: list[Block] = []
     skipping_note = False
@@ -100,10 +105,10 @@ def segment(lines: list[PdfLine]) -> list[Block]:
         if _FOOTNOTE.match(line.text) and blocks and blocks[-1].kind == "entry":
             skipping_note = True
             continue
-        if skipping_note and not _is_heading(line.text):
+        if skipping_note and not _is_heading(line.text, known):
             continue
         skipping_note = False
-        if _is_heading(line.text):
+        if _is_heading(line.text, known):
             blocks.append(Block("heading", line.text, line.page, lines=[line.text]))
             continue
         if not blocks:
@@ -128,12 +133,66 @@ def _bibliography_start(lines: list[PdfLine]) -> int:
     return start
 
 
-def _is_heading(text: str) -> bool:
+def _is_heading(text: str, labels: list[str]) -> bool:
+    """2008 uses the modern scheme: the number must fit, and the text must match a known label."""
     if not _HEADING.match(text):
         return False
     if _ENTRY.match(text) or re.search(r"\bpp?\.\s*\d", text):
         return False
-    return len(text) < 220
+    if len(text) >= 220 or not labels or re.search(r"\.{4,}", text):
+        return False
+    label = fold(re.sub(r"^(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)])\s*", "", text, count=1))
+    if len(label) < 4:
+        return False
+    # token_set_ratio is 100 when the line merely contains a short label.
+    # Prefer the longest label that still fits the line, and reject a line
+    # that is more than three tokens longer than that label.
+    matches = process.extract(label, labels, scorer=fuzz.token_set_ratio, score_cutoff=80, limit=15)
+    matches.sort(key=lambda item: len(item[0].split()), reverse=True)
+    candidate = len(label.split())
+    return any(candidate <= len(matched.split()) + 3 for matched, _score, _index in matches)
+
+
+@lru_cache(maxsize=1)
+def known_heading_labels() -> list[str]:
+    """Folded labels from the 2005–2007 print headings and, when present, the scheme file."""
+    from bhb.paths import repo_root
+
+    root = repo_root()
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def add(text: str) -> None:
+        folded = fold(text)
+        if len(folded) < 8 or folded in seen or re.fullmatch(r"\d{4}", folded):
+            return
+        seen.add(folded)
+        found.append(folded)
+
+    for year in ("2005", "2006", "2007"):
+        matches = list((root / "2023-12-29").rglob(f"BGB_{year}.xml"))
+        if not matches:
+            continue
+        raw = matches[0].read_text(encoding="utf-8", errors="replace")
+        for title in re.findall(r"<title>(.*?)</title>", raw, flags=re.S):
+            text = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", title))).strip()
+            body = re.sub(
+                r"^(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)])\s*",
+                "",
+                text,
+                count=1,
+            )
+            add(body)
+            for piece in re.split(r"[—–]|-", body):
+                add(piece)
+    scheme = root / "build" / "scheme.json"
+    if scheme.is_file():
+        for row in json.loads(scheme.read_text(encoding="utf-8")):
+            for key in ("label_fr", "label_nl"):
+                label = row.get(key) or ""
+                for piece in label.split("/"):
+                    add(piece)
+    return found
 
 
 def _join(lines: list[str]) -> str:

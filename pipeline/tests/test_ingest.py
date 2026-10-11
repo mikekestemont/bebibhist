@@ -136,6 +136,23 @@ def test_pdf_segmentation_joins_entries_and_keeps_bis():
     assert any(block.level == 2 for block in blocks if block.kind == "heading" and block.text.startswith("C."))
 
 
+def test_2008_rejects_a_citation_that_only_looks_like_a_heading():
+    labels = ["bibliographies et sciences auxiliaires bibliografieen en hulpwetenschappen"]
+    lines = [
+        PdfLine(1, "I. BIBLIOGRAPHIES ET SCIENCES AUXILIAIRES - BIBLIOGRAFIEËN EN HULPWETENSCHAPPEN"),
+        PdfLine(1, "60343 Auteur. Titre. Bruxelles, 2008, 10 p."),
+        PdfLine(2, "XI. 2004. Bruxelles; Brussel, Institut historique belge de Rome, 2008, 581 p."),
+        PdfLine(2, "60344 Autre. Titre. Gent, 2008, 12 p."),
+        PdfLine(3, "V. Dhondt. Memorial Volume. Bruxelles, 2008, 100 p."),
+        PdfLine(3, "60345 Derde. Titre. Leuven, 2008, 8 p."),
+    ]
+    blocks = segment(lines, labels)
+    headings = [block.text for block in blocks if block.kind == "heading"]
+    assert len(headings) == 1
+    assert headings[0].startswith("I. BIBLIOGRAPHIES")
+    assert [block.number for block in blocks if block.kind == "entry"] == ["60343", "60344", "60345"]
+
+
 def test_vsmart_pairs_repeatable_fields_and_codes(tmp_path: Path):
     folder = tmp_path / "exports"
     folder.mkdir()
