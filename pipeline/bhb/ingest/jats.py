@@ -187,19 +187,27 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     persons: list[Person] = []
     corporate: list[str] = []
     volume = issue = fpage = lpage = place = publisher = year_text = None
+    links: list[str] = []
     note_parts: list[str] = []
     seen_imprint = False
     note_mode = False
     author_blob: list[str] = []
+    host_editors: list[Person] = []
     collecting_authors = False
+    title_seen = False
 
     for child in citation:
         text = squash(_plain(child))
         tail = child.tail or ""
         if child.tag == "person-group":
-            collecting_authors = True
-            persons.extend(_persons(child))
-            author_blob.append(_plain(child))
+            grouped = _persons(child)
+            # An editor group after the title belongs to the work named after "In:", not to the chapter.
+            if title_seen and child.get("person-group-type") == "editor":
+                host_editors.extend(grouped)
+            else:
+                collecting_authors = True
+                persons.extend(grouped)
+                author_blob.append(_plain(child))
         elif child.tag == "collab":
             if text:
                 corporate.append(text)
@@ -208,9 +216,11 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         elif child.tag == "article-title" and text:
             article_title.append(text)
             collecting_authors = False
+            title_seen = True
         elif child.tag == "chapter-title" and text:
             chapter_title.append(text)
             collecting_authors = False
+            title_seen = True
         elif child.tag == "trans-title" and text:
             translated.append(text)
         elif child.tag == "source" and text:
@@ -238,6 +248,10 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
             place = text or place
         elif child.tag == "publisher-name":
             publisher = text or publisher
+        elif child.tag == "uri":
+            link = _link(child)
+            if link:
+                links.append(link)
         if collecting_authors and tail:
             author_blob.append(tail)
         if seen_imprint and not note_mode and _DASH.search(tail):
@@ -289,6 +303,7 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     record.year = year
     if place or publisher:
         record.publisher = Publisher(place=place, name=publisher)
+    record.links = list(dict.fromkeys(links))
     if record.type == "book" and not pages:
         if match := _EXTENT.search(printed):
             record.extent = match.group(1)
@@ -296,6 +311,8 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         record.note = squash(" ".join(note_parts)).strip(" .") or None
     if record.type == "book" and record.host and not record.host.pages:
         record.host = None
+    if record.host is not None and host_editors:
+        record.host.editors = host_editors
 
     raw: list[tuple[int | None, str]] = []
     record.title, found = _strip_refs(record.title)
@@ -322,8 +339,24 @@ def _persons(group: etree._Element) -> list[Person]:
         given_el = name.find("given-names")
         given = squash(_plain(given_el)) if given_el is not None and squash(_plain(given_el)) else None
         if family:
-            people.append(Person(family=family, given=given, role="author"))
+            role = "editor" if group.get("person-group-type") == "editor" else "author"
+            people.append(Person(family=family, given=given, role=role))
     return people
+
+
+def _link(element: etree._Element) -> str | None:
+    href = (
+        element.get("{http://www.w3.org/1999/xlink}href")
+        or element.get("href")
+        or element.get("type")
+        or ""
+    )
+    text = squash(element.text or "")
+    for candidate in (href, text):
+        value = squash(candidate)
+        if value.startswith(("http://", "https://", "www.")):
+            return value
+    return None
 
 
 def _pages(fpage: str | None, lpage: str | None) -> str | None:

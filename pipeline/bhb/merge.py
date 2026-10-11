@@ -8,7 +8,7 @@ from pathlib import Path
 
 from bhb.facets import assign_period
 from bhb.ingest.vsmart import render_printed
-from bhb.model import Record
+from bhb.model import Person, Record
 
 HOST_MISSING = "[host record not exported]"
 
@@ -35,6 +35,14 @@ def merge_records(
             continue
         if not host.title:
             host.title = target.title
+        if not host.subtitle and target.subtitle:
+            host.subtitle = target.subtitle
+        if not host.editors:
+            host.editors = [
+                Person(person.family, person.given, person.role)
+                for person in target.persons
+                if person.role == "editor"
+            ]
         if record.type == "article" and target.type == "book":
             record.type = "chapter"
         elif record.type == "article" and target.type == "journal-issue":

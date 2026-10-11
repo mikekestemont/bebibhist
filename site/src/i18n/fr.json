@@ -1,0 +1,113 @@
+{
+  "name": "Bibliographie de l'Histoire de Belgique",
+  "tagline": "Toute la bibliographie, de 1952 aux dernières années versées, en une seule recherche.",
+  "search": "Rechercher",
+  "placeholder": "Gent 1830, béguinages, Leopold II",
+  "examples": ["Gent 1830", "béguinages", "Leopold II Congo", "Brussel", "Liège"],
+  "filters": "Affiner",
+  "clear": "Effacer les filtres",
+  "period": "Période",
+  "type": "Type",
+  "source": "Source",
+  "decade": "Décennie",
+  "theme": "Thème:",
+  "author": "Auteur",
+  "fieldTitle": "Titre",
+  "subtitle": "Sous-titre",
+  "journal": "Revue",
+  "host": "Dans",
+  "hostSubtitle": "Sous-titre",
+  "hostEditors": "Direction",
+  "volume": "Volume",
+  "issue": "Fascicule",
+  "pages": "Pages",
+  "pubyear": "Année",
+  "place": "Lieu",
+  "publisher": "Éditeur",
+  "extent": "Étendue",
+  "results": "résultats",
+  "sort": "Trier",
+  "sorts": {
+    "relevance": "Pertinence",
+    "pubyear-desc": "Année de publication, la plus récente",
+    "pubyear-asc": "Année de publication, la plus ancienne",
+    "year-desc": "Volume BGB, le plus récent",
+    "year-asc": "Volume BGB, le plus ancien",
+    "author-asc": "Auteur, A–Z",
+    "title-asc": "Titre, A–Z"
+  },
+  "previous": "Page précédente",
+  "next": "Page suivante",
+  "export": "Exporter",
+  "exportCap": "{n} au plus",
+  "exports": {
+    "txt": "Texte (.txt)",
+    "bibtex": "BibTeX",
+    "ris": "RIS (Zotero)",
+    "mods": "MODS"
+  },
+  "empty": "Aucun résultat pour cette recherche.",
+  "loading": "Recherche en cours…",
+  "missing": "L’index de recherche n’est pas construit. Dans le dossier site : npm run index",
+  "back": "Retour aux résultats",
+  "printed": "Tel qu’imprimé",
+  "notFound": "Cette notice est introuvable dans l’index.",
+  "beta": "Bêta — volumes imprimés 1952–2008 ; export partiel 2009–2017.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Commission royale d’Histoire. CC BY 4.0.",
+  "commission": "Commission Royale d'Histoire",
+  "address": ["Palais des Académies", "Rue Ducale 1", "B-1000 Bruxelles"],
+  "phone": "+32 2 550 22 06",
+  "email": "jeanluc.depaepe@gmail.com",
+  "support": "Avec le soutien de",
+  "privacy": "Privacy Policy",
+  "privacyUrl": "https://commissionroyalehistoire.be/fr/privacy-policy/",
+  "accessibility": "Déclaration d’accessibilité",
+  "accessibilityUrl": "https://commissionroyalehistoire.be/fr/declaration-d-accessibilite/",
+  "copyright": "© 2026 Commission Royale d’Histoire",
+  "about": "À propos",
+  "aboutTitle": "À propos de cette bibliographie",
+  "aboutSections": [
+    {
+      "title": "Le projet",
+      "paragraphs": [
+        "La <em>Bibliographie de l’Histoire de Belgique</em> (BHB ; en néerlandais <em>Bibliografie van de Geschiedenis van België</em>, BGB) recense chaque année les publications sur l’histoire de la Belgique et des territoires qui l’ont précédée : livres, articles, contributions, éditions de sources et catalogues d’exposition. Elle est établie sous la Commission royale d’Histoire.",
+        "Ce site interroge toute la bibliographie en une seule recherche, en français, en néerlandais et en anglais. Le texte d’une notice reste la formulation du volume imprimé."
+      ]
+    },
+    {
+      "title": "Provenance des données",
+      "paragraphs": [
+        "Les volumes 1952–2017 ont paru chaque année dans la <em>Revue belge de philologie et d’histoire</em>. Ce site reprend ces volumes imprimés : les années 1952–2007 telles qu’elles ont été transcrites en XML en 2023, et 1964, 1965 et 2008 à partir du PDF de la revue.",
+        "Depuis 2009, les notices sont aussi saisies dans le catalogue de la bibliothèque des Archives de l’État. Ce site contient un export partiel de ce catalogue pour 2009–2017. Les années suivantes n’y figurent pas encore.",
+        "La bibliographie est proposée sous licence CC BY 4.0. En cas de réutilisation, mentionnez la Commission royale d’Histoire."
+      ]
+    },
+    {
+      "title": "Travail en cours",
+      "paragraphs": [
+        "Il s’agit d’une version d’essai, et nous la proposons telle quelle. Les données sont incomplètes, une partie du texte provient de la reconnaissance des pages imprimées, et tous les champs n’ont pas encore été revus. Utilisez le site avec cette réserve."
+      ]
+    }
+  ],
+  "periods": {
+    "aux": "Sciences auxiliaires",
+    "general": "Généralités",
+    "ancient": "Antiquité",
+    "medieval": "Moyen Âge",
+    "burgundian": "Époque bourguignonne",
+    "early-modern": "Temps modernes",
+    "contemporary": "Époque contemporaine"
+  },
+  "types": {
+    "article": "Article",
+    "chapter": "Contribution",
+    "book": "Livre",
+    "journal-issue": "Revue",
+    "other": "Autre"
+  },
+  "sources": {
+    "print-straive": "Volumes imprimés",
+    "print-pdf": "Volumes imprimés (PDF)",
+    "vsmart": "Catalogue des Archives de l’État"
+  }
+}

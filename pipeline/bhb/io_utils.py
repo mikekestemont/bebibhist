@@ -37,9 +37,17 @@ def read_jsonl(path: Path) -> list[Record]:
     return records
 
 
+def _host(data: dict | None) -> Host | None:
+    if not data:
+        return None
+    raw = dict(data)
+    editors = [Person(**person) for person in raw.pop("editors", None) or []]
+    return Host(editors=editors, **raw)
+
+
 def record_from_dict(data: dict) -> Record:
     persons = [Person(**person) for person in data.get("persons") or []]
-    host = Host(**data["host"]) if data.get("host") else None
+    host = _host(data.get("host"))
     series = Series(**data["series"]) if data.get("series") else None
     publisher = Publisher(**data["publisher"]) if data.get("publisher") else None
     pdf = PdfLink(**data["pdf"]) if data.get("pdf") else None
@@ -68,6 +76,7 @@ def record_from_dict(data: dict) -> Record:
         period=list(data.get("period") or []),
         places=list(data.get("places") or []),
         cross_refs=list(data.get("cross_refs") or []),
+        links=list(data.get("links") or []),
         is_cross_listing=bool(data.get("is_cross_listing")),
         role=data.get("role") or "entry",
         pdf=pdf,

@@ -11,7 +11,7 @@ python3 -m venv .venv
 .venv/bin/pytest
 ```
 
-`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. Derived files go to `build/` (git-ignored). 1964–1965 are read from `data/interim/print-pdf/`. 2008 is rebuilt from `data/raw/pdf/BGB_2008.pdf` when that file is present.
+`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. Derived files go to `build/` (git-ignored). 1964–1965 are read from `data/interim/print-pdf/`. 2008 is rebuilt from `data/raw/pdf/BGB_2008.pdf` when that file is present.
 
 ```bash
 .venv/bin/bhb gold sample          # 300 print entries → data/curated/gold/sample.xlsx

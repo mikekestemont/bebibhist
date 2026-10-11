@@ -333,15 +333,20 @@ def render_printed_fields(persons, title, subtitle, host: Host | None, year, ext
             if part
         )
         host_name = host.title or "[host record not exported]"
-        host_bit = "In : " + host_name
+        host_bit = "In: " + host_name
         if detail:
             host_bit += ", " + detail
-        bits.append(host_bit + ".")
+        bits.append(_sentence(host_bit))
     else:
         imprint = ", ".join(part for part in (place, publisher, str(year) if year else None, extent) if part)
         if imprint:
-            bits.append(imprint + ".")
+            bits.append(_sentence(imprint))
     return " ".join(bits)
+
+
+def _sentence(text: str) -> str:
+    text = text.rstrip()
+    return text if text.endswith(".") else text + "."
 
 
 def _first(fields: dict[str, list[tuple[int, str]]], tag: str) -> str | None:

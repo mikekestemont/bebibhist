@@ -20,6 +20,7 @@ from bhb.ingest.pdf_volume import convert_pdf
 from bhb.ingest.vsmart import load_vsmart
 from bhb.io_utils import read_jsonl, write_jsonl
 from bhb.merge import merge_records, write_report, write_scheme
+from bhb.mods import export_mods
 from bhb.model import Record
 from bhb.paths import build_dir, repo_root
 
@@ -61,9 +62,23 @@ def main(argv: list[str] | None = None) -> None:
     bench_serve.add_argument("--latency-ms", type=int, default=0, help="extra delay per range response")
     bench_serve.add_argument("--bytes-per-second", type=int, default=0, help="cap each range response")
 
+    export = sub.add_parser("export", help="write the semantic record out for archive and exchange")
+    export_sub = export.add_subparsers(dest="export_command", required=True)
+    mods = export_sub.add_parser("mods", help="MODS 3.8, one collection per BGB year")
+    mods.add_argument("--out", type=Path)
+
     args = parser.parse_args(argv)
     if args.command == "build":
         build()
+        return
+    if args.command == "export" and args.export_command == "mods":
+        source = build_dir() / "records.jsonl"
+        if not source.is_file():
+            raise SystemExit("build/records.jsonl is missing; run bhb build first")
+        destination = args.out or build_dir() / "mods"
+        counts = export_mods(source, destination)
+        total = sum(counts.values())
+        print(f"mods: {total} records in {len(counts)} files → {destination}")
         return
     if args.command == "ingest" and args.source == "straive":
         records = ingest_straive()

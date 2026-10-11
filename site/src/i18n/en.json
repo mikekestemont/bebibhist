@@ -1,0 +1,113 @@
+{
+  "name": "Bibliography of Belgian History",
+  "tagline": "The whole bibliography, from 1952 to the latest years on file, in one search.",
+  "search": "Search",
+  "placeholder": "Gent 1830, béguinages, Leopold II",
+  "examples": ["Gent 1830", "béguinages", "Leopold II Congo", "Brussel", "Liège"],
+  "filters": "Refine",
+  "clear": "Clear filters",
+  "period": "Period",
+  "type": "Type",
+  "source": "Source",
+  "decade": "Decade",
+  "theme": "Theme:",
+  "author": "Author",
+  "fieldTitle": "Title",
+  "subtitle": "Subtitle",
+  "journal": "Journal",
+  "host": "In",
+  "hostSubtitle": "Subtitle",
+  "hostEditors": "Editors",
+  "volume": "Volume",
+  "issue": "Issue",
+  "pages": "Pages",
+  "pubyear": "Year",
+  "place": "Place",
+  "publisher": "Publisher",
+  "extent": "Extent",
+  "results": "results",
+  "sort": "Sort",
+  "sorts": {
+    "relevance": "Relevance",
+    "pubyear-desc": "Publication year, newest",
+    "pubyear-asc": "Publication year, oldest",
+    "year-desc": "BGB volume, newest",
+    "year-asc": "BGB volume, oldest",
+    "author-asc": "Author, A–Z",
+    "title-asc": "Title, A–Z"
+  },
+  "previous": "Previous page",
+  "next": "Next page",
+  "export": "Export",
+  "exportCap": "at most {n}",
+  "exports": {
+    "txt": "Text (.txt)",
+    "bibtex": "BibTeX",
+    "ris": "RIS (Zotero)",
+    "mods": "MODS"
+  },
+  "empty": "No results for this search.",
+  "loading": "Searching…",
+  "missing": "The search index has not been built. In the site directory: npm run index",
+  "back": "Back to results",
+  "printed": "As printed",
+  "notFound": "This record is not in the index.",
+  "beta": "Beta — printed volumes 1952–2008; partial export 2009–2017.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Royal Commission of History. CC BY 4.0.",
+  "commission": "Royal Commission of History",
+  "address": ["Palace of the Academies", "Rue Ducale 1", "B-1000 Brussels"],
+  "phone": "+32 2 550 22 06",
+  "email": "jeanluc.depaepe@gmail.com",
+  "support": "With the support of",
+  "privacy": "Privacy Policy",
+  "privacyUrl": "https://commissionroyalehistoire.be/en/privacy-policy/",
+  "accessibility": "Accessibility statement",
+  "accessibilityUrl": "https://commissionroyalehistoire.be/en/accessibility-statement/",
+  "copyright": "© 2026 Royal Commission of History",
+  "about": "About",
+  "aboutTitle": "About this bibliography",
+  "aboutSections": [
+    {
+      "title": "The project",
+      "paragraphs": [
+        "The <em>Bibliography of Belgian History</em> (<em>Bibliographie de l’Histoire de Belgique</em>, BHB; <em>Bibliografie van de Geschiedenis van België</em>, BGB) records each year the publications on the history of Belgium and of the territories that preceded it: books, articles, chapters, editions of sources and exhibition catalogues. It is compiled under the Royal Commission of History.",
+        "This site searches the whole bibliography at once, in French, Dutch and English. The wording of an entry stays the wording of the printed volume."
+      ]
+    },
+    {
+      "title": "Where the data comes from",
+      "paragraphs": [
+        "The volumes for 1952–2017 were published each year in the <em>Revue belge de philologie et d’histoire</em> / <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. This site includes those printed volumes: the years 1952–2007 as transcribed into XML in 2023, and 1964, 1965 and 2008 taken from the journal PDF.",
+        "From 2009 the entries are also typed into the library catalogue of the State Archives of Belgium. This site holds a partial export of that catalogue for 2009–2017. Later years are not here yet.",
+        "The bibliography is offered under CC BY 4.0. If you reuse it, credit the Royal Commission of History."
+      ]
+    },
+    {
+      "title": "Work in progress",
+      "paragraphs": [
+        "This is a trial version, and we offer it as it stands. The data are incomplete, part of the text comes from recognition of the printed page, and not every field has been checked. Use the site with that reservation."
+      ]
+    }
+  ],
+  "periods": {
+    "aux": "Auxiliary sciences",
+    "general": "General",
+    "ancient": "Antiquity",
+    "medieval": "Middle Ages",
+    "burgundian": "Burgundian period",
+    "early-modern": "Early modern",
+    "contemporary": "Contemporary"
+  },
+  "types": {
+    "article": "Article",
+    "chapter": "Chapter",
+    "book": "Book",
+    "journal-issue": "Journal",
+    "other": "Other"
+  },
+  "sources": {
+    "print-straive": "Printed volumes",
+    "print-pdf": "Printed volumes (PDF)",
+    "vsmart": "State Archives catalogue"
+  }
+}

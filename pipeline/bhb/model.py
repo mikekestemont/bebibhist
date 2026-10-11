@@ -29,6 +29,8 @@ class Host:
     issue: str | None = None
     year: str | None = None
     pages: str | None = None
+    subtitle: str | None = None
+    editors: list[Person] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +89,7 @@ class Record:
     period: list[str] = field(default_factory=list)
     places: list[str] = field(default_factory=list)
     cross_refs: list[str] = field(default_factory=list)
+    links: list[str] = field(default_factory=list)
     is_cross_listing: bool = False
     role: str = "entry"
     pdf: PdfLink | None = None

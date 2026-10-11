@@ -1,0 +1,113 @@
+{
+  "name": "Bibliografie van de Geschiedenis van België",
+  "tagline": "De hele bibliografie, van 1952 tot de laatst aangeleverde jaren, in één zoekactie.",
+  "search": "Zoeken",
+  "placeholder": "Gent 1830, begijnhoven, Leopold II",
+  "examples": ["Gent 1830", "béguinages", "Leopold II Congo", "Brussel", "Liège"],
+  "filters": "Verfijnen",
+  "clear": "Filters wissen",
+  "period": "Periode",
+  "type": "Type",
+  "source": "Bron",
+  "decade": "Decennium",
+  "theme": "Thema:",
+  "author": "Auteur",
+  "fieldTitle": "Titel",
+  "subtitle": "Ondertitel",
+  "journal": "Tijdschrift",
+  "host": "In",
+  "hostSubtitle": "Ondertitel",
+  "hostEditors": "Redactie",
+  "volume": "Deel",
+  "issue": "Aflevering",
+  "pages": "Pagina's",
+  "pubyear": "Jaar",
+  "place": "Plaats",
+  "publisher": "Uitgever",
+  "extent": "Omvang",
+  "results": "resultaten",
+  "sort": "Sorteren",
+  "sorts": {
+    "relevance": "Relevantie",
+    "pubyear-desc": "Publicatiejaar, nieuwste eerst",
+    "pubyear-asc": "Publicatiejaar, oudste eerst",
+    "year-desc": "BGB-deel, nieuwste eerst",
+    "year-asc": "BGB-deel, oudste eerst",
+    "author-asc": "Auteur, A–Z",
+    "title-asc": "Titel, A–Z"
+  },
+  "previous": "Vorige pagina",
+  "next": "Volgende pagina",
+  "export": "Exporteren",
+  "exportCap": "hoogstens {n}",
+  "exports": {
+    "txt": "Tekst (.txt)",
+    "bibtex": "BibTeX",
+    "ris": "RIS (Zotero)",
+    "mods": "MODS"
+  },
+  "empty": "Geen resultaten voor deze zoekactie.",
+  "loading": "Bezig met zoeken…",
+  "missing": "De zoekindex is nog niet gebouwd. In de map site: npm run index",
+  "back": "Terug naar de resultaten",
+  "printed": "Zoals gedrukt",
+  "notFound": "Dit lemma staat niet in de index.",
+  "beta": "Bèta — gedrukte delen 1952–2008; gedeeltelijke export 2009–2017.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Koninklijke Commissie voor Geschiedenis. CC BY 4.0.",
+  "commission": "Koninklijke Commissie voor Geschiedenis",
+  "address": ["Paleis der Academiën", "Hertogsstraat 1", "B-1000 Brussel"],
+  "phone": "+32 2 550 22 06",
+  "email": "jeanluc.depaepe@gmail.com",
+  "support": "Met de steun van",
+  "privacy": "Privacybeleid",
+  "privacyUrl": "https://commissionroyalehistoire.be/nl/privacy-policy/",
+  "accessibility": "Toegankelijkheidsverklaring",
+  "accessibilityUrl": "https://commissionroyalehistoire.be/nl/toegankelijkheidsverklaring/",
+  "copyright": "© 2026 Koninklijke Commissie voor Geschiedenis",
+  "about": "Over",
+  "aboutTitle": "Over deze bibliografie",
+  "aboutSections": [
+    {
+      "title": "Het project",
+      "paragraphs": [
+        "De <em>Bibliografie van de Geschiedenis van België</em> (BGB; in het Frans <em>Bibliographie de l’Histoire de Belgique</em>, BHB) verzamelt elk jaar de publicaties over de geschiedenis van België en van de gebieden die eraan voorafgingen: boeken, artikelen, bijdragen, bronnenedities en tentoonstellingscatalogi. Ze wordt samengesteld onder de Koninklijke Commissie voor Geschiedenis.",
+        "Deze site doorzoekt die bibliografie in één keer, in het Frans, het Nederlands en het Engels. De tekst van een lemma blijft de formulering van het gedrukte deel."
+      ]
+    },
+    {
+      "title": "Herkomst van de gegevens",
+      "paragraphs": [
+        "De delen 1952–2017 verschenen jaarlijks in het <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. Deze site neemt die gedrukte delen op: de jaren 1952–2007 zoals ze in 2023 in XML zijn gezet, en 1964, 1965 en 2008 uit de PDF van het tijdschrift.",
+        "Vanaf 2009 staan de lemma’s ook in de bibliotheekcatalogus van het Rijksarchief. Deze site bevat een gedeeltelijke export van die catalogus voor 2009–2017. Latere jaren zitten hier nog niet in.",
+        "De bibliografie wordt aangeboden onder CC BY 4.0. Bij hergebruik vermeldt u de Koninklijke Commissie voor Geschiedenis."
+      ]
+    },
+    {
+      "title": "Werk in uitvoering",
+      "paragraphs": [
+        "Dit is een proefversie, en we bieden ze aan zoals ze nu is. De gegevens zijn onvolledig, een deel van de tekst komt uit de herkenning van de gedrukte bladzijde, en niet elk veld is al nagekeken. Gebruik de site met dat voorbehoud."
+      ]
+    }
+  ],
+  "periods": {
+    "aux": "Hulpwettenschappen",
+    "general": "Algemeen",
+    "ancient": "Oudheid",
+    "medieval": "Middeleeuwen",
+    "burgundian": "Bourgondische tijd",
+    "early-modern": "Nieuwe tijd",
+    "contemporary": "Hedendaagse tijd"
+  },
+  "types": {
+    "article": "Artikel",
+    "chapter": "Bijdrage",
+    "book": "Boek",
+    "journal-issue": "Tijdschrift",
+    "other": "Overig"
+  },
+  "sources": {
+    "print-straive": "Gedrukte delen",
+    "print-pdf": "Gedrukte delen (PDF)",
+    "vsmart": "Catalogus van het Rijksarchief"
+  }
+}

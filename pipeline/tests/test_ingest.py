@@ -2,7 +2,8 @@ from pathlib import Path
 
 from bhb.ingest.jats import load_jats
 from bhb.ingest.pdf_volume import PdfLine, segment
-from bhb.ingest.vsmart import load_vsmart
+from bhb.ingest.vsmart import load_vsmart, render_printed_fields
+from bhb.model import Host, Person
 from bhb.paths import repo_root
 
 STRAIVE = """<?xml version="1.0"?>
@@ -157,6 +158,52 @@ def test_vsmart_pairs_repeatable_fields_and_codes(tmp_path: Path):
     host = by_id["bhb:vs-16948"]
     assert host.type == "journal-issue"
     assert host.bgb_year == 2013  # file year; "070" is not a BGB year
+
+
+def test_catalogue_line_does_not_double_the_final_stop():
+    line = render_printed_fields(
+        [Person("Bilteryst", "Damien")],
+        "Philippe, comte de Flandre",
+        "Frère de Léopold II",
+        None,
+        2014,
+        "328 p.",
+        "Bruxelles",
+        "Racine",
+    )
+    assert line == "Bilteryst (Damien). Philippe, comte de Flandre: Frère de Léopold II. Bruxelles, Racine, 2014, 328 p."
+    hosted = render_printed_fields(
+        [Person("Murk-Jansen", "Saskia M.")],
+        "Hadewijch",
+        None,
+        Host(title="Holy Women of the Low Countries", pages="663-688"),
+        2010,
+        None,
+        None,
+        None,
+    )
+    assert hosted.endswith("p. 663-688.")
+    assert "In: Holy Women" in hosted
+
+
+def test_editor_group_after_the_title_belongs_to_the_host(tmp_path: Path):
+    path = tmp_path / "BGB_2000.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="ref1080"><label>29753</label><mixed-citation publication-type="other">
+        <person-group person-group-type="author"><string-name><surname>Joldersma</surname> (<given-names>Hermina</given-names>)</string-name></person-group>.
+        <chapter-title>Geestelijke liederen</chapter-title>. In:
+        <person-group person-group-type="editor"><string-name><surname>Willaert</surname> (<given-names>Frank</given-names>)</string-name></person-group>.
+        <source>Veelderhande liedekens</source>. pp. <fpage>58</fpage>–<lpage>73</lpage>. [Cfr. n° 29240]
+        </mixed-citation></ref></ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert [(person.family, person.given) for person in record.persons] == [("Joldersma", "Hermina")]
+    assert record.host is not None
+    assert record.host.title == "Veelderhande liedekens"
+    assert [(person.family, person.given, person.role) for person in record.host.editors] == [("Willaert", "Frank", "editor")]
+    assert "bhb:2000-29240" in record.cross_refs
 
 
 def test_real_1975_volume_round_trips_a_known_entry():

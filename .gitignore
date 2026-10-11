@@ -11,6 +11,10 @@ data/raw/pdf/*.pdf
 
 # Pipeline outputs (regenerated; may exceed GitHub's file-size limit)
 build/
+site/public/pagefind/
+site/public/pagefind-build/
+site/public/pagefind-previous/
+site/dist/
 
 # Students' bulky intermediate outputs (reproducible; archived elsewhere)
 legacy/stage-2026/Notebooks/output_alle_edities_5.csv
