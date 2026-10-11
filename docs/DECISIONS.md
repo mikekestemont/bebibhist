@@ -1,0 +1,84 @@
+# Decision log
+
+One line per decision: date — decision — rationale. Newest at the bottom.
+
+- 2026-10-11 — The site reads the State Archives' catalogue exports as one source among others — nothing depends on a change of catalogue.
+- 2026-10-11 — The retro-digitised years are not imported into the library catalogue; a MARC21 export is produced only on request.
+- 2026-10-11 — Data licence CC BY-NC 4.0; code MIT — the data must not be exploited commercially; the code stays a standard permissive licence.
+- 2026-10-11 — No LLM APIs in the prototype — rules and local open models only, for now.
+- 2026-10-11 — Repository on Mike Kestemont's GitHub account for now — transferable to a KCG organisation later.
+- 2026-10-11 — Archival format MODS 3.8 XML, written by the pipeline — library standard, Zotero-compatible, MARC crosswalk exists.
+- 2026-10-11 — Search: SQLite FTS5 over HTTP range requests, pending benchmark P1; fallback Pagefind — no server, small transfers; GitHub Pages verified to answer `206 Partial Content`.
+- 2026-10-11 — 1964–1965 recovered from the Persée PDF (rule-based) instead of asking the OCR vendor — fast, free, good text layer; 2,637 entries.
+- 2026-10-11 — STRAIVE originals (`2023-12-29/`) are the input, not the internship's `data_hardcoded/` copies — keep provenance clean; the few fixes are re-implemented in code.
+- 2026-10-11 — Category crosswalk postponed — prototype uses printed section path + coarse automatic period facet.
+- 2026-10-11 — BGB 2008 is read with PyMuPDF (`bhb.ingest.pdf_volume`), not pypdf — the yearly InDesign PDF has no Persée outline, and pypdf inserts spaces inside words.
+- 2026-10-11 — STRAIVE fields come from JATS tags; the plain-text parser is used for PDF years and for `mixed-citation` elements that have no children — the tags are imperfect but still locate title, persons and imprint more reliably than a second parse of the same string.
+- 2026-10-11 — `f1441.xml` journal records are stored with `role=host` — they exist so article links resolve; they are not bibliography entries.
+- 2026-10-11 — A trailing `(éd.)` / `(ed.)` / `(red.)` / `(dir.)` marks every person in that author block as editor — that is how the printed volumes mark an edited work.
+- 2026-10-11 — Journal host records from `f1441.xml` have `bgb_year` null — they are not part of one BGB year.
+- 2026-10-11 — The coarse period facet is assigned during `bhb merge` — the rules are deterministic and do not depend on the human gold-standard pass.
+- 2026-10-11 — Gold scoring falls back to the 40 corrected 1992 entries until `data/curated/gold/gold.xlsx` exists — that is the only hand-checked set in the repository; the 300-entry pass still has to be scheduled.
+- 2026-10-11 — The search UI copies the Commission site’s header, crest and footer — Mike asked the bibliography to look like https://commissionroyalehistoire.be/fr/, and allowed the banner, header and footer to be reused rather than redesigned.
+- 2026-10-11 — Web lookup of links, DOIs and abstracts is a later extension, starting with the more recent volumes — feasible once titles and years are reliable; not part of the prototype.
+- 2026-10-11 — CC BY-NC 4.0 applies to the bibliography as a whole — one licence for every year, the site and every download, with the credit on every page; code stays MIT.
+- 2026-10-11 — Person disambiguation and authority identification are a later pass — the prototype stores each name as printed; clustering authors and attaching VIAF/ISNI/ORCID comes afterwards.
+- 2026-10-11 — Journal grouping, publisher grouping and the same for series and corporate authors are that same later pass — the prototype keeps the printed form; the P4 journal key is only a facet label.
+- 2026-10-11 — Prototype search is Pagefind, not live SQLite-over-HTTP — a rare term took 19 s cold on a Fast 4G simulation (40 serial range requests) and facet counts for a common word moved 55 MB (docs/BENCHMARK.md).
+- 2026-10-11 — A map of Belgium with a grid to restrict the search is a later extension — the prototype keeps places as text; cells need coordinates that the prototype does not assign.
+- 2026-10-11 — The site is trilingual in French, Dutch and English, including the search — the toggle switches labels and documentation and keeps the query; one index covers every language in the records, with synonym expansion across equivalents.
+- 2026-10-11 — The later map search follows the list-and-map pattern of sites such as Airbnb — the map grid and the facets restrict one shared result list; the prototype still has no coordinates.
+- 2026-10-11 — The first local search is one Pagefind index for every language in the records — splitting by language would hide a Dutch title from a French session; place synonyms are written into the index so Gent also matches Gand and Ghent.
+- 2026-10-11 — The prototype does not stem and does not expand the query — French stemming turned béguinages into the abbreviation B.; accents are folded so Liège and Liege match. Place names already stored in the index stay. Embeddings stay a later step.
+- 2026-10-11 — The page loads the Commission’s Typekit kit so Sabon and Proxima Nova are the real faces, and the result list is set smaller than their 18px body — a bibliography page should read dense; the green bar uses the same extra-condensed menu face as the Commission site.
+- 2026-10-11 — The crest is drawn with its own transparency, without a white plate. The footer follows the Commission page: pale panel, footer crest, address and the four supporting marks, then a green legal bar; it stays at the bottom of a short page.
+- 2026-10-11 — A printed section heading is labelled “Thème” (Thema, Theme) in front of the heading — the rubric is a classification theme, and without the label it reads as part of the citation.
+- 2026-10-11 — A catalogue line ends with one full stop, and “In:” has no space before the colon. The record page lists the parsed fields (author, title, journal, year, and so on) and puts “as printed · BGB” last. Paging keeps the filter column where it is.
+- 2026-10-11 — The semantic record, written out as MODS, comes before more website work — the site, a MARC file for V-Smart, and the Zenodo/Zotero deposit are all projections of that record; the parsers should fill every field the sources actually contain.
+- 2026-10-11 — A JATS `uri` is stored as a link, and `bhb export mods` writes one MODS collection per BGB year — the URL is a field of its own, and the printed citation stays the text the volume shows.
+- 2026-10-11 — A chapter copies the host volume’s subtitle and editors onto its own host field — those live on the linked book (for example Faems and Hogenbirk on *Ene andre tale*), and the record page and MODS read the chapter.
+- 2026-10-11 — Search results sort by one Pagefind key: relevance, publication year or BGB year in either direction, author, or title — Pagefind applies a single precomputed key, so the two chronologies are separate orders rather than a from–to filter.
+- 2026-10-11 — A hyphen in the search box becomes a space — Pagefind treats a word that begins with “-” as excluded, so “Anne-Laure Van Bruaene” matched nothing although the name is in the bibliography.
+- 2026-10-11 — A result can be saved in the browser as plain text, BibTeX, RIS or a short MODS record — the file is built from the fields already on the hit; the full MODS collections remain the archival export from `bhb export mods`.
+- 2026-10-11 — Export stays on the record page, and each file names this bibliography as its source — a button on every hit crowded the list; the text file, BibTeX `source`, RIS database name and MODS record content source carry the name of the bibliography in the language of the page.
+- 2026-10-11 — An About page states where the data come from and that the site is offered as it stands — the prototype is incomplete, and a reader should see that before treating a result as finished.
+- 2026-10-11 — The filter column keeps every value in place during a search, and a new query on the search page does not scroll — empty facets were dropped as the counts arrived, so the list jumped, and changing the hash scrolled the page to the top.
+- 2026-10-11 — A subtitle on the record page starts with a capital — the catalogue stores the 200e subtitle in lowercase after the title, as in Madoc’s “tijdschrift voor mediëvistiek”.
+- 2026-10-11 — A search can be saved as one file, from a button at the top and the bottom of the list, up to 500 hits — each hit is fetched when the reader asks, so a common word does not pull the whole index.
+- 2026-10-11 — The record page keeps the whole printed citation — cutting it at 700 characters stopped contents lists such as the Goffinet volume in the middle of a sentence. Only a few hundred lines are that long.
+- 2026-10-11 — A “Cfr. / Voir / Zie n°” pointer is left out of the citation on the site, and an editor group after “In:” is shown as the mother publication’s editors — the number only points at another entry in the printed volume, and the names before the host title are not authors of the chapter.
+- 2026-10-11 — The category crosswalk is brought forward (phase 2, `docs/IMPLEMENTATION_PLAN.md`) and supersedes the 11 Oct postponement — the theme is missing for every 2009–2017 record and wrong for thousands of print entries; the bibliography's editor reviews a pre-filled table instead of building it.
+- 2026-10-11 — The modern BHB scheme (V-Smart, printed since 1993) is the single target, shown as two facets: period and theme (≤ 10 values) — old schemes do not map cleanly at leaf level, but they do map to period × sector.
+- 2026-10-11 — Old headings are mapped once, at heading level, in `data/curated/heading_crosswalk.csv`; entries are classified one by one only under headings that are too broad — a few hundred reviewed rows instead of ≈69,000 entries.
+- 2026-10-11 — A local scikit-learn classifier pre-fills the crosswalk and classifies broad headings, with a minimum probability (code ≥ 0.70; theme at ≥ 90 % held-out precision, never below 0.60); below it the entry stays unclassified — Mike asked for a confidence floor, and an empty value is more honest than a guess.
+- 2026-10-11 — The site is deployed by one GitHub Actions workflow that rebuilds from the committed inputs and uploads a Pages artifact; the index is never committed — it is ≈180,000 files, and every rebuild would add them to git history again.
+- 2026-10-11 — The deployed site does not load the Commission's Typekit kit until the Commission agrees and registers the domain — Adobe kits only serve registered domains; the CSS fallback faces are used meanwhile.
+- 2026-10-11 — The SQLite benchmark code (`bench/`, `bhb bench`) is removed; `docs/BENCHMARK.md` stays as the record — Pagefind was chosen, and the dead path adds weight.
+- 2026-10-11 — `scikit-learn` is the optional extra `classify`, installed by the Pages workflow from the start — the workflow's install line is `pipeline[classify]`, and the classifier arrives in the same phase.
+- 2026-10-11 — A 2008 line matches a known heading only when `token_set_ratio` ≥ 80 and the line is at most three tokens longer than that label — the ratio alone is 100 for any citation that contains a short label such as "les sciences".
+- 2026-10-11 — Part I is auxiliary sciences only when the title is the bibliography part; Généralités is general, and Histoire par époques takes its period from the headings under it — the roman numeral changed meaning between 1952 and 1962.
+- 2026-10-11 — `1789` is contemporary only in a heading that also names the era (`à nos jours`, `tot heden`, contemporain) — a date range such as 1789–1970 is not a period.
+- 2026-10-11 — Theme rows come from the French wording, not the sector letter; a region name counts as local, and `II.C` stays local beside a longer sector — the letters are not the same sector in every period.
+- 2026-10-11 — English scheme labels are drafts, marked in `scheme.csv` `note` — there is no reviewed English scheme; the editor or Mike correct them.
+- 2026-10-11 — A numbered heading whose scheme node has no label is compared with its children's labels — V-Smart leaves `I.B.2.` empty and puts Inventaires, Guides and Catalogues on the children.
+- 2026-10-11 — The classifier caps word features at 100,000 and character features at 80,000, uses saga for 30 iterations, and reads at most 4,000 characters — otherwise the Pages build does not finish in a few minutes.
+- 2026-10-11 — A heading key drops spaces and date ranges, and the range is removed before the French/Dutch split — an OCR space in Limbourg must match, and a dash in 1789–1972 is not the bilingual dash.
+- 2026-10-11 — Heading numbers from before 1993 are not proposed as modern codes, and a path that also occurs before 1993 is not auto-approved — those numbers belong to an older scheme.
+- 2026-10-11 — A code with fewer than 30 training entries is merged into its parent, and a root that stays under 30 is left out of the model — a class that small is not a stable label.
+- 2026-10-11 — The printed heading's period limits which codes the classifier may assign under that heading — a medieval section should not receive a contemporary code.
+- 2026-10-11 — Running `bhb categorise draft` again does not clear a filled approval — a reviewer, or the number-and-label rule, has to be undone by emptying the cell.
+- 2026-10-11 — A theme without a code is not stored: no threshold from 0.60 upward reached 90% held-out precision (best 64.5% at 0.79) — the floor is mandatory, and a wrong theme is worse than an empty one.
+- 2026-10-11 — A from–to publication-year filter with a histogram replaces the decade filter, and the source filter is dropped — Mike's request; the decade was too coarse and the source does not interest readers. This supersedes "the two chronologies are separate orders rather than a from–to filter".
+- 2026-10-11 — Fonts are self-hosted open families (EB Garamond; Barlow Semi Condensed / Barlow Condensed) instead of fallbacks — without the Commission's kit, the fallbacks differ per operating system.
+- 2026-10-11 — Fielded search (author, title, journal/book) uses prefixed tokens in the Pagefind index — Pagefind has no fields; this needs no server and no second index.
+- 2026-10-11 — Similar publications come from precomputed TF-IDF neighbours over titles, with a cosine floor of 0.30; embeddings stay a later option — lightweight, runs in CI, no model download.
+- 2026-10-11 — The result list borrows interaction patterns from the BNTL (inline expansion, search within results, type icons, results per page, author links), not its look — Mike's request.
+- 2026-10-11 — Similar publications are deferred and need their own proposal before any work; this supersedes the TF-IDF decision above for now — Mike expects quality and presentation questions that a quick floor-based version would not settle.
+- 2026-10-11 — A code whose scheme node has no label is shown as its theme — parents such as II.B. have no printed wording, and an empty label was displayed as “Not classified”.
+- 2026-10-11 — Data licence CC BY-NC 4.0, replacing CC BY 4.0, so that the data cannot be exploited commercially. The code stays MIT.
+- 2026-10-11 — The review version is not indexed, and indexing is switched on when the Commission approves the public launch — a robots meta tag and a text-and-data-mining reservation keep this trial out of search engines and mining.
+- 2026-10-11 — The interface face is Sofia Sans Semi Condensed (Extra Condensed in the menu bar), replacing Barlow — Barlow is a DIN-style face and read differently from the Commission's Proxima Nova Condensed; Sofia Sans is close in shape and width (open licence, variable weight 400–700, 66 KB for both).
+- 2026-10-11 — The citation face includes dashes and quotation marks — without them every citation fell back to another face for those glyphs.
+- 2026-10-11 — Raw inputs are read from `BHB_RAW`, otherwise `../bebibhist-raw` — this repository must be publishable without the original deliveries.
+- 2026-10-11 — `bhb release` packs the derived JSON Lines for a `data-` tag — the site is built from that release, not from the raw deliveries.
+- 2026-10-11 — Pages builds from the latest `data-` release, and pytest runs without the raw folder — the public repository has no Python build and no original deliveries.
