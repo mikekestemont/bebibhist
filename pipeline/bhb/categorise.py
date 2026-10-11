@@ -139,6 +139,16 @@ def choose_tau_theme(scored: list[tuple[dict[str, float], set[str]]]) -> tuple[f
     return TAU_THEME_FLOOR, None, 0.0
 
 
+def precision_curve(scored: list[tuple[dict[str, float], set[str]]]) -> list[str]:
+    lines = ["| τ | Theme precision | Coverage |", "|---:|---:|---:|"]
+    for step in range(60, 100, 2):
+        tau = step / 100
+        precision, coverage = theme_stats(scored, tau)
+        shown = "—" if precision is None else f"{precision:.1%}"
+        lines.append(f"| {tau:.2f} | {shown} | {coverage:.1%} |")
+    return lines
+
+
 def theme_stats(scored: list[tuple[dict[str, float], set[str]]], tau: float) -> tuple[float | None, float]:
     predicted = correct = covered = 0
     for probs, truth in scored:
@@ -270,10 +280,19 @@ def categorise(
     if model is not None and heldout:
         raw = _predict(model, [item[0] for item in heldout])
         theme_cases, code_hits, code_tried, code_ps = _heldout_scores(raw, classes, heldout, theme_map, code_tau)
+        # The theme threshold governs a theme stored without a code, so it is measured on the entries that do not clear the code threshold.
+        theme_only = [
+            case for code_p, case in zip(code_ps, theme_cases) if code_p < code_tau
+        ]
+        metrics["theme_curve"] = precision_curve(theme_only)
         if theme_tau is None:
-            theme_tau, theme_precision, theme_coverage = choose_tau_theme(theme_cases)
+            theme_tau, theme_precision, theme_coverage = choose_tau_theme(theme_only)
+            if theme_precision is None or theme_precision < 0.90:
+                metrics["theme_shortfall"] = (theme_tau, theme_precision)
+                theme_tau = 1.01
+                theme_precision, theme_coverage = theme_stats(theme_only, theme_tau)
         else:
-            theme_precision, theme_coverage = theme_stats(theme_cases, theme_tau)
+            theme_precision, theme_coverage = theme_stats(theme_only, theme_tau)
         code_precision = code_hits / code_tried if code_tried else None
         either = sum(
             1
@@ -638,7 +657,7 @@ def _report(records: list[Record], rows: list[dict], metrics: dict) -> str:
     lines = [
         "# Classification",
         "",
-        f"Code threshold: {metrics['tau_code']:.2f}. Theme threshold: {metrics['tau_theme']:.2f}.",
+        f"Code threshold: {metrics['tau_code']:.2f}. Theme threshold: {_tau(metrics['tau_theme'])}.",
         f"Training entries: {metrics['trained']}. Held-out entries: {metrics['heldout']}.",
         "",
         _metric("Held-out code precision", metrics.get("code_precision")),
@@ -647,12 +666,28 @@ def _report(records: list[Record], rows: list[dict], metrics: dict) -> str:
         _metric("Held-out theme coverage", metrics.get("theme_coverage")),
         _metric("Held-out entries with a code or a theme", metrics.get("either_coverage")),
         "",
+    ]
+    shortfall = metrics.get("theme_shortfall")
+    if shortfall:
+        best_tau, best_precision = shortfall
+        shown = "—" if best_precision is None else f"{best_precision:.1%}"
+        lines.append(
+            f"No theme threshold reached 90% precision. The best was {shown} at {best_tau:.2f}, "
+            "so a theme without a code was not stored."
+        )
+        lines.append("")
+    curve = metrics.get("theme_curve") or []
+    if curve:
+        lines.extend(["Theme precision is measured where the code stayed under its threshold.", ""])
+        lines.extend(curve)
+        lines.append("")
+    lines.extend([
         "Target: at least 90% of entries with a theme in every year, and at most 25% of those themes machine-derived.",
         "",
         "| Year | Source | Entries | With a theme | Person | Rule | V-Smart | Machine | Unclassified | Machine share |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
-    ]
-    for (year, source), bucket in sorted(buckets):
+    ])
+    for (year, source), bucket in sorted(buckets.items()):
         themed = bucket["themed"]
         share = bucket["machine"] / themed if themed else 0
         lines.append(
@@ -759,6 +794,12 @@ def _float(value) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _tau(value: float) -> str:
+    if value >= 1:
+        return "not used (no value reached 90% precision)"
+    return f"{value:.2f}"
 
 
 def _metric(label: str, value: float | None) -> str:
