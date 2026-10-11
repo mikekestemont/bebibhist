@@ -9,7 +9,7 @@ from lxml import etree
 
 from bhb.labels import repair_labels
 from bhb.model import Host, PdfLink, Person, Provenance, Publisher, Record, Series
-from bhb.parse.citation import cross_references, parse_citation
+from bhb.parse.citation import cross_listing_numbers, cross_references, parse_citation
 from bhb.paths import rel
 from bhb.sections import is_see_also_heading, path_of, push_heading, see_also_numbers
 from bhb.textutil import clean_heading, squash, superscript
@@ -176,6 +176,11 @@ def _ref_to_record(
     children = [child for child in citation if isinstance(child.tag, str)]
     if not children:
         return _from_plain_text(record, printed)
+    stub = cross_listing_numbers(printed)
+    if stub is not None:
+        record.is_cross_listing = True
+        record.provenance.confidence = 0.9
+        return record, stub
     return _from_tags(record, citation, printed)
 
 

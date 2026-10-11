@@ -87,12 +87,47 @@ def cross_references(text: str) -> tuple[str, list[tuple[int | None, str]]]:
     return _cross_refs(text)
 
 
+_STUB_START = re.compile(r"^\s*\[?\s*(?:voyez|voir|zie|cfr|cf)\b", re.IGNORECASE)
+_STUB_WORDS = re.compile(
+    r"(?:voyez|voir|zie|cfr|cf)\.?\s*(?:aussi|ook)?|\bn[°ºor]\.?s?\b",
+    re.IGNORECASE,
+)
+
+
+def cross_listing_numbers(text: str) -> list[tuple[int | None, str]] | None:
+    """Numbers when the citation is only a see-also stub, else None.
+
+    The printed stub ``Voyez aussi. — Zie ook : 2872, 2886`` has no ``n°``,
+    so the ordinary pointer pattern never saw it and ``is_cross_listing``
+    stayed false for every year.
+    """
+    original = squash(text)
+    if not original or not _STUB_START.match(original):
+        return None
+    stripped = _STUB_WORDS.sub(" ", original)
+    letters = re.sub(r"[^A-Za-zÀ-ÿ]", "", stripped)
+    if len(letters) >= 12:
+        return None
+    numbers = re.findall(r"\d{3,6}(?:bis|ter|quater)?", original, flags=re.IGNORECASE)
+    if not numbers:
+        return None
+    return [(None, number.lower() if number[-1:].isalpha() else number) for number in numbers]
+
+
 def parse_citation(text: str) -> ParsedCitation:
     parsed = ParsedCitation()
     original = squash(text)
     if not original:
         parsed.flags.append("empty")
         parsed.confidence = 0.05
+        return parsed
+
+    stub = cross_listing_numbers(original)
+    if stub is not None:
+        parsed.is_cross_listing = True
+        parsed.cross_refs = stub
+        parsed.type = "other"
+        parsed.confidence = 0.9
         return parsed
 
     without_refs, parsed.cross_refs = _cross_refs(original)

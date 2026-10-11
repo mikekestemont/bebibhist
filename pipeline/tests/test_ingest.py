@@ -251,3 +251,17 @@ def test_see_also_line_is_a_secondary_section_not_a_heading(tmp_path: Path):
     ]
     assert records["100"].secondary_sections == [folklore]
     assert "see-also-unresolved" in records["101"].provenance.flags
+
+
+def test_tagged_voyez_aussi_is_a_cross_listing(tmp_path: Path):
+    path = tmp_path / "BGB_1952.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Généralités — Algemeenheden</title>
+        <ref id="v"><label>2866</label><mixed-citation publication-type="other">
+        <source>Voyez aussi. — Zie ook : 2872, 2886, 2887.</source>
+        </mixed-citation></ref></ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert record.is_cross_listing is True
+    assert record.cross_refs == ["bhb:1952-2872", "bhb:1952-2886", "bhb:1952-2887"]

@@ -190,6 +190,12 @@ def test_cross_listing_stub():
     assert parsed.cross_refs == [(None, "22721")]
 
 
+def test_voyez_aussi_without_numero_is_a_cross_listing():
+    parsed = parse_citation("Voyez aussi. — Zie ook : 2872, 2886, 2887.")
+    assert parsed.is_cross_listing is True
+    assert parsed.cross_refs == [(None, "2872"), (None, "2886"), (None, "2887")]
+
+
 def test_multiple_page_ranges():
     parsed = parse_citation(
         "Bockstaele (Paul). Bibliografie. Scientiarum Historia, 5, 1963, "
