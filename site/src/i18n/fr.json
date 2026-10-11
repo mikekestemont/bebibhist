@@ -31,6 +31,7 @@
     "crosswalk": "Suggéré à partir de la rubrique imprimée. La ligne n’a pas été revue.",
     "see-also": "Suggéré à partir d’un renvoi. Ce n’est pas une relecture."
   },
+  "authorMatch": "Les noms sont cherchés tels qu’ils sont écrits. Les homonymes ne sont pas séparés et les variantes d’orthographe ne sont pas réunies.",
   "themes": {
     "reference": "Bibliographies et sciences auxiliaires",
     "general": "Travaux généraux et historiographie",
@@ -83,6 +84,8 @@
   "missing": "L’index de recherche n’est pas construit. Dans le dossier site : npm run index",
   "back": "Retour aux résultats",
   "recordLink": "Notice complète",
+  "within": "Chercher dans ces résultats",
+  "removeChip": "Retirer",
   "printed": "Tel qu’imprimé",
   "notFound": "Cette notice est introuvable dans l’index.",
   "beta": "Bêta — volumes imprimés 1952–2008 ; export partiel 2009–2017.",

@@ -37,6 +37,7 @@
   let dragFrom = $state<number | null>(null);
   let dragTo = $state<number | null>(null);
   let openId = $state("");
+  let withinBox = $state("");
 
   const pageSizes = [10, 20, 50, 100];
   let page = $derived(Math.max(1, Number(params.get("page") || "1")));
@@ -139,7 +140,8 @@
     if (hits.length === 0) loading = true;
     const filters = activeFilters();
     const sort = sortOf(params.get("sort"));
-    const asked = query.trim() ? searchQuery(query, searchField(fieldChoice)) : null;
+    const askedText = [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ");
+    const asked = askedText ? searchQuery(askedText, searchField(fieldChoice)) : null;
     const response = await engine.search(asked, {
       ...(filters ? { filters } : {}),
       ...(sort ? { sort } : {}),
@@ -202,7 +204,11 @@
     go("/search", next);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean }[] {
+  function authorParts(value: string): string[] {
+    return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
+  }
+
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -224,7 +230,7 @@
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
-    return pairs.flatMap(([label, value, italic]) => (value ? [{ label, value, italic }] : []));
+    return pairs.flatMap(([label, value, italic]) => (value ? [{ label, value, italic, authors: label === text.author }] : []));
   }
 
   async function exportList(kind: ExportKind) {
@@ -362,6 +368,27 @@
     go("/search", next);
   }
 
+  function addWithin(event: SubmitEvent) {
+    event.preventDefault();
+    const words = withinBox.trim();
+    if (!words) return;
+    const next = new URLSearchParams(params);
+    next.append("more", words);
+    next.delete("page");
+    if (!next.get("q") && query) next.set("q", query);
+    withinBox = "";
+    go("/search", next);
+  }
+
+  function removeMore(index: number) {
+    const next = new URLSearchParams(params);
+    const kept = next.getAll("more").filter((_, item) => item !== index);
+    next.delete("more");
+    next.delete("page");
+    for (const chip of kept) next.append("more", chip);
+    go("/search", next);
+  }
+
   function submit(event: SubmitEvent) {
     event.preventDefault();
     const next = new URLSearchParams(path === "/search" ? params : undefined);
@@ -460,6 +487,19 @@
     </div>
     {#if total > EXPORT_CAP}<span class="export-cap">{text.exportCap.replace("{n}", String(EXPORT_CAP))}</span>{/if}
   </div>
+{/snippet}
+
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean })}
+  {#if row.authors}
+    {@const names = authorParts(row.value)}
+    {#each names as name, index}
+      {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>
+    {/each}
+  {:else if row.italic}
+    <em>{row.value}</em>
+  {:else}
+    {row.value}
+  {/if}
 {/snippet}
 
 {#snippet categoryBlock(hit: Hit)}
@@ -565,7 +605,7 @@
           {#each rows(record) as row}
             <div>
               <dt>{row.label}</dt>
-              <dd>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</dd>
+              <dd>{@render fieldValue(row)}</dd>
             </div>
           {/each}
         </dl>
@@ -645,6 +685,16 @@
       </div>
     {/snippet}
     <section>
+      <form class="within" onsubmit={addWithin}>
+        <input bind:value={withinBox} type="search" aria-label={text.within} placeholder={text.within} />
+      </form>
+      {#if params.getAll("more").length}
+        <ul class="chips refine">
+          {#each params.getAll("more") as chip, index}
+            <li><button type="button" onclick={() => removeMore(index)}>{chip} <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+          {/each}
+        </ul>
+      {/if}
       {#if loading && hits.length === 0}
         <p>{text.loading}</p>
       {:else if missing}
@@ -671,7 +721,7 @@
                     {#each rows(hit) as row}
                       <div>
                         <dt>{row.label}</dt>
-                        <dd>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</dd>
+                        <dd>{@render fieldValue(row)}</dd>
                       </div>
                     {/each}
                   </dl>

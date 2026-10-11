@@ -126,7 +126,19 @@ h1 {
   cursor: pointer;
 }
 
+.within { margin: 0 0 0.7rem; }
+
+.within input {
+  width: min(24rem, 100%);
+  border: 1px solid #b7c9bc;
+  border-radius: 2px;
+  padding: 0.35rem 0.55rem;
+  font-size: 14px;
+}
+
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0; list-style: none; }
+
+.refine { margin: 0 0 0.7rem; }
 
 .chips button {
   background: #ebf6ee;
@@ -451,6 +463,8 @@ h1 {
 }
 
 .citation em, .fields dd em, h1 em { font-style: italic; }
+
+a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 .pager { display: flex; gap: 0.35rem; align-items: center; margin: 0; font-size: 13px; }
 
