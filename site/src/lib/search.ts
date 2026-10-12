@@ -141,7 +141,9 @@ let engine: Pagefind | null = null;
 export async function loadEngine(): Promise<Pagefind> {
   if (engine) return engine;
   const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
-  const loaded = await importer(`${import.meta.env.BASE_URL}pagefind/pagefind.js`);
+  // Resolve against the page, not the bundle. A relative import from /assets/
+  // would request /assets/pagefind/, where the index is not deployed.
+  const loaded = await importer(new URL(`${import.meta.env.BASE_URL}pagefind/pagefind.js`, document.baseURI).href);
   await loaded.init();
   await loaded.filters();
   engine = loaded;
