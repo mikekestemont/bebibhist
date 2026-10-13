@@ -26,6 +26,7 @@ export interface Hit {
     pages?: string;
     pubyear?: string;
     yearFromVolume?: string;
+    yearMachine?: string;
     place?: string;
     publisher?: string;
     extent?: string;
@@ -92,9 +93,34 @@ function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
 }
 
+/** A contribution's year, taken from the collected volume, when the printed line stops at the pages. */
+export function withHostYear(citation: string, year: string | undefined, machine: string | undefined): string {
+  if (machine !== "1" || !year || yearIn(citation, year)) return citation;
+  const pages = citation.match(/([,.…])(\s*)(pp?\.\s*\d)/i);
+  if (pages && pages.index !== undefined) {
+    const at = pages.index;
+    return `${citation.slice(0, at)}${pages[1]} ${year}, ${pages[3]}${citation.slice(at + pages[0].length)}`;
+  }
+  if (citation.endsWith(".")) return `${citation.slice(0, -1)}, ${year}.`;
+  return `${citation}, ${year}`;
+}
+
+function yearIn(text: string, year: string): boolean {
+  return new RegExp(`(?<!\\d)${year}(?!\\d)`).test(text);
+}
+
 /** Journal and monograph titles are italic; an article or chapter title stays roman. A subtitle is italic in the citation line. */
-export function citationHtml(citation: string, meta: { title?: string; subtitle?: string; host?: string; kind?: string }): string {
-  let html = escapeHtml(presentCitation(citation || ""));
+export function citationHtml(
+  citation: string,
+  meta: { title?: string; subtitle?: string; host?: string; kind?: string; pubyear?: string; yearMachine?: string },
+  yearNote = "",
+): string {
+  const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
+  let html = escapeHtml(shown);
+  if (meta.yearMachine === "1" && meta.pubyear && yearIn(shown, meta.pubyear)) {
+    const note = escapeHtml(yearNote);
+    html = html.replace(meta.pubyear, `<span class="derived" title="${note}">${meta.pubyear}</span>`);
+  }
   const host = meta.host?.trim();
   if (host) {
     const safe = escapeHtml(host);

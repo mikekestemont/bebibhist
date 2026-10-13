@@ -82,3 +82,4 @@ One line per decision: date — decision — rationale. Newest at the bottom.
 - 2026-10-11 — Raw inputs are read from `BHB_RAW`, otherwise `../bebibhist-raw` — this repository must be publishable without the original deliveries.
 - 2026-10-11 — `bhb release` packs the derived JSON Lines for a `data-` tag — the site is built from that release, not from the raw deliveries.
 - 2026-10-11 — Pages builds from the latest `data-` release, and pytest runs without the raw folder — the public repository has no Python build and no original deliveries.
+- 2026-10-12 — A contribution that cites its collected volume takes that volume’s publication year when the titles match, and the result list shows the year on the citation, marked as supplied — the printed line often stops at the pages, and the year lives only on the volume entry. The printed text itself is unchanged.

@@ -18,7 +18,11 @@ body { margin: 0; }
   flex-direction: column;
 }
 
-#app > main { flex: 1; }
+#app > main {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.45;
+}
 
 button, input, select { font: inherit; color: inherit; }
 
@@ -77,25 +81,27 @@ a { color: #9a3d16; }
   font-size: 0.9rem;
 }
 
-.wrap { max-width: 68rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 1.75rem 1.5rem 3.25rem; }
 
-.home { max-width: 40rem; margin: 2rem auto; }
+.home { max-width: 40rem; margin: 2.5rem auto; }
 
 h1 {
   font-family: "EB Garamond", Palatino, Georgia, serif;
   font-weight: 400;
   color: #f36f3a;
-  font-size: 2rem;
-  line-height: 1.15;
+  font-size: 2.1rem;
+  line-height: 1.18;
   letter-spacing: -0.015em;
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.65rem;
 }
 
 .search {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.55rem;
   margin: 1.25rem 0;
 }
+
+main .search { margin: 1.6rem 0; }
 
 .search select.field {
   flex: none;
@@ -108,7 +114,7 @@ h1 {
   color: #303133;
   border: 1px solid #486249;
   border-radius: 2px;
-  padding: 0.55rem 2.4rem 0.55rem 0.75rem;
+  padding: 0.6rem 2.45rem 0.6rem 0.8rem;
   cursor: pointer;
 }
 
@@ -117,7 +123,7 @@ h1 {
   color: #303133;
   background: #fff;
   border: 1px solid #486249;
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   border-radius: 2px;
 }
 
@@ -127,57 +133,57 @@ h1 {
   background: #486249;
   color: #fff;
   border: 0;
-  padding: 0.55rem 0.9rem;
+  padding: 0.6rem 0.95rem;
   cursor: pointer;
 }
 
-.within { margin: 0 0 0.7rem; }
+.within { margin: 0 0 0.95rem; }
 
 .within input {
   width: min(24rem, 100%);
   border: 1px solid #b7c9bc;
   border-radius: 2px;
-  padding: 0.35rem 0.55rem;
-  font-size: 14px;
+  padding: 0.4rem 0.6rem;
+  font-size: 15px;
 }
 
-.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0; list-style: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; list-style: none; }
 
-.refine { margin: 0 0 0.7rem; }
+.refine { margin: 0 0 0.9rem; }
 
 .chips button {
   background: #ebf6ee;
   border: 0;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.65rem;
   cursor: pointer;
 }
 
 .layout {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 1.75rem;
   align-items: start;
 }
 
 .filters { position: sticky; top: 0.75rem; align-self: start; }
 
-.filters h2 { font-size: 1rem; margin: 0 0 0.8rem; }
+.filters h2 { font-size: 1.1rem; margin: 0 0 0.9rem; }
 
-.filters fieldset { border: 0; margin: 0 0 1rem; padding: 0; }
+.filters fieldset { border: 0; margin: 0 0 1.25rem; padding: 0; }
 
-.filters legend { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.3rem; }
+.filters legend { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.4rem; }
 
-.filters label { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.15rem 0; font-size: 14px; }
+.filters label { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.22rem 0; font-size: 15px; }
 
 .filters em {
   color: #6b6e73;
   font-style: normal;
-  font-size: 14px;
+  font-size: 15px;
   margin-left: 0.25rem;
   font-variant-numeric: tabular-nums;
 }
 
-.years { border: 0; margin: 0 0 1rem; padding: 0; }
+.years { border: 0; margin: 0 0 1.25rem; padding: 0; }
 
 .hist { display: block; width: 100%; height: 40px; }
 
@@ -187,14 +193,62 @@ h1 {
 
 .handles { position: relative; height: 1.4rem; }
 
+.track {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #b7c9bc;
+}
+
+.track .chosen {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: #486249;
+}
+
+.track i {
+  position: absolute;
+  top: 50%;
+  width: 1.5px;
+  height: 11px;
+  margin-top: -5px;
+  background: #486249;
+}
+
 .handles input[type="range"] {
   position: absolute;
   left: 0;
+  top: 0;
   width: 100%;
+  height: 100%;
   margin: 0;
   pointer-events: none;
   appearance: none;
   background: transparent;
+}
+
+.handles input[type="range"]::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+}
+
+.handles input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: 0;
 }
 
 .handles input[type="range"]::-webkit-slider-thumb {
@@ -217,42 +271,42 @@ h1 {
   cursor: pointer;
 }
 
-.year-fields { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+.year-fields { display: flex; gap: 0.65rem; margin-top: 0.5rem; }
 
-.year-fields label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 14px; }
+.year-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 15px; }
 
 .year-fields input {
   width: 5.2rem;
   border: 1px solid #b7c9bc;
   border-radius: 2px;
-  padding: 0.2rem 0.35rem;
-  font-size: 14px;
+  padding: 0.3rem 0.45rem;
+  font-size: 15px;
 }
 
 .clear { background: transparent; color: #486249; padding-left: 0; }
 
-.count { color: #6b6e73; margin: 0; font-size: 13px; }
+.count { color: #6b6e73; margin: 0; font-size: 14px; }
 
 .results-head {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 0.65rem 1rem;
-  margin-bottom: 0.35rem;
+  gap: 0.8rem 1.15rem;
+  margin-bottom: 0.65rem;
 }
 
 .tools {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   margin-left: auto;
 }
 
 .results-foot {
   display: flex;
   justify-content: flex-end;
-  margin-top: 0.85rem;
+  margin-top: 1.1rem;
 }
 
 .sort {
@@ -261,14 +315,14 @@ h1 {
   gap: 0.4rem;
   margin: 0;
   color: #303133;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .sort select {
   appearance: none;
   min-width: 12rem;
-  height: 1.7rem;
-  font-size: 13px;
+  height: 1.85rem;
+  font-size: 14px;
   color: #303133;
   background-color: #ebf6ee;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23486249' stroke-width='1.4' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
@@ -293,7 +347,7 @@ h1 {
 }
 
 .result {
-  padding: 0.55rem 0;
+  padding: 0.85rem 0;
   border-bottom: 1px solid #e4e6e4;
   color: inherit;
 }
@@ -323,14 +377,14 @@ h1 {
 
 .result-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
-.expanded { padding: 0.35rem 0 0.6rem 1.6rem; }
+.expanded { padding: 0.5rem 0 0.8rem 1.7rem; }
 
 .expanded-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 1rem;
-  margin-top: 0.7rem;
+  margin-top: 0.95rem;
 }
 
 .type-mark {
@@ -357,7 +411,7 @@ h1 {
 .record-export {
   display: flex;
   justify-content: flex-end;
-  margin-top: 0.85rem;
+  margin-top: 1.05rem;
 }
 
 .export { position: relative; }
@@ -368,9 +422,9 @@ h1 {
   color: #303133;
   border: 1px solid #b7c9bc;
   border-radius: 2px;
-  height: 1.7rem;
-  padding: 0 0.5rem;
-  font-size: 13px;
+  height: 1.85rem;
+  padding: 0 0.6rem;
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -406,8 +460,8 @@ h1 {
   text-align: left;
   background: none;
   border: 0;
-  padding: 0.28rem 0.6rem;
-  font-size: 13px;
+  padding: 0.4rem 0.75rem;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -419,17 +473,17 @@ h1 {
 
 .result strong { font-weight: 500; }
 
-.result small { display: block; color: #6b6e73; margin-top: 0.2rem; }
+.result small { display: block; color: #6b6e73; margin-top: 0.3rem; }
 
-.imprint { color: #6b6e73; margin: 0.8rem 0 0; }
+.imprint { color: #6b6e73; margin: 1.05rem 0 0; }
 
-.fields { margin: 1rem 0 0; }
+.fields { margin: 1.2rem 0 0; }
 
 .fields div {
   display: grid;
   grid-template-columns: 8.5rem 1fr;
-  gap: 0.35rem 1rem;
-  padding: 0.28rem 0;
+  gap: 0.4rem 1.05rem;
+  padding: 0.42rem 0;
   border-bottom: 1px solid #e4e6e4;
 }
 
@@ -438,24 +492,29 @@ h1 {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 13px;
+  font-size: 14px;
   color: #486249;
 }
 
-.fields dd { margin: 0; font-size: 15px; }
+.fields dd { margin: 0; font-size: 16px; }
 
 .theme {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.category-line { font-size: 15px; }
+.category-line { font-size: 16px; }
+
+.derived {
+  border-bottom: 1px dotted #486249;
+  cursor: help;
+}
 
 .suggested {
-  margin-left: 0.35rem;
-  font-size: 13px;
+  margin-left: 0.4rem;
+  font-size: 14px;
   color: #486249;
   border-bottom: 1px dotted #486249;
   cursor: help;
@@ -463,15 +522,15 @@ h1 {
 
 .citation {
   font-family: "EB Garamond", Palatino, Georgia, serif;
-  font-size: 16px;
-  line-height: 1.35;
+  font-size: 17px;
+  line-height: 1.4;
 }
 
 .citation em, .fields dd em, h1 em { font-style: italic; }
 
 a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
-.pager { display: flex; gap: 0.35rem; align-items: center; margin: 0; font-size: 13px; }
+.pager { display: flex; gap: 0.45rem; align-items: center; margin: 0; font-size: 14px; }
 
 .pager button {
   display: inline-flex;
@@ -480,9 +539,9 @@ a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
   color: #303133;
   border: 1px solid #b7c9bc;
   border-radius: 2px;
-  height: 1.7rem;
-  padding: 0 0.5rem;
-  font-size: 13px;
+  height: 1.85rem;
+  padding: 0 0.6rem;
+  font-size: 14px;
 }
 
 .results-export {
@@ -492,7 +551,7 @@ a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
   margin: 0;
 }
 
-.export-cap { color: #6b6e73; font-size: 13px; }
+.export-cap { color: #6b6e73; font-size: 14px; }
 
 .footer {
   background: #ebf6ee;
@@ -555,17 +614,17 @@ a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .about h1,
 .about h2 { text-align: left; }
 
-.about h1 { font-size: 1.75rem; }
+.about h1 { font-size: 1.82rem; }
 
 .about h2 {
   font-family: "EB Garamond", Palatino, Georgia, serif;
   font-weight: 400;
-  font-size: 1.25rem;
+  font-size: 1.32rem;
   color: #486249;
-  margin: 1.5rem 0 0.35rem;
+  margin: 1.85rem 0 0.55rem;
 }
 
-.about p { margin: 0.4rem 0 0; }
+.about p { margin: 0.7rem 0 0; }
 
 .about em {
   font-family: "EB Garamond", Palatino, Georgia, serif;
@@ -578,7 +637,7 @@ a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .layout { grid-template-columns: 1fr; }
   .filters { position: static; }
   .brand strong { display: none; }
-  h1 { font-size: 1.7rem; }
+  h1 { font-size: 1.78rem; }
   .footer { grid-template-columns: 1fr; padding: 1.75rem 1.25rem; }
   .legal { padding: 0.75rem 1.25rem; }
 }

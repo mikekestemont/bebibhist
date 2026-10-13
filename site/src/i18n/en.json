@@ -2,8 +2,7 @@
   "name": "Bibliography of Belgian History",
   "tagline": "The whole bibliography, from 1952 to the latest years on file, in one search.",
   "search": "Search",
-  "placeholder": "Gent 1830, béguinages, Leopold II",
-  "examples": ["Gent 1830", "béguinages", "Leopold II Congo", "Brussel", "Liège"],
+  "placeholder": "e.g. Leopold III",
   "filters": "Refine",
   "clear": "Clear filters",
   "period": "Period",
@@ -14,6 +13,7 @@
   "yearFrom": "From",
   "yearTo": "To",
   "yearFromVolume": "Year of the volume",
+  "yearFromHost": "Taken from the collected volume this contribution cites. It is not printed on this line.",
   "fieldSearch": "Search in",
   "fields": {
     "all": "All text",

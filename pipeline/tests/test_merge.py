@@ -55,6 +55,61 @@ def test_chapter_copies_the_book_subtitle_and_editors():
     ]
 
 
+def test_chapter_borrows_the_collected_volume_year_and_keeps_the_printed_line():
+    book = Record(
+        id="bhb:1990-53024",
+        source="print-straive",
+        bgb_year=1990,
+        type="book",
+        title="Lokeren vroeger. Een huldeboek voor Vedastus Verstegen",
+        year=1990,
+        printed="Van Campenhout (Nico), ed. Lokeren vroeger. Een huldeboek. Brugge, Marc Van de Wiele, 1990, 152 p.",
+    )
+    printed = (
+        "Van Campenhout (Nico). Anderhalve eeuw historisch onderzoek over Lokeren en omgeving. "
+        "In : Lokeren vroeger, pp. 90–92. [Cfr. n° 53024]."
+    )
+    chapter = Record(
+        id="bhb:1990-53047",
+        source="print-straive",
+        bgb_year=1990,
+        type="chapter",
+        title="Anderhalve eeuw historisch onderzoek over Lokeren en omgeving",
+        host=Host(pages="90–92"),
+        cross_refs=["bhb:1990-53024"],
+        printed=printed,
+    )
+    see_also = Record(
+        id="bhb:1990-53048",
+        source="print-straive",
+        bgb_year=1990,
+        type="article",
+        title="Zin en mogelijkheid van geschiedschrijving over de Nederlanden",
+        year=1990,
+    )
+    other = Record(
+        id="bhb:1990-53031",
+        source="print-straive",
+        bgb_year=1990,
+        type="chapter",
+        host=Host(pages="163–188"),
+        cross_refs=["bhb:1990-53048"],
+        printed=(
+            "Van Peteghem (P.). De verzameling van de ordonnanties. "
+            "In : Lambrecht (D.), ed. Lopend rechtshistorisch …, pp. 163–188. [Cfr. n° 53048]."
+        ),
+    )
+    merged, _labels = merge_records([book, chapter, see_also, other], [], [])
+    found = next(record for record in merged if record.id == chapter.id)
+    assert found.year == 1990
+    assert found.host is not None and found.host.year == "1990"
+    assert found.printed == printed
+    assert "year-from-host" in found.provenance.flags
+    skipped = next(record for record in merged if record.id == other.id)
+    assert skipped.year is None
+    assert "year-from-host" not in skipped.provenance.flags
+
+
 def test_heading_report_warns_when_a_top_heading_is_not_a_part():
     records = [
         Record(

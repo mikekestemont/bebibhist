@@ -208,7 +208,7 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: boolean }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -230,7 +230,11 @@
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
-    return pairs.flatMap(([label, value, italic]) => (value ? [{ label, value, italic, authors: label === text.author }] : []));
+    return pairs.flatMap(([label, value, italic]) =>
+      value
+        ? [{ label, value, italic, authors: label === text.author, derived: label === text.pubyear && meta.yearMachine === "1" }]
+        : [],
+    );
   }
 
   async function exportList(kind: ExportKind) {
@@ -306,6 +310,22 @@
     const from = dragFrom ?? (Number(params.get("from")) || domain.min);
     const to = dragTo ?? (Number(params.get("to")) || domain.max);
     return { from: Math.min(from, to), to: Math.max(from, to) };
+  }
+
+  function yearPercent(year: number, domain: { min: number; max: number }): number {
+    const span = domain.max - domain.min;
+    if (span <= 0) return 0;
+    return ((year - domain.min) / span) * 100;
+  }
+
+  function yearTicks(domain: { min: number; max: number }): number[] {
+    const span = domain.max - domain.min;
+    if (span <= 0) return [];
+    const step = span > 100 ? 20 : 10;
+    const start = Math.ceil(domain.min / step) * step;
+    const marks: number[] = [];
+    for (let year = start; year <= domain.max; year += step) marks.push(yearPercent(year, domain));
+    return marks;
   }
 
   function histogram() {
@@ -432,11 +452,6 @@
     localStorage.setItem("bhb-lang", next);
   }
 
-  function example(value: string) {
-    query = value;
-    go("/search", new URLSearchParams({ q: value }));
-  }
-
   $effect(() => {
     document.documentElement.lang = lang;
     document.title = text.name;
@@ -489,7 +504,7 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: boolean })}
   {#if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
@@ -497,6 +512,8 @@
     {/each}
   {:else if row.italic}
     <em>{row.value}</em>
+  {:else if row.derived}
+    <span class="derived" title={text.yearFromHost}>{row.value}</span>
   {:else}
     {row.value}
   {/if}
@@ -598,7 +615,7 @@
       <h1>
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
       </h1>
-      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta)}</p>
+      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost)}</p>
       <div class="record-export">{@render exporter(record)}</div>
       {#if rows(record).length}
         <dl class="fields">
@@ -644,6 +661,12 @@
           {/each}
         </svg>
         <div class="handles">
+          <div class="track" aria-hidden="true">
+            <span class="chosen" style="left: {yearPercent(chosen.from, domain)}%; width: {yearPercent(chosen.to, domain) - yearPercent(chosen.from, domain)}%"></span>
+            {#each yearTicks(domain) as tick}
+              <i style="left: {tick}%"></i>
+            {/each}
+          </div>
           <input type="range" min={domain.min} max={domain.max} value={chosen.from} aria-label={text.yearFrom} oninput={(event) => { dragFrom = Number(event.currentTarget.value); }} onchange={(event) => commitYears(Number(event.currentTarget.value), chosen.to)} onkeydown={(event) => nudgeYear("from", event)} />
           <input type="range" min={domain.min} max={domain.max} value={chosen.to} aria-label={text.yearTo} oninput={(event) => { dragTo = Number(event.currentTarget.value); }} onchange={(event) => commitYears(chosen.from, Number(event.currentTarget.value))} onkeydown={(event) => nudgeYear("to", event)} />
         </div>
@@ -713,7 +736,7 @@
           <article class="result">
             <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
               {@render typeIcon(hit.meta.kind)}
-              <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta)}</span>
+              <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost)}</span>
               <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
             </button>
             {#if open}
@@ -762,11 +785,6 @@
       <input bind:value={query} type="search" placeholder={text.placeholder} aria-label={text.search} />
       <button type="submit">{text.search}</button>
     </form>
-    <ul class="chips">
-      {#each text.examples as sample}
-        <li><button type="button" onclick={() => example(sample)}>{sample}</button></li>
-      {/each}
-    </ul>
     <p class="about-link"><a href="#/about">{text.aboutTitle}</a></p>
   </main>
 {/if}

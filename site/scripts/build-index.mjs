@@ -69,6 +69,7 @@ for await (const line of lines) {
       pages: record.host?.pages || "",
       pubyear: record.year ? String(record.year) : record.host?.year || "",
       yearFromVolume: when.fromVolume ? "1" : "",
+      yearMachine: (record.provenance?.flags || []).includes("year-from-host") ? "1" : "",
       place: record.publisher?.place || "",
       publisher: record.publisher?.name || "",
       extent: record.extent || "",

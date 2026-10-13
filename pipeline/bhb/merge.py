@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
 from bhb.facets import assign_period
 from bhb.ingest.vsmart import render_printed
-from bhb.model import Person, Record
+from bhb.model import Host, Person, Record
 from bhb.sections import is_part_heading
+from bhb.textutil import fold
+
+_IN = re.compile(r"\bIn\s*:", re.IGNORECASE)
+_HOST_CUT = re.compile(r"\bpp?\.\s*\d|\[?\s*(?:cfr|voir|zie)\b", re.IGNORECASE)
+_FOUR_DIGIT_YEAR = re.compile(r"(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)")
 
 HOST_MISSING = "[host record not exported]"
 
@@ -52,11 +58,70 @@ def merge_records(
         if record.source == "vsmart" and not record.bhb_codes and record.id in referenced:
             record.role = "host"
         record.period = assign_period(record.section_path, record.bhb_codes)
+    borrow_host_years(records, by_id)
+    for record in records:
         record.provenance.flags = list(dict.fromkeys(record.provenance.flags))
         if record.source == "vsmart":
             record.printed = render_printed(record)
     labels = code_labels or {}
     return records, labels
+
+
+def borrow_host_years(records: list[Record], by_id: dict[str, Record] | None = None) -> int:
+    """Fill a contribution's year from the collected volume it cites.
+
+    Printed chapters often end at the pages and point at the volume with
+    ``Cfr. n°``. The year stays on that volume. The printed line is left as it is.
+    """
+    index = by_id if by_id is not None else {record.id: record for record in records}
+    borrowed = 0
+    for record in records:
+        if record.role != "entry" or record.is_cross_listing or record.type == "book":
+            continue
+        if record.year or _FOUR_DIGIT_YEAR.search(record.printed or ""):
+            continue
+        printed = record.printed or ""
+        if not _IN.search(printed):
+            continue
+        years: set[int] = set()
+        for ref in record.cross_refs:
+            target = index.get(ref)
+            if target is None or not target.year or not target.title:
+                continue
+            if _host_title_matches(printed, target.title):
+                years.add(int(target.year))
+        if len(years) != 1:
+            continue
+        year = years.pop()
+        record.year = year
+        if record.host is None:
+            record.host = Host(year=str(year))
+        elif not record.host.year:
+            record.host.year = str(year)
+        record.provenance.flags.append("year-from-host")
+        borrowed += 1
+    return borrowed
+
+
+def _host_title_matches(printed: str, title: str) -> bool:
+    host = _host_phrase(printed)
+    name = fold(title)
+    if len(host) < 8 or len(name) < 12:
+        return False
+    words = name.split()
+    needle = " ".join(words[:4])
+    if len(needle) >= 12 and needle in host:
+        return True
+    if name[:12] in host:
+        return True
+    return len(host) >= 20 and host in name
+
+
+def _host_phrase(printed: str) -> str:
+    match = _IN.search(printed)
+    if not match:
+        return ""
+    return fold(_HOST_CUT.split(printed[match.end() :], maxsplit=1)[0])
 
 
 def write_scheme(path: Path, records: list[Record], labels: dict[str, dict[str, str | None]]) -> None:
