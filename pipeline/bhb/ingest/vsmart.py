@@ -32,8 +32,17 @@ _ACCENT = re.compile(r"[éèêëàâùûôîïç]")
 _HOST = re.compile(r"(?:Bib:)?2[:^](\d+)")
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _PAGES = re.compile(r"p{1,2}\.\s*([0-9][\d\s\-–]*)", re.IGNORECASE)
-_VOLUME = re.compile(r"jg\.\s*([IVXLCDM]+|\d+)", re.IGNORECASE)
-_ISSUE = re.compile(r"nr\.\s*([\d/\-–]+)", re.IGNORECASE)
+_VOLUME = re.compile(
+    r"(?<!\w)(?:jg\.?|jaargang|vol\.?|volume|tome|t\.|deel|dl\.|bd\.|band)\s*\[?([IVXLCDM]+|\d+)(?!\w)",
+    re.IGNORECASE,
+)
+_ANNEE = re.compile(r"(?<!\w)(\d{1,3})\s*(?:e|è|ème|eme|de|ste)\s+(?:année|jaargang)(?!\w)", re.IGNORECASE)
+_BARE_VOLUME = re.compile(r"^\s*\d{4}(?:\s*[-/]\s*\d{2,4})?\s*,\s*(\d{1,4})\s*(?=,|$)")
+_ISSUE = re.compile(
+    r"(?<!\w)(?:nrs?\.?|n°s?\.?|no\.|n\.|issue|afl\.?|fasc\.?|part)\s*([\d/\-–]+)",
+    re.IGNORECASE,
+)
+_BARE_ISSUE = re.compile(r"^\s*,\s*(\d{1,3}(?:\s*[-/–]\s*\d{1,3})?)\s*(?=,|$)")
 _RECORD = "BibDocumentsUniMarcB.Record"
 
 _ROLES = (
@@ -281,12 +290,13 @@ def _parse_linkage(text: str) -> dict:
     found: dict = {}
     if match := _YEAR.search(text):
         found["year"] = int(match.group(1))
-    if match := _VOLUME.search(text):
-        found["volume"] = match.group(1)
-    elif match := re.match(r"\s*\d{4}\s*,\s*(\d{1,4})\s*,", text):
-        found["volume"] = match.group(1)
+    volume = _VOLUME.search(text) or _ANNEE.search(text) or _BARE_VOLUME.match(text)
+    if volume:
+        found["volume"] = volume.group(1)
     if match := _ISSUE.search(text):
-        found["issue"] = match.group(1)
+        found["issue"] = match.group(1).strip("-–/")
+    elif volume and (match := _BARE_ISSUE.match(text[volume.end() :])):
+        found["issue"] = squash(match.group(1))
     if match := _PAGES.search(text):
         found["pages"] = squash(match.group(1)).strip(" .")
     if re.search(r"s\.p\.", text, re.IGNORECASE):
@@ -328,6 +338,7 @@ def render_printed_fields(persons, title, subtitle, host: Host | None, year, ext
             for part in (
                 host.volume,
                 str(year) if year else host.year,
+                host.issue,
                 f"p. {host.pages}" if host.pages else None,
             )
             if part

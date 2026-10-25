@@ -5,7 +5,7 @@ import pytest
 from bhb.ingest.jats import load_jats
 from bhb.ingest.pdf_volume import PdfLine, segment
 from bhb.textutil import fold
-from bhb.ingest.vsmart import load_vsmart, render_printed_fields
+from bhb.ingest.vsmart import _parse_linkage, load_vsmart, render_printed_fields
 from bhb.model import Host, Person
 from bhb.paths import raw_available, raw_root
 
@@ -205,6 +205,45 @@ def test_catalogue_line_does_not_double_the_final_stop():
     )
     assert hosted.endswith("p. 663-688.")
     assert "In: Holy Women" in hosted
+
+
+@pytest.mark.parametrize(
+    ("linkage", "volume", "issue"),
+    [
+        ("2012, vol. 128, nr. 2, p. 135-159", "128", "2"),
+        ("2013, jg. 49, nr. 1, p. 3-7", "49", "1"),
+        ("2013, tome 27, 1, p. 3-27", "27", "1"),
+        ("2013, Tome LXX (Exercices 2011-2012), p. 3-14", "LXX", None),
+        ("2013, t. 43, p. 217-226", "43", None),
+        ("2013, deel 116, afl. 2", "116", "2"),
+        ("2013, 89e année, n° 3, p. 158-166", "89", "3"),
+        ("2013, 41ème année, n° 161, p. 2-20", "41", "161"),
+        ("2013, vol. 4, issue 1, p. 23-38", "4", "1"),
+        ("2013, 20, 1, p. 1-28", "20", "1"),
+        ("2012-2013, 24, p. 6-10", "24", None),
+        ("2013, tome 95, n°s 400-401, p. 669-680", "95", "400-401"),
+        ("2013, n° 97, p. 2-5", None, "97"),
+        ("2005, 1-2, p. 53-55", None, None),
+    ],
+)
+def test_catalogue_linkage_keeps_volume_and_issue(linkage, volume, issue):
+    found = _parse_linkage(linkage)
+    assert found.get("volume") == volume
+    assert found.get("issue") == issue
+
+
+def test_catalogue_line_orders_volume_year_issue_pages():
+    line = render_printed_fields(
+        [Person("Kestemont", "Mike")],
+        "Auteursherkenning met rijmwoorden in de Middelnederlandse Arthur- en Karelepiek",
+        "Eerherstel voor Icarus?",
+        Host(volume="128", issue="2", pages="135-159"),
+        2012,
+        None,
+        None,
+        None,
+    )
+    assert line.endswith("In: [host record not exported], 128, 2012, 2, p. 135-159.")
 
 
 def test_editor_group_after_the_title_belongs_to_the_host(tmp_path: Path):
