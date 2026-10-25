@@ -159,7 +159,8 @@
     const filters = activeFilters();
     const sort = sortOf(params.get("sort"));
     const askedText = [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ");
-    const asked = askedText ? searchQuery(askedText, searchField(fieldChoice)) : null;
+    const inside = params.get("in");
+    const asked = [askedText ? searchQuery(askedText, searchField(fieldChoice)) : "", inside ? `hk_${inside}` : ""].filter(Boolean).join(" ") || null;
     const response = await engine.search(asked, {
       ...(filters ? { filters } : {}),
       ...(sort ? { sort } : {}),
@@ -226,7 +227,7 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -245,14 +246,38 @@
       [text.place, meta.place],
       [text.publisher, meta.publisher],
       [text.extent, meta.extent],
+      [text.contents, meta.kind === "book" && meta.container ? text.contentsCount.replace("{n}", String(Number(meta.containerCount) - 1)) : ""],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
     return pairs.flatMap(([label, value, italic]) =>
       value
-        ? [{ label, value, italic, authors: label === text.author, derived: derivedNote(label, meta) }]
+        ? [{
+            label,
+            value,
+            italic,
+            authors: label === text.author || label === text.hostEditors,
+            derived: derivedNote(label, meta),
+            container: containerLink(label, meta),
+          }]
         : [],
     );
+  }
+
+  /** The host title of a chapter, and the contents line of a volume, open the volume's entries. */
+  function containerLink(label: string, meta: Hit["meta"]): string | undefined {
+    if (!meta.container) return undefined;
+    const title = meta.kind === "book" ? meta.title : meta.host;
+    if (!(meta.kind === "chapter" && label === text.host) && label !== text.contents) return undefined;
+    return `#/search?in=${meta.container}&inTitle=${encodeURIComponent(title || "")}`;
+  }
+
+  function removeInside() {
+    const next = new URLSearchParams(params);
+    next.delete("in");
+    next.delete("inTitle");
+    next.delete("page");
+    go("/search", next);
   }
 
   function derivedNote(label: string, meta: Hit["meta"]): string | undefined {
@@ -528,8 +553,10 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string })}
-  {#if row.authors}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string })}
+  {#if row.container}
+    <a class="container-link" href={row.container} title={text.containerWhy}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>
+  {:else if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
       {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>
@@ -781,6 +808,11 @@
       <form class="within" onsubmit={addWithin}>
         <input bind:value={withinBox} type="search" aria-label={text.within} placeholder={text.within} />
       </form>
+      {#if params.get("in")}
+        <ul class="chips refine">
+          <li><button type="button" onclick={removeInside}>{text.inVolume} <em>{params.get("inTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+        </ul>
+      {/if}
       {#if params.getAll("more").length}
         <ul class="chips refine">
           {#each params.getAll("more") as chip, index}

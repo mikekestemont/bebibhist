@@ -33,6 +33,8 @@ export interface Hit {
     extent?: string;
     kind?: string;
     similar?: string;
+    container?: string;
+    containerCount?: string;
   };
 }
 

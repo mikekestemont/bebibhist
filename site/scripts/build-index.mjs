@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
@@ -21,6 +22,7 @@ if (!index) {
   process.exit(1);
 }
 
+const containers = await countContainers(recordsPath);
 let indexed = 0;
 let skipped = 0;
 const input = createReadStream(recordsPath, { encoding: "utf8" });
@@ -34,6 +36,7 @@ for await (const line of lines) {
   }
   const citation = record.printed || compose(record);
   const when = chronology(record);
+  const container = containerOf(record, containers);
   const content = expand([
     citation,
     record.title,
@@ -48,7 +51,7 @@ for await (const line of lines) {
   ].filter(Boolean).join("\n"), synonyms);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    content: `${record.id}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}`,
+    content: `${record.id}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}`,
     language,
     meta: {
       id: record.id,
@@ -76,6 +79,8 @@ for await (const line of lines) {
       extent: record.extent || "",
       kind: record.type || "",
       similar: similarLine(record),
+      container: container?.hash || "",
+      containerCount: container ? String(container.count) : "",
     },
     filters: filters(record),
     sort: sortKeys(record),
@@ -188,6 +193,38 @@ function people(record) {
 
 function peopleLine(record) {
   return nameLine(record.persons);
+}
+
+/**
+ * A collected volume and its chapters share one key: the volume's id when the chapter links to it,
+ * otherwise the host title within the same BGB year. Journals are left out.
+ */
+function containerKey(record) {
+  if (record.role !== "entry" || record.is_cross_listing) return null;
+  if (record.type === "book") return record.id;
+  if (record.type !== "chapter") return null;
+  if (record.host?.id) return record.host.id;
+  const title = fold(record.host?.title || "");
+  return title ? `${record.bgb_year}|${title}` : null;
+}
+
+async function countContainers(path) {
+  const counts = new Map();
+  const lines = readline.createInterface({ input: createReadStream(path, { encoding: "utf8" }), crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    const key = containerKey(JSON.parse(line));
+    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}
+
+/** Only a volume with at least two entries in it (itself and a chapter, or two chapters) gets a link. */
+function containerOf(record, counts) {
+  const key = containerKey(record);
+  const count = key ? counts.get(key) || 0 : 0;
+  if (count < 2) return null;
+  return { hash: createHash("sha1").update(key).digest("hex").slice(0, 12), count };
 }
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */

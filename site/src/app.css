@@ -563,7 +563,8 @@ main .search { margin: 1.6rem 0; }
 
 .citation em, .fields dd em, h1 em { font-style: italic; }
 
-a.author-link { text-decoration: underline; text-underline-offset: 0.12em; }
+a.author-link,
+a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 .pager { display: flex; gap: 0.45rem; align-items: center; margin: 0; font-size: 14px; }
 
