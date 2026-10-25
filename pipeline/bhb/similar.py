@@ -25,7 +25,15 @@ DEFAULT_K = 10
 MIN_TOKENS = 2
 
 # e5 models expect a prefix; "query: " is the one for symmetric similarity.
-_PREFIX = {"intfloat/multilingual-e5-small": "query: ", "intfloat/multilingual-e5-base": "query: "}
+_PREFIX = {
+    "intfloat/multilingual-e5-small": "query: ",
+    "intfloat/multilingual-e5-base": "query: ",
+    "intfloat/multilingual-e5-large": "query: ",
+}
+_MAX_TOKENS = 128
+
+_FRENCH = frozenset("le la les des du et aux au sur dans une un pour par".split())
+_DUTCH = frozenset("het een van en op voor naar uit bij met over tot".split())
 
 
 def embed_text(record: Record) -> str | None:
@@ -70,6 +78,7 @@ def encode(
 
         started = time.time()
         model = SentenceTransformer(model_name, device=_device())
+        model.max_seq_length = min(model.max_seq_length or _MAX_TOKENS, _MAX_TOKENS)
         prefix = _PREFIX.get(model_name, "")
         fresh = model.encode(
             [prefix + texts[index] for index in missing],
@@ -152,6 +161,63 @@ def apply(records: list[Record], found: dict[str, list[tuple[str, float]]]) -> i
     return count
 
 
+def language_of(text: str) -> str | None:
+    """French or Dutch from function words; None when unclear or when the title gives both."""
+    words = fold(text).split()
+    french = sum(word in _FRENCH for word in words)
+    dutch = sum(word in _DUTCH for word in words)
+    if french and dutch:
+        return None
+    if french:
+        return "fr"
+    if dutch:
+        return "nl"
+    return None
+
+
+def checked_code(record: Record) -> str | None:
+    """The record's own classification, when a person or the printed volume set it."""
+    for category in record.categories:
+        if category.code and not category.machine:
+            return category.code
+    return record.bhb_codes[0] if record.bhb_codes else None
+
+
+def quality(records: list[Record], found: dict[str, list[tuple[str, float]]]) -> dict[str, float]:
+    """How often a neighbour shares the record's checked code (two and three levels deep), and how often
+    it is in the other language. Codes are a rough proxy for subject: a good neighbour can sit under
+    another heading."""
+    by_id = {record.id: record for record in records}
+    same2 = same3 = coded = 0
+    crossed = paired = 0
+    for record_id, pairs in found.items():
+        source = by_id[record_id]
+        code = checked_code(source)
+        language = language_of(embed_text(source) or "")
+        for other_id, _ in pairs:
+            other = by_id[other_id]
+            other_code = checked_code(other)
+            if code and other_code:
+                coded += 1
+                same2 += _prefix(code, 2) == _prefix(other_code, 2)
+                same3 += _prefix(code, 3) == _prefix(other_code, 3)
+            other_language = language_of(embed_text(other) or "")
+            if language and other_language:
+                paired += 1
+                crossed += language != other_language
+    return {
+        "same_period": same2 / coded if coded else 0.0,
+        "same_section": same3 / coded if coded else 0.0,
+        "coded_pairs": coded,
+        "other_language": crossed / paired if paired else 0.0,
+        "language_pairs": paired,
+    }
+
+
+def _prefix(code: str, depth: int) -> str:
+    return ".".join(code.strip(".").split(".")[:depth])
+
+
 def write_report(path: Path, records: list[Record], vectors: Vectors, found: dict, model_name: str, sample: int = 30, seed: int = 7) -> None:
     by_id = {record.id: record for record in records}
     firsts = np.array([pairs[0][1] for pairs in found.values() if pairs]) if found else np.zeros(0)
@@ -167,6 +233,14 @@ def write_report(path: Path, records: list[Record], vectors: Vectors, found: dic
     ]
     for q in (0.1, 0.25, 0.5, 0.75, 0.9):
         lines.append(f"| p{int(q * 100)} | {np.quantile(firsts, q):.3f} | {np.quantile(tenths, q):.3f} |" if len(firsts) else f"| p{int(q * 100)} | – | – |")
+    scores = quality(records, found)
+    lines += [
+        "",
+        f"Neighbours with the same checked code, two levels deep (e.g. III.D): **{scores['same_period']:.1%}**; "
+        f"three levels deep (e.g. III.D.2): **{scores['same_section']:.1%}** ({scores['coded_pairs']} pairs).",
+        f"Neighbours in the other language (French/Dutch, from function words): **{scores['other_language']:.1%}** "
+        f"({scores['language_pairs']} pairs).",
+    ]
     lines += ["", f"## {sample} random records", ""]
     rng = random.Random(seed)
     for record_id in rng.sample(sorted(found), min(sample, len(found))):

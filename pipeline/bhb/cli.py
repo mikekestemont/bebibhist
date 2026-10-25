@@ -250,7 +250,7 @@ def _similar(model_name: str | None, k: int | None, batch_size: int, records_pat
     found = neighbours(vectors, k or DEFAULT_K)
     count = apply(records, found)
     write_jsonl(path, records)
-    report = build_dir() / "similar_report.md"
+    report = build_dir() / f"similar_report.{model_name.replace('/', '__')}.md"
     write_report(report, records, vectors, found, model_name)
     print(f"similar: {count} entries with neighbours → {path}")
     print(f"report: {report}")

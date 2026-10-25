@@ -48,3 +48,30 @@ def test_apply_writes_ids_and_scores_that_survive_a_round_trip():
     restored = record_from_dict(record.to_dict())
     assert restored.similar == ["bhb:2000-2", "bhb:2000-3"]
     assert restored.similar_scores == [0.91, 0.88]
+
+
+def test_language_of_reads_function_words_and_leaves_bilingual_titles_out():
+    from bhb.similar import language_of
+
+    assert language_of("Les béguinages de Flandre") == "fr"
+    assert language_of("Het begijnhof van Gent") == "nl"
+    assert language_of("Het begijnhof van Gent. Le béguinage de Gand") is None
+    assert language_of("Vesalius") is None
+
+
+def test_quality_counts_shared_codes_and_language_switches():
+    from bhb.model import Category
+    from bhb.similar import quality
+
+    def coded(record_id, title, code):
+        return _record(record_id, title, categories=[Category(code=code, source="vsmart", primary=True)])
+
+    records = [
+        coded("a", "Les béguinages de Flandre", "III.B.1.d."),
+        coded("b", "Het begijnhof van Gent", "III.B.1.d."),
+        coded("c", "La guerre de 1914", "III.D.1.e."),
+    ]
+    scores = quality(records, {"a": [("b", 0.9), ("c", 0.8)]})
+    assert scores["same_period"] == 0.5
+    assert scores["same_section"] == 0.5
+    assert scores["other_language"] == 0.5
