@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, type Hit, type SearchField } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -30,6 +30,8 @@
   let engine: Awaited<ReturnType<typeof loadEngine>> | null = null;
   let scope = "";
   let exportOpen = $state("");
+  let similarSource = $state<Hit | null>(null);
+  let similarHits = $state<{ hit: Hit; score: number }[]>([]);
   let exporting = $state(false);
   let listed: { data: () => Promise<Hit> }[] = [];
   let yearCounts = $state<Record<string, number>>({});
@@ -78,7 +80,7 @@
     params = new URLSearchParams(search);
     query = params.get("q") || "";
     fieldChoice = params.get("field") || "all";
-    if (!query && path.startsWith("/record/")) {
+    if (!query && (path.startsWith("/record/") || path.startsWith("/similar/"))) {
       query = new URLSearchParams(sessionStorage.getItem("bhb-search") || "").get("q") || "";
     }
   }
@@ -125,6 +127,22 @@
       loading = !record;
       const found = await findRecord(engine, id);
       if (found) record = found;
+      loading = false;
+      return;
+    }
+    if (path.startsWith("/similar/")) {
+      const id = decodeURIComponent(path.slice("/similar/".length));
+      if (similarSource?.meta.id !== id) {
+        similarSource = recall(id);
+        similarHits = [];
+      }
+      loading = true;
+      const source = (await findRecord(engine, id)) || similarSource;
+      similarSource = source;
+      const wanted = source ? similarOf(source.meta) : [];
+      const found = await Promise.all(wanted.map(async (item) => ({ hit: recall(item.id) || (await findRecord(engine!, item.id)), score: item.score })));
+      similarHits = found.filter((item): item is { hit: Hit; score: number } => item.hit !== null);
+      remember(similarHits.map((item) => item.hit));
       loading = false;
       return;
     }
@@ -566,6 +584,50 @@
   </span>
 {/snippet}
 
+{#snippet wand(hit: Hit)}
+  {#if similarOf(hit.meta).length}
+    <a class="wand" href={"#/similar/" + encodeURIComponent(hit.meta.id)} title={text.similarWhy}>
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M2.5 13.5l7.5-7.5M9 5l2 2M12 1.5v2.5M10.75 2.75h2.5M14 6v2M13 7h2M6 1.5v2M5 2.5h2" />
+      </svg>
+      <span>{text.similar}</span>
+    </a>
+  {/if}
+{/snippet}
+
+{#snippet resultRow(hit: Hit, score?: number)}
+  {@const open = openId === hit.meta.id}
+  <article class="result">
+    <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
+      {@render typeIcon(hit.meta.kind)}
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost)}</span>
+      {#if score !== undefined}<span class="score" title={text.similarScore}>{score.toFixed(2)}</span>{/if}
+      <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+    </button>
+    {#if open}
+      <div class="expanded">
+        {#if rows(hit).length}
+          <dl class="fields">
+            {#each rows(hit) as row}
+              <div>
+                <dt>{row.label}</dt>
+                <dd>{@render fieldValue(row)}</dd>
+              </div>
+            {/each}
+          </dl>
+        {/if}
+        {@render categoryBlock(hit)}
+        {#if hit.meta.section}<p><span class="theme">{text.printedTheme}</span> {hit.meta.section}</p>{/if}
+        <div class="expanded-actions">
+          {@render wand(hit)}
+          {@render exporter(hit)}
+          <a href={hit.url}>{text.recordLink}</a>
+        </div>
+      </div>
+    {/if}
+  </article>
+{/snippet}
+
 {#snippet exporter(hit: Hit)}
   <div class="export">
     <button
@@ -597,7 +659,7 @@
     <img src={asset("crh-logo.svg")} alt="" />
     <strong>{text.name}</strong>
   </a>
-  {#if filtering || path.startsWith("/record/") || path === "/about"}
+  {#if filtering || path.startsWith("/record/") || path.startsWith("/similar/") || path === "/about"}
     <form class="search" onsubmit={submit}>
       {@render fieldSelect()}
       <input bind:value={query} type="search" aria-label={text.search} />
@@ -622,7 +684,7 @@
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
       </h1>
       <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost)}</p>
-      <div class="record-export">{@render exporter(record)}</div>
+      <div class="record-export">{@render wand(record)}{@render exporter(record)}</div>
       {#if rows(record).length}
         <dl class="fields">
           {#each rows(record) as row}
@@ -738,38 +800,29 @@
           {@render tools()}
         </div>
         {#each hits as hit}
-          {@const open = openId === hit.meta.id}
-          <article class="result">
-            <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
-              {@render typeIcon(hit.meta.kind)}
-              <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost)}</span>
-              <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
-            </button>
-            {#if open}
-              <div class="expanded">
-                {#if rows(hit).length}
-                  <dl class="fields">
-                    {#each rows(hit) as row}
-                      <div>
-                        <dt>{row.label}</dt>
-                        <dd>{@render fieldValue(row)}</dd>
-                      </div>
-                    {/each}
-                  </dl>
-                {/if}
-                {@render categoryBlock(hit)}
-                {#if hit.meta.section}<p><span class="theme">{text.printedTheme}</span> {hit.meta.section}</p>{/if}
-                <div class="expanded-actions">
-                  {@render exporter(hit)}
-                  <a href={hit.url}>{text.recordLink}</a>
-                </div>
-              </div>
-            {/if}
-          </article>
+          {@render resultRow(hit)}
         {/each}
         <div class="results-foot">{@render tools()}</div>
       {/if}
     </section>
+  </main>
+{:else if path.startsWith("/similar/")}
+  <main class="wrap similar">
+    <p><a href="#/search?{sessionStorage.getItem("bhb-search") || ""}">{text.back}</a></p>
+    <h1>{text.similar}</h1>
+    {#if similarSource}
+      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost)}</a></p>
+    {/if}
+    <p class="similar-note">{text.similarNote}</p>
+    {#if loading && similarHits.length === 0}
+      <p>{text.loading}</p>
+    {:else if similarHits.length === 0}
+      <p>{text.similarNone}</p>
+    {:else}
+      {#each similarHits as item (item.hit.meta.id)}
+        {@render resultRow(item.hit, item.score)}
+      {/each}
+    {/if}
   </main>
 {:else if path === "/about"}
   <main class="wrap about">

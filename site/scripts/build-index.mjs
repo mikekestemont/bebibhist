@@ -75,6 +75,7 @@ for await (const line of lines) {
       imprintMachine: !record.publisher && (record.provenance?.flags || []).includes("host-from-cross-ref") ? "1" : "",
       extent: record.extent || "",
       kind: record.type || "",
+      similar: similarLine(record),
     },
     filters: filters(record),
     sort: sortKeys(record),
@@ -187,6 +188,12 @@ function people(record) {
 
 function peopleLine(record) {
   return nameLine(record.persons);
+}
+
+/** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
+function similarLine(record) {
+  const scores = record.similar_scores || [];
+  return (record.similar || []).map((id, index) => `${id} ${scores[index] ?? ""}`.trim()).join("|");
 }
 
 function nameLine(persons) {

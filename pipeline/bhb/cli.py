@@ -65,6 +65,12 @@ def main(argv: list[str] | None = None) -> None:
     mods = export_sub.add_parser("mods", help="MODS 3.8, one collection per BGB year")
     mods.add_argument("--out", type=Path)
 
+    similar = sub.add_parser("similar", help="embed every entry and store its nearest neighbours (needs the embed extra)")
+    similar.add_argument("--model", default=None, help="sentence-transformers model name")
+    similar.add_argument("--k", type=int, default=None, help="neighbours per record")
+    similar.add_argument("--batch-size", type=int, default=128)
+    similar.add_argument("--records", type=Path)
+
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -84,6 +90,9 @@ def main(argv: list[str] | None = None) -> None:
         counts = export_mods(source, destination)
         total = sum(counts.values())
         print(f"mods: {total} records in {len(counts)} files → {destination}")
+        return
+    if args.command == "similar":
+        _similar(args.model, args.k, args.batch_size, args.records)
         return
     if args.command == "release":
         records = args.records or build_dir() / "records.jsonl"
@@ -226,6 +235,25 @@ def _load_built_records() -> list[Record]:
     if not path.is_file():
         raise SystemExit("build/records.jsonl is missing; run bhb build first")
     return read_jsonl(path)
+
+
+def _similar(model_name: str | None, k: int | None, batch_size: int, records_path: Path | None) -> None:
+    from bhb.similar import DEFAULT_K, DEFAULT_MODEL, apply, encode, neighbours, write_report
+
+    path = records_path or build_dir() / "records.jsonl"
+    if not path.is_file():
+        raise SystemExit(f"{path} is missing; run bhb build first")
+    model_name = model_name or DEFAULT_MODEL
+    records = read_jsonl(path)
+    cache = build_dir() / "vectors" / f"{model_name.replace('/', '__')}.npz"
+    vectors = encode(records, model_name, cache, batch_size)
+    found = neighbours(vectors, k or DEFAULT_K)
+    count = apply(records, found)
+    write_jsonl(path, records)
+    report = build_dir() / "similar_report.md"
+    write_report(report, records, vectors, found, model_name)
+    print(f"similar: {count} entries with neighbours → {path}")
+    print(f"report: {report}")
 
 
 def _write_labels(labels: dict) -> None:

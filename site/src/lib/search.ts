@@ -32,7 +32,19 @@ export interface Hit {
     imprintMachine?: string;
     extent?: string;
     kind?: string;
+    similar?: string;
   };
+}
+
+/** The neighbours stored with a record, best first. */
+export function similarOf(meta: Hit["meta"]): { id: string; score: number }[] {
+  return (meta.similar || "")
+    .split("|")
+    .filter(Boolean)
+    .map((pair) => {
+      const [id, score] = pair.split(" ");
+      return { id, score: Number(score) || 0 };
+    });
 }
 
 /** A printed “Cfr. / Voir / Zie n°” points at another entry in the same volume. */

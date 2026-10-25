@@ -98,4 +98,5 @@ def record_from_dict(data: dict) -> Record:
         pdf=pdf,
         provenance=provenance,
         similar=list(data.get("similar") or []),
+        similar_scores=[float(score) for score in data.get("similar_scores") or []],
     )
