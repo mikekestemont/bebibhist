@@ -31,6 +31,7 @@ class Host:
     pages: str | None = None
     subtitle: str | None = None
     editors: list[Person] = field(default_factory=list)
+    publisher: Publisher | None = None
 
 
 @dataclass

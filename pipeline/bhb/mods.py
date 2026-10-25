@@ -165,6 +165,13 @@ def _host(parent: etree._Element, record: Record) -> None:
         _person(related, person.family, person.given, person.role or "editor")
     if host.id:
         _text(_sub(related, "identifier", type="bhb"), host.id)
+    if host.publisher and (host.publisher.place or host.publisher.name):
+        origin = _sub(related, "originInfo")
+        if host.publisher.place:
+            place = _sub(origin, "place")
+            _text(_sub(place, "placeTerm", type="text"), host.publisher.place)
+        if host.publisher.name:
+            _text(_sub(origin, "publisher"), host.publisher.name)
     part = _sub(related, "part")
     if host.volume:
         detail = _sub(part, "detail", type="volume")

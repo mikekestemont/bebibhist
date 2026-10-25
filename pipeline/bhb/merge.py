@@ -9,7 +9,7 @@ from pathlib import Path
 
 from bhb.facets import assign_period
 from bhb.ingest.vsmart import render_printed
-from bhb.model import Host, Person, Record
+from bhb.model import Host, Person, Publisher, Record
 from bhb.sections import is_part_heading
 from bhb.textutil import fold
 
@@ -28,6 +28,7 @@ def merge_records(
 ) -> tuple[list[Record], dict[str, dict[str, str | None]]]:
     records = [*straive, *pdf, *vsmart]
     by_id = {record.id: record for record in records}
+    link_cited_hosts(records, by_id)
     referenced: set[str] = set()
     for record in records:
         host = record.host
@@ -50,6 +51,8 @@ def merge_records(
                 for person in target.persons
                 if person.role == "editor"
             ]
+        if host.publisher is None and record.publisher is None and target.publisher:
+            host.publisher = Publisher(target.publisher.place, target.publisher.name)
         if record.type == "article" and target.type == "book":
             record.type = "chapter"
         elif record.type == "article" and target.type == "journal-issue":
@@ -65,6 +68,41 @@ def merge_records(
             record.printed = render_printed(record)
     labels = code_labels or {}
     return records, labels
+
+
+def link_cited_hosts(records: list[Record], by_id: dict[str, Record] | None = None) -> int:
+    """Point a contribution at the collected volume its ``Cfr. n°`` names.
+
+    The printed line gives only the short host title after ``In:``; place and
+    publisher live on the volume entry. The link is machine-made, so the record
+    is flagged ``host-from-cross-ref``.
+    """
+    index = by_id if by_id is not None else {record.id: record for record in records}
+    linked = 0
+    for record in records:
+        if record.role != "entry" or record.is_cross_listing or record.type == "book":
+            continue
+        if record.host is not None and record.host.id:
+            continue
+        printed = record.printed or ""
+        if not _IN.search(printed):
+            continue
+        targets = {
+            ref
+            for ref in record.cross_refs
+            if (target := index.get(ref)) is not None
+            and target.type == "book"
+            and target.title
+            and _host_title_matches(printed, target.title)
+        }
+        if len(targets) != 1:
+            continue
+        if record.host is None:
+            record.host = Host()
+        record.host.id = targets.pop()
+        record.provenance.flags.append("host-from-cross-ref")
+        linked += 1
+    return linked
 
 
 def borrow_host_years(records: list[Record], by_id: dict[str, Record] | None = None) -> int:

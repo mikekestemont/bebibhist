@@ -14,6 +14,7 @@
   "yearTo": "À",
   "yearFromVolume": "Année du volume",
   "yearFromHost": "Reprise du volume collectif que cette contribution cite. Elle n’est pas imprimée sur cette ligne.",
+  "imprintFromHost": "Repris du volume collectif que cette contribution cite. Ce n’est pas imprimé sur cette ligne.",
   "fieldSearch": "Chercher dans",
   "fields": {
     "all": "Tout le texte",

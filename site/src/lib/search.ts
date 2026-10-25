@@ -29,6 +29,7 @@ export interface Hit {
     yearMachine?: string;
     place?: string;
     publisher?: string;
+    imprintMachine?: string;
     extent?: string;
     kind?: string;
   };
@@ -38,7 +39,7 @@ export interface Hit {
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
 
-/** The catalogue line we compose sometimes ends with "p.." and writes "In :". Cross-references to the printed volume are left out. */
+/** An abbreviation that closes a part keeps one stop ("s.n..", "p.."), and the catalogue writes "In :". An ellipsis and a joined form such as "Salsa !..Doc." stay. Cross-references to the printed volume are left out. */
 export function presentCitation(text: string): string {
   return text
     .replaceAll("In :", "In:")
@@ -46,6 +47,7 @@ export function presentCitation(text: string): string {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([.,])/g, "$1")
     .replace(/\.{2,}(?=\s*$)/g, ".")
+    .replace(/(?<!\.)\.\.(?=[\s),;:]|$)/g, ".")
     .trim();
 }
 

@@ -1,6 +1,6 @@
 from bhb.io_utils import record_from_dict
 from bhb.merge import heading_report_lines, heading_warnings, merge_records
-from bhb.model import Host, Person, Record
+from bhb.model import Host, Person, Publisher, Record
 from bhb.mods import to_mods
 
 NS = {"m": "http://www.loc.gov/mods/v3"}
@@ -108,6 +108,57 @@ def test_chapter_borrows_the_collected_volume_year_and_keeps_the_printed_line():
     skipped = next(record for record in merged if record.id == other.id)
     assert skipped.year is None
     assert "year-from-host" not in skipped.provenance.flags
+
+
+def test_chapter_takes_the_imprint_of_the_volume_its_cross_reference_names():
+    book = Record(
+        id="bhb:2000-29240",
+        source="print-straive",
+        bgb_year=2000,
+        type="book",
+        title="Veelderhande liedekens. Studies over het Nederlandse lied tot 1600",
+        persons=[Person("Willaert", "Frank")],
+        publisher=Publisher("Leuven", "Peeters"),
+        year=1997,
+    )
+    printed = (
+        "Joldersma (Hermina). ‘Geestelijke’ en ‘wereldlijke’ liederen. "
+        "In: Willaert (Frank). Veelderhande liedekens. pp. 58–73. [Cfr. n° 29240]"
+    )
+    chapter = Record(
+        id="bhb:2000-29753",
+        source="print-straive",
+        bgb_year=2000,
+        type="chapter",
+        host=Host(title="Veelderhande liedekens", pages="58–73", editors=[Person("Willaert", "Frank", "editor")]),
+        cross_refs=["bhb:2000-29240"],
+        printed=printed,
+    )
+    stray = Record(
+        id="bhb:2000-29754",
+        source="print-straive",
+        bgb_year=2000,
+        type="chapter",
+        host=Host(title="Andere bundel", pages="1–9"),
+        cross_refs=["bhb:2000-29240"],
+        printed="Iemand (A.). Iets. In: Andere bundel over iets anders. pp. 1–9. [Cfr. n° 29240]",
+    )
+    merged, _labels = merge_records([book, chapter, stray], [], [])
+    found = next(record for record in merged if record.id == chapter.id)
+    assert found.host is not None
+    assert found.host.id == book.id
+    assert found.host.title == "Veelderhande liedekens"
+    assert found.host.publisher == Publisher("Leuven", "Peeters")
+    assert found.publisher is None
+    assert found.printed == printed
+    assert "host-from-cross-ref" in found.provenance.flags
+    assert record_from_dict(found.to_dict()).host.publisher == Publisher("Leuven", "Peeters")
+    host = to_mods(found).find("m:relatedItem[@type='host']", NS)
+    assert host.findtext("m:originInfo/m:publisher", namespaces=NS) == "Peeters"
+    assert host.findtext("m:originInfo/m:place/m:placeTerm", namespaces=NS) == "Leuven"
+    other = next(record for record in merged if record.id == stray.id)
+    assert other.host is not None and other.host.id is None
+    assert "host-from-cross-ref" not in other.provenance.flags
 
 
 def test_heading_report_warns_when_a_top_heading_is_not_a_part():

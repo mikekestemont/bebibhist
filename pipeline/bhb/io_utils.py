@@ -43,7 +43,8 @@ def _host(data: dict | None) -> Host | None:
         return None
     raw = dict(data)
     editors = [Person(**person) for person in raw.pop("editors", None) or []]
-    return Host(editors=editors, **raw)
+    publisher = raw.pop("publisher", None)
+    return Host(editors=editors, publisher=Publisher(**publisher) if publisher else None, **raw)
 
 
 def _category(data: dict) -> Category:

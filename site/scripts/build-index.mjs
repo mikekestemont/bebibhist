@@ -70,8 +70,9 @@ for await (const line of lines) {
       pubyear: record.year ? String(record.year) : record.host?.year || "",
       yearFromVolume: when.fromVolume ? "1" : "",
       yearMachine: (record.provenance?.flags || []).includes("year-from-host") ? "1" : "",
-      place: record.publisher?.place || "",
-      publisher: record.publisher?.name || "",
+      place: record.publisher?.place || record.host?.publisher?.place || "",
+      publisher: record.publisher?.name || record.host?.publisher?.name || "",
+      imprintMachine: !record.publisher && (record.provenance?.flags || []).includes("host-from-cross-ref") ? "1" : "",
       extent: record.extent || "",
       kind: record.type || "",
     },
@@ -203,6 +204,7 @@ function presentCitation(text) {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([.,])/g, "$1")
     .replace(/\.{2,}(?=\s*$)/g, ".")
+    .replace(/(?<!\.)\.\.(?=[\s),;:]|$)/g, ".")
     .trim();
 }
 

@@ -175,12 +175,16 @@ main .search { margin: 1.6rem 0; }
 
 .filters label { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.22rem 0; font-size: 15px; }
 
+/* The count box is always there and as wide as the largest count, so a label wraps the same way before and after the counts arrive. */
 .filters em {
+  display: inline-block;
+  min-width: 7ch;
   color: #6b6e73;
   font-style: normal;
   font-size: 15px;
-  margin-left: 0.25rem;
+  margin-left: 0.4rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .years { border: 0; margin: 0 0 1.25rem; padding: 0; }

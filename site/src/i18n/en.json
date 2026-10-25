@@ -14,6 +14,7 @@
   "yearTo": "To",
   "yearFromVolume": "Year of the volume",
   "yearFromHost": "Taken from the collected volume this contribution cites. It is not printed on this line.",
+  "imprintFromHost": "Taken from the collected volume this contribution cites. It is not printed on this line.",
   "fieldSearch": "Search in",
   "fields": {
     "all": "All text",

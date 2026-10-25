@@ -208,7 +208,7 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: boolean }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -232,9 +232,15 @@
     ];
     return pairs.flatMap(([label, value, italic]) =>
       value
-        ? [{ label, value, italic, authors: label === text.author, derived: label === text.pubyear && meta.yearMachine === "1" }]
+        ? [{ label, value, italic, authors: label === text.author, derived: derivedNote(label, meta) }]
         : [],
     );
+  }
+
+  function derivedNote(label: string, meta: Hit["meta"]): string | undefined {
+    if (label === text.pubyear && meta.yearMachine === "1") return text.yearFromHost;
+    if ((label === text.place || label === text.publisher) && meta.imprintMachine === "1") return text.imprintFromHost;
+    return undefined;
   }
 
   async function exportList(kind: ExportKind) {
@@ -504,7 +510,7 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: boolean })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string })}
   {#if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
@@ -513,7 +519,7 @@
   {:else if row.italic}
     <em>{row.value}</em>
   {:else if row.derived}
-    <span class="derived" title={text.yearFromHost}>{row.value}</span>
+    <span class="derived" title={row.derived}>{row.value}</span>
   {:else}
     {row.value}
   {/if}
@@ -645,7 +651,7 @@
             {@const count = counts[group]?.[value] ?? 0}
             <label>
               <input type="checkbox" checked={selected(group, value)} onchange={() => toggle(group, value)} />
-              <span>{label(group as keyof typeof groups, value)}{#if count} <em>{count.toLocaleString(lang)}</em>{/if}</span>
+              <span>{label(group as keyof typeof groups, value)}<em>{count ? count.toLocaleString(lang) : ""}</em></span>
             </label>
           {/each}
         </fieldset>
