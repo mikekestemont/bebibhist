@@ -5,11 +5,14 @@ See `../docs/PROTOTYPE_SPEC.md` for the overall design.
 
 ```bash
 cd pipeline
-python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
+python3.12 -m venv .venv                     # pinned in .python-version
+.venv/bin/pip install -r requirements.lock   # exact versions, including the embed extra (torch, sentence-transformers)
+.venv/bin/pip install --no-deps -e .
 .venv/bin/bhb build          # straive + pdf years + V-Smart → build/records.jsonl
 .venv/bin/pytest
 ```
+
+`requirements.lock` is compiled from `pyproject.toml` with every extra (`dev`, `classify`, `embed`, `lock`). After changing a dependency, run `.venv/bin/pip-compile --extra dev --extra classify --extra embed --extra lock --strip-extras --allow-unsafe -o requirements.lock pyproject.toml`, then `.venv/bin/pip-sync requirements.lock` and `.venv/bin/pip install --no-deps -e .`. CI installs the `dev` extra with the lock file as constraints.
 
 `bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. Derived files go to `build/` (git-ignored).
 

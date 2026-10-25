@@ -15,10 +15,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: pipeline/pyproject.toml
+          cache-dependency-path: pipeline/requirements.lock
 
       - name: Install
-        run: pip install -e "pipeline[dev]"
+        run: pip install -c pipeline/requirements.lock -e "pipeline[dev]"
 
       - name: Pytest
         working-directory: pipeline

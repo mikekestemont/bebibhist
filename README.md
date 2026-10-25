@@ -20,7 +20,8 @@ The raw deliveries are not in this repository. They live in a private folder tha
 `BHB_RAW` (default `../bebibhist-raw`). With access to it:
 
 ```bash
-cd pipeline && python3 -m venv .venv && .venv/bin/pip install -e ".[dev,classify]"
+cd pipeline && python3.12 -m venv .venv            # Python 3.12, see pipeline/.python-version
+.venv/bin/pip install -r requirements.lock && .venv/bin/pip install --no-deps -e .
 .venv/bin/bhb build      # → build/records.jsonl
 .venv/bin/bhb release    # → build/release/records.jsonl.gz + NOTES.md
 .venv/bin/pytest         # runs without the raw folder too
@@ -28,6 +29,16 @@ cd pipeline && python3 -m venv .venv && .venv/bin/pip install -e ".[dev,classify
 
 A `data-YYYY-MM-DD` release with `records.jsonl.gz` triggers `.github/workflows/pages.yml`, which builds the
 search index and the site and deploys them to GitHub Pages. No raw data are needed for that step.
+
+## Credits
+
+The "similar publications" feature (the magic-wand button) borrows its idea and set-up from the search engine that
+**Enrique Manjavacas** built for the BNTL, the *Bibliografie van de Nederlandse Taal- en Literatuurwetenschap*
+(https://bntl.flw.uantwerpen.be, code at https://github.com/emanjavacas/bntl). It encodes each record once with a
+sentence-embedding model and lists a record's nearest neighbours as an ordinary result list. Here the neighbours are
+precomputed with a local multilingual model and shipped as static files, not served from a vector database. The
+result list (inline expansion, search within results, type icons, results per page, author links) also follows the
+BNTL's interaction patterns.
 
 ## Licence
 
