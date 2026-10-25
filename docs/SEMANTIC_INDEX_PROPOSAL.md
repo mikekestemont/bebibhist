@@ -138,6 +138,26 @@ drive S2–S4 offline.
 Recommendation: decide after S0, between B and C. D can ship first, because it needs no model in the browser. A is a cheap first step if S0 shows the vectors are good but no
 model is light enough.
 
+## 4b. Result of S0a (25 October 2026)
+
+Four models, same text (title, subtitle, translated title), top 10 neighbours for 177,603 entries, on an M2 Max.
+"Same code" is the share of neighbours whose checked classification (V-Smart, or a printed heading with
+number and label agreeing) matches the record's, two and three levels deep; "other language" is the share of
+neighbours in the other of French and Dutch, judged from function words.
+
+| Model | Encoding | Same code, 2 levels | Same code, 3 levels | Other language |
+|---|---:|---:|---:|---:|
+| `intfloat/multilingual-e5-small` (384 d) | 79 s | 64.1 % | 56.3 % | 4.1 % |
+| `intfloat/multilingual-e5-large` (1024 d) | 486 s | 66.8 % | 59.5 % | 4.9 % |
+| `BAAI/bge-m3` (1024 d) | 486 s | 65.1 % | 57.8 % | 16.3 % |
+| `sentence-transformers/LaBSE` (768 d) | 210 s | 62.8 % | 54.9 % | 23.4 % |
+
+**Chosen: `bge-m3`.** It is close to the best on subject and crosses languages four times as often as the e5
+models; in the 30-record sample those crossings stay on subject (Haute-Sûre war testimonies → Dutch WWI
+testimonies; Edmond Picard → Rwanda titles in Dutch and English). Its cosines spread out (median first
+neighbour 0.69, tenth 0.61), so a floor can be set later; e5 squeezes every score into 0.86–0.96. None of the four
+separates look-alike place names (*De voogd van Malle* → *Halle*, *Walle*, *Male*).
+
 ## 5. Order and stop points
 
 **Priority (25 Oct): similar publications first.** S4 is purely static on the site: the neighbours are computed

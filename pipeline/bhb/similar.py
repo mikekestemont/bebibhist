@@ -20,7 +20,7 @@ import numpy as np
 from bhb.model import Record
 from bhb.textutil import fold, squash
 
-DEFAULT_MODEL = "intfloat/multilingual-e5-small"
+DEFAULT_MODEL = "BAAI/bge-m3"
 DEFAULT_K = 10
 MIN_TOKENS = 2
 
