@@ -70,7 +70,7 @@ separate decision (§4).
 
 ## 3. Experiment first (S0, about 1 day, local)
 
-The result decides whether S2–S5 go ahead. Compare, on the existing year split:
+S0a (model for the neighbours) comes first; S0b (themes) decides whether S2–S3 go ahead. Compare, on the existing year split:
 
 | Candidate (open licence, local) | Kind | Why |
 |---|---|---|
@@ -140,13 +140,19 @@ model is light enough.
 
 ## 5. Order and stop points
 
+**Priority (25 Oct): similar publications first.** S4 is purely static on the site: the neighbours are computed
+offline, and the browser only reads ids that are already in the record. It needs no model in the browser and no
+decision about the theme facet.
+
 | Step | Effort | Stop point |
 |---|---|---|
-| S0 experiment | about 1 day | **report**: go / no-go for S2 |
-| S1–S2 vectors, themes by neighbours, report | 1–2 days | report coverage per year (C8 table) |
+| S0a choose the model for neighbours: encode a sample, spot check 30 records per candidate | ½ day | **report**: model and cosine floor |
+| S1 + S4 vectors for every record, top 10 neighbours, magic-wand button, `#/similar/<id>` list | 1–1½ days | spot check of 30 records, then a data release |
+| S0b theme experiment on the same vectors | ½ day | **report**: go / no-go for S2 |
+| S2 themes by neighbours, report | 1 day | report coverage per year (C8 table) |
 | S3 crosswalk proposals | ½ day | sample check by the editor or students |
-| S4 similar publications | 1 day | spot check of 30 records |
-| S5 browser search | 2–3 days | choose A, B or C |
+| D "more like these results" | ½ day | needs the vectors on the site (≈ 69 MB at 384 d) |
+| S5 browser search | 2–3 days | choose B or C |
 
 ## 6. Open questions
 
