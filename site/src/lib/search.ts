@@ -194,6 +194,7 @@ interface Pagefind {
     options?: { filters?: Record<string, string[]>; sort?: Record<string, "asc" | "desc"> },
   ) => Promise<SearchResponse>;
   options: (settings: { ranking?: { pageLength?: number } }) => Promise<void>;
+  preload: (query: string) => Promise<void>;
 }
 
 /** Pagefind favours short records (default 0.75), so a short stub could outrank the work it points to.
@@ -212,8 +213,39 @@ export async function loadEngine(): Promise<Pagefind> {
   await loaded.options({ ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
   await loaded.init();
   await loaded.filters();
-  engine = loaded;
-  return loaded;
+  engine = { ...loaded, search: async (query, options) => {
+    if (query) await loadPrefixChunks(loaded, query);
+    return loaded.search(query, options);
+  } };
+  return engine;
+}
+
+const preloaded = new Set<string>();
+let preloading: Promise<void> = Promise.resolve();
+
+/**
+ * Pagefind 1.4 stores the last word of each index chunk shortened ("beguinag"), so a longer word such as
+ * "beguinages" sorts between two chunks. Pagefind then loads neither, falls back to a short prefix ("b") and
+ * returns tens of thousands of hits; once the right chunk is in memory, the word is found. 788 words were
+ * affected (abbaye, travaux, Tollebeek …). Preloading the chunks of each word's shorter prefixes puts that
+ * chunk in memory first. Pagefind 1.5 fixes this, but also makes every metadata field searchable.
+ */
+function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
+  const prefixes: string[] = [];
+  for (const word of query.toLowerCase().split(/\s+/)) {
+    for (let size = word.length - 1; size >= 2; size -= 1) {
+      const prefix = word.slice(0, size);
+      if (!preloaded.has(prefix)) {
+        preloaded.add(prefix);
+        prefixes.push(prefix);
+      }
+    }
+  }
+  // One preload at a time: two searches run side by side for optional function words.
+  preloading = preloading.then(async () => {
+    for (const prefix of prefixes) await pagefind.preload(prefix);
+  });
+  return preloading;
 }
 
 export function foldQuery(query: string): string {
