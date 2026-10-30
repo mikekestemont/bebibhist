@@ -165,7 +165,7 @@ function escapeRegExp(value: string): string {
 }
 
 export interface SearchResponse {
-  results: { data: () => Promise<Hit> }[];
+  results: { id: string; data: () => Promise<Hit> }[];
   filters?: Record<string, Record<string, number>>;
 }
 
@@ -204,6 +204,52 @@ export function searchQuery(query: string, field: SearchField = "all"): string {
   if (field === "all") return words.join(" ");
   const tag = field === "author" ? "au" : field === "title" ? "ti" : "in";
   return words.map((word) => `${tag}_${word}`).join(" ");
+}
+
+/**
+ * Function words of French, Dutch, English, German and Latin, accent-folded. A title may say “Guibert of
+ * Gembloux” where the reader typed “de”, so these words are optional: they order the hits but do not exclude any.
+ */
+const FUNCTION_WORDS = new Set(
+  [
+    "a au aux avec dans de des du en entre et la le les ou par pour sous sur un une",
+    "aan bij de den der des door een en het in met naar of op over te ten ter tot uit van voor",
+    "a an and at by for from in of on or the to with",
+    "auf aus bei das dem den der des die ein eine einer eines fur im mit oder und vom von zu zum zur",
+    "ad cum et in per",
+  ]
+    .join(" ")
+    .split(" "),
+);
+
+/**
+ * The query without its function words, or null when nothing would change. An author search keeps them, since
+ * de, van and le belong to the surname; so does a quoted query, and one made only of function words.
+ */
+export function relaxedQuery(query: string, field: SearchField = "all"): string | null {
+  if (field === "author" || query.includes('"')) return null;
+  const words = foldQuery(query).toLowerCase().replace(/-/g, " ").split(/\s+/).filter(Boolean);
+  const kept = words.filter((word) => !FUNCTION_WORDS.has(word));
+  if (kept.length === 0 || kept.length === words.length) return null;
+  return searchQuery(kept.join(" "), field);
+}
+
+/**
+ * Every word must match in Pagefind, so a search runs twice, as an engine with optional terms would rank it: the
+ * hits with all the words first, in their own order, then the hits that miss only function words. The looser
+ * search holds both, so its filter counts are the counts of the merged list. A sorted list is the looser one.
+ */
+export async function searchBoth(
+  pagefind: Pagefind,
+  strict: string | null,
+  loose: string | null,
+  options: { filters?: Record<string, string[]>; sort?: Record<string, "asc" | "desc"> },
+): Promise<SearchResponse> {
+  if (!loose || loose === strict) return pagefind.search(strict, options);
+  const [all, more] = await Promise.all([pagefind.search(strict, options), pagefind.search(loose, options)]);
+  if (options.sort) return more;
+  const first = new Set(all.results.map((result) => result.id));
+  return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], filters: more.filters };
 }
 
 export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | null> {

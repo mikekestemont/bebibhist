@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relaxedQuery, searchBoth, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -160,8 +160,12 @@
     const sort = sortOf(params.get("sort"));
     const askedText = [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ");
     const inside = params.get("in");
-    const asked = [askedText ? searchQuery(askedText, searchField(fieldChoice)) : "", inside ? `hk_${inside}` : ""].filter(Boolean).join(" ") || null;
-    const response = await engine.search(asked, {
+    const field = searchField(fieldChoice);
+    const within = inside ? `hk_${inside}` : "";
+    const asked = [askedText ? searchQuery(askedText, field) : "", within].filter(Boolean).join(" ") || null;
+    const relaxed = askedText ? relaxedQuery(askedText, field) : null;
+    const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
+    const response = await searchBoth(engine, asked, loose, {
       ...(filters ? { filters } : {}),
       ...(sort ? { sort } : {}),
     });
@@ -177,7 +181,7 @@
     if (filters?.pubyear) {
       const rest = { ...filters };
       delete rest.pubyear;
-      const broad = await engine.search(asked, {
+      const broad = await engine.search(loose || asked, {
         ...(Object.keys(rest).length ? { filters: rest } : {}),
         ...(sort ? { sort } : {}),
       });
