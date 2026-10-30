@@ -633,13 +633,12 @@
   {/if}
 {/snippet}
 
-{#snippet resultRow(hit: Hit, score?: number)}
+{#snippet resultRow(hit: Hit)}
   {@const open = openId === hit.meta.id}
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
       <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry)}</span>
-      {#if score !== undefined}<span class="score" title={text.similarScore}>{score.toFixed(2)}</span>{/if}
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}
@@ -863,7 +862,7 @@
       <p>{text.similarNone}</p>
     {:else}
       {#each similarHits as item (item.hit.meta.id)}
-        {@render resultRow(item.hit, item.score)}
+        {@render resultRow(item.hit)}
       {/each}
     {/if}
   </main>
