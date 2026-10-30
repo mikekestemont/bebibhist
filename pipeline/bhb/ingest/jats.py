@@ -9,7 +9,7 @@ from lxml import etree
 
 from bhb.labels import repair_labels
 from bhb.model import Host, PdfLink, Person, Provenance, Publisher, Record, Series
-from bhb.parse.citation import cross_listing_numbers, cross_references, parse_citation, split_contents
+from bhb.parse.citation import cross_listing_numbers, cross_references, parse_citation, series_after_imprint, split_contents
 from bhb.paths import rel
 from bhb.sections import is_see_also_heading, path_of, push_heading, see_also_numbers
 from bhb.textutil import clean_heading, squash, superscript
@@ -414,6 +414,9 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     if record.type == "book" and not pages:
         if match := _EXTENT.search(printed):
             record.extent = match.group(1)
+    # The vendor did not tag the series; it is the bracket that closes the imprint.
+    if record.type in {"book", "other"} and (series := series_after_imprint(printed)):
+        record.series = Series(title=series[0], number=series[1])
     if note_parts:
         record.note = squash(" ".join(note_parts)).strip(" .") or None
     if record.type == "book" and record.host and not record.host.pages:

@@ -78,6 +78,8 @@ for await (const line of lines) {
       imprintMachine: !record.publisher && (record.provenance?.flags || []).includes("host-from-cross-ref") ? "1" : "",
       inVolume: volumeLine(record),
       extent: record.extent || "",
+      seriesTitle: record.series?.title || "",
+      seriesNumber: record.series?.number || "",
       kind: record.type || "",
       similar: similarLine(record),
       container: container?.hash || "",

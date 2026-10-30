@@ -108,7 +108,8 @@ function bibtex(hit: Hit, source: string): string {
     ["booktitle", kind === "chapter" ? [meta.host, meta.hostSubtitle].filter(Boolean).join(": ") : ""],
     ["year", yearOf(meta.pubyear)],
     ["volume", meta.volume || ""],
-    ["number", meta.issue || ""],
+    ["number", meta.issue || (kind === "book" ? meta.seriesNumber || "" : "")],
+    ["series", meta.seriesTitle || ""],
     ["pages", meta.pages || ""],
     ["address", meta.place || ""],
     ["publisher", meta.publisher || ""],
@@ -137,6 +138,8 @@ function ris(hit: Hit, source: string): string {
   if (kind === "article") push(lines, "JO", meta.host);
   if (kind === "article" || kind === "chapter") push(lines, "T2", [meta.host, meta.hostSubtitle].filter(Boolean).join(": "));
   push(lines, "VL", meta.volume);
+  // RIS has no field for a series number, so the series statement keeps it, as printed.
+  push(lines, "T3", [meta.seriesTitle, meta.seriesNumber].filter(Boolean).join(", "));
   push(lines, "IS", meta.issue);
   push(lines, "SP", range.start);
   push(lines, "EP", range.end);
@@ -195,6 +198,12 @@ function mods(hit: Hit, source: string): string {
     parts.push(`  </originInfo>`);
   }
   if (meta.extent) parts.push(`  <physicalDescription><extent>${xml(meta.extent)}</extent></physicalDescription>`);
+  if (meta.seriesTitle || meta.seriesNumber) {
+    parts.push(`  <relatedItem type="series">`);
+    if (meta.seriesTitle) parts.push(`    <titleInfo><title>${xml(meta.seriesTitle)}</title></titleInfo>`);
+    if (meta.seriesNumber) parts.push(`    <part><detail type="volume"><number>${xml(meta.seriesNumber)}</number></detail></part>`);
+    parts.push(`  </relatedItem>`);
+  }
   if (meta.kind) parts.push(`  <genre authority="local">${xml(meta.kind)}</genre>`);
   if (meta.id) parts.push(`  <identifier type="bhb">${xml(meta.id)}</identifier>`);
   parts.push(`  <recordInfo><recordContentSource>${xml(source)}</recordContentSource></recordInfo>`);

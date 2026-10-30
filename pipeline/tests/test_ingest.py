@@ -358,3 +358,15 @@ def test_tagged_book_with_a_bare_eds_has_editors(tmp_path: Path):
     )
     record = load_jats(path, "print-straive")[0]
     assert [(person.family, person.role) for person in record.persons] == [("Brockmans", "editor")]
+
+
+def test_tagged_book_reads_its_series_from_the_imprint(tmp_path: Path):
+    path = tmp_path / "BGB_1985.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="r"><label>1</label><mixed-citation publication-type="book"><person-group person-group-type="author"><string-name><surname>Dupont</surname> (<given-names>A.</given-names>)</string-name></person-group>. <article-title>Les guerres</article-title>. <publisher-loc>Bruxelles</publisher-loc>, <year>1985</year>, 120 p. (Studia et documenta Mechliniensia, 4).</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert (record.type, record.series.title, record.series.number) == ("book", "Studia et documenta Mechliniensia", "4")

@@ -32,6 +32,8 @@ export interface Hit {
     imprintMachine?: string;
     inVolume?: string;
     extent?: string;
+    seriesTitle?: string;
+    seriesNumber?: string;
     kind?: string;
     similar?: string;
     container?: string;

@@ -1,6 +1,6 @@
 """Hand-written citations: articles, books, chapters, editors, series, cross-refs."""
 
-from bhb.parse.citation import parse_citation, split_contents
+from bhb.parse.citation import parse_citation, series_after_imprint, split_contents
 
 
 def test_article_roman_volume_and_issue():
@@ -388,3 +388,19 @@ def test_editor_mark_after_a_comma():
     parsed = parse_citation("Dierkens (Alain) & Duvosquel (Jean-Marie), eds. Le culte de saint Hubert. Bruxelles, 1991, 143 p.")
     assert [(person["family"], person["role"]) for person in parsed.persons] == [("Dierkens", "editor"), ("Duvosquel", "editor")]
     assert parsed.title == "Le culte de saint Hubert"
+
+
+def test_series_closes_the_imprint():
+    assert series_after_imprint("Dupont (A.). Les guerres (1914–1918). Bruxelles, 1990, 120 p. (Collection Histoire, 12).") == ("Collection Histoire", "12")
+    assert series_after_imprint("Martin (B.). Un titre. Namur, 1988, 50 p. (Cercle culturel de Rochefort, Monographie, n° 15)") == ("Cercle culturel de Rochefort, Monographie", "15")
+    assert series_after_imprint("Martin (B.). Un titre. Bruxelles, 1972, 300 p. (Historiae musicae cultores. Bibliotheca, XVIII).") == ("Historiae musicae cultores. Bibliotheca", "XVIII")
+    assert series_after_imprint("Martin (B.). Un titre. Liège, 1985, 80 p. (Patrimoine)") == ("Patrimoine", None)
+    # A bracketed date in the title, or a bracket that is not after the imprint, is not a series.
+    assert series_after_imprint("Dupont (A.). Les guerres (1914–1918). Bruxelles, 1990, 120 p.") is None
+    assert series_after_imprint("Dupont (A.). Les guerres. Bruxelles, 1990, 120 p. (1914-1918).") is None
+
+
+def test_a_thesis_or_stencil_note_is_not_a_series():
+    assert series_after_imprint("Peeters (A.). Een titel. Gent, 1990, 200 p. (Onuitgegeven licentiaatsverhandeling. Universiteit Gent, Geschiedenis)") is None
+    assert series_after_imprint("Peeters (A.). Een titel. Gent, 1990, 200 p. (2de druk)") is None
+    assert parse_citation("Dupont (A.). Un titre. Liège, 1970, 40 p. (stencilé).").series_title is None

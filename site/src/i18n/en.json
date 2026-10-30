@@ -59,6 +59,7 @@
   "place": "Place",
   "publisher": "Publisher",
   "extent": "Extent",
+  "series": "Series",
   "results": "results",
   "sort": "Sort",
   "perPage": "Per page",

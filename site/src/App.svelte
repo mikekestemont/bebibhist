@@ -250,6 +250,7 @@
       [text.place, meta.place],
       [text.publisher, meta.publisher],
       [text.extent, meta.extent],
+      [text.series, seriesLine(meta)],
       [text.contents, meta.kind === "book" && meta.container ? text.contentsCount.replace("{n}", String(Number(meta.containerCount) - 1)) : ""],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
@@ -266,6 +267,10 @@
           }]
         : [],
     );
+  }
+
+  function seriesLine(meta: Hit["meta"]): string {
+    return [meta.seriesTitle, meta.seriesNumber].filter(Boolean).join(", ");
   }
 
   /** The host title of a chapter, and the contents line of a volume, open the volume's entries. */

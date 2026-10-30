@@ -55,8 +55,22 @@ _PRICE = re.compile(r"(?:,\s*)(\d+\s*(?:F\.?\s*B\.?|FB|€))\s*$", re.IGNORECASE
 _FORMAT = re.compile(r"(?:,\s*)(8°|in-8°?|in-4°?|ill\.|fig\.|pl\.|cartes)\s*$", re.IGNORECASE)
 _VOLUME = re.compile(r",\s*([IVXLCDM]{1,8}|\d{1,3}(?:\s*[-–/]\s*\d{1,3})?)\s*$")
 _ISSUE = re.compile(r"^\d{1,4}(?:\s*[-–/]\s*\d{1,4})?$")
-_SERIES_SPLIT = re.compile(r"(.+?)\s*[,:]\s*(\d+)\s*$")
-_SERIES_NUM = re.compile(r"(.+?)\s+(\d+)\s*$")
+# A series number: ``, 4``, `` 283``, ``, n° 15``, ``: nr. 3``, ``, XVIII`` (a roman number only after a comma or colon).
+_SERIES_NUMBER = re.compile(
+    r"(.+?)(?:\s*[,:;]\s*(?:(?:n[°ºo]|nr|no|vol|t|deel|dl)\.?\s*)?|\s+(?:(?:n[°ºo]|nr|no|vol|deel|dl)\.?\s*)?)"
+    r"(\d+[a-z]?|(?<=[,:;]\s)[IVXLCDM]{1,7}|(?<=[,:;])[IVXLCDM]{1,7})\s*\.?$"
+)
+# A bracket that describes the copy rather than naming a series: an unpublished thesis, a stencil, an edition, a reprint.
+_NOT_SERIES = re.compile(
+    r"^(?:\d+\s*(?:e|ᵉ|de|ste|nd|rd|th)?\.?,?\s*(?:[\w-]+\s+)?(?:druk|uitg|éd|ed|édition|edition|impr)|réimpr|reprint|herdruk"
+    r"|nieuwe\s+(?:druk|uitg)|stencil|polycop|ronéo|dactyl|tirage\s+limit|onuitgegeven|niet\s+uitgegeven|inédit\b(?!s)"
+    r"|thèse\b|th\.\s|proefschrift|licentiaatsverhandeling|mémoire\s+de\s+licence|doctoraal|doctoraatsverhandeling|travail\s+de\s+fin)",
+    re.IGNORECASE,
+)
+_SERIES_AFTER = re.compile(
+    r"(?:\d+\s*p\.|(?<!\d)(?:1[5-9]|20)\d{2}(?!\d))[^()]{0,40}?\(([^()]{3,180})\)\s*\.?\s*$",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -381,7 +395,7 @@ def _parse_host_target(target: str, parsed: ParsedCitation) -> None:
 
 def _parse_imprint(body: str, parsed: ParsedCitation) -> None:
     series_raw, body = _peel_series(body)
-    if series_raw and parsed.series_title is None:
+    if series_raw and parsed.series_title is None and not _NOT_SERIES.search(series_raw):
         parsed.series_title, parsed.series_number = _split_series(series_raw)
     body, extras = _strip_tail(body)
     parsed.pages = extras.get("pages")
@@ -444,11 +458,27 @@ def _peel_series(text: str) -> tuple[str | None, str]:
 
 
 def _split_series(inner: str) -> tuple[str | None, str | None]:
-    if match := _SERIES_SPLIT.match(inner):
-        return _tidy(match.group(1)), match.group(2)
-    if match := _SERIES_NUM.match(inner):
+    if match := _SERIES_NUMBER.match(inner):
         return _tidy(match.group(1)), match.group(2)
     return _tidy(inner), None
+
+
+def series_after_imprint(text: str) -> tuple[str | None, str | None] | None:
+    """The series in brackets that closes a book's imprint: ``Gent, 1996, 123 p. (Studia Historica Gandensia 283)``.
+
+    Only a bracket that follows the extent or the year counts, so a bracketed date or remark in the title is not
+    taken for a series. Returns the series title and its number.
+    """
+    _note, body = _split_annotation(squash(text))
+    body, _trailing = _take_trailing_brackets(body)
+    match = _SERIES_AFTER.search(body)
+    if not match:
+        return None
+    inner = match.group(1).strip()
+    if not re.search(r"[A-Za-zÀ-ÿ]{3}", inner) or _NOT_SERIES.search(inner) or re.fullmatch(r"(?:éd|ed|dir|red)s?\.?", inner, re.IGNORECASE):
+        return None
+    title, number = _split_series(inner)
+    return (title, number) if title else None
 
 
 def _strip_tail(text: str) -> tuple[str, dict[str, str]]:
