@@ -1,6 +1,7 @@
 # Proposal — a semantic index for search, themes and similar publications
 
-Draft, 25 October 2026, for the product owner (Mike Kestemont). Nothing in this file is built yet. It answers two requests: (1) the
+Draft, 25 October 2026, for the product owner (Mike Kestemont). S0a, S1 and S4 are built (25 and 30 October,
+§4b–§4c); the other steps are not. It answers two requests: (1) the
 theme gap should be closed by automatic semantic indexing before the editor reviews the crosswalk row by row; (2)
 "Similar publications" (plan E8, deferred) should be built on that same index. It keeps the ground rules: static
 site, no server, no LLM API, local open models only, machine values flagged, confidence floors.
@@ -158,6 +159,21 @@ testimonies; Edmond Picard → Rwanda titles in Dutch and English). Its cosines 
 neighbour 0.69, tenth 0.61), so a floor can be set later; e5 squeezes every score into 0.86–0.96. None of the four
 separates look-alike place names (*De voogd van Malle* → *Halle*, *Walle*, *Male*).
 
+## 4c. Rare-word bonus (30 October 2026)
+
+Jeroen Deploige found that three titles on Guibert of Gembloux did not find each other: the embedding put other
+subjects closer to the French one. The neighbours now rank by the embedding cosine plus 0.1 times a TF-IDF cosine
+over rare title words (in 2 to 50 titles), with candidates from both. Over 180,000 entries:
+
+| Setting | Same code, 3 levels | Other language | Guibert links |
+|---|---:|---:|---:|
+| Embedding only | 57.7 % | 16.3 % | 2/6 |
+| Plain TF-IDF over all words, weight 0.1 | 57.9 % | 12.3 % | 5/6 |
+| **TF-IDF over rare words, weight 0.1** | 57.6 % | 14.4 % | 5/6 |
+
+Any word-based part favours titles in the same language; limiting it to rare words, in practice names, keeps that
+cost small. The score shown on the site is the sum, so it can pass 1.
+
 ## 5. Order and stop points
 
 **Priority (25 Oct): similar publications first.** S4 is purely static on the site: the neighbours are computed
@@ -166,8 +182,8 @@ decision about the theme facet.
 
 | Step | Effort | Stop point |
 |---|---|---|
-| S0a choose the model for neighbours: encode a sample, spot check 30 records per candidate | ½ day | **report**: model and cosine floor |
-| S1 + S4 vectors for every record, top 10 neighbours, magic-wand button, `#/similar/<id>` list | 1–1½ days | spot check of 30 records, then a data release |
+| S0a choose the model for neighbours: encode a sample, spot check 30 records per candidate — **done 25 Oct** | ½ day | **report**: model and cosine floor |
+| S1 + S4 vectors for every record, top 10 neighbours, magic-wand button, `#/similar/<id>` list — **done 25 Oct; rare-word bonus 30 Oct** | 1–1½ days | spot check of 30 records, then a data release |
 | S0b theme experiment on the same vectors | ½ day | **report**: go / no-go for S2 |
 | S2 themes by neighbours, report | 1 day | report coverage per year (C8 table) |
 | S3 crosswalk proposals | ½ day | sample check by the editor or students |

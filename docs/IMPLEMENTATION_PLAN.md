@@ -5,6 +5,12 @@ commit `d72e830`. It replaces the line "category crosswalk postponed" in the int
 mapping of old sections onto modern BHB codes" in `docs/PROTOTYPE_SPEC.md` §7. Everything else in those two files
 still holds.
 
+**Status, 30 October 2026.** Phases A–E are built and deployed (latest data release `data-2026-10-30`). E8 is
+built on embeddings instead of the TF-IDF sketch below; see `docs/SEMANTIC_INDEX_PROPOSAL.md`. Fixes made after
+this plan (optional function words in search, collected volumes split into their contributions, series, editors,
+ranking) are recorded in `docs/DECISIONS.md`. Still open: the review of `heading_crosswalk.csv`, the gold pass, and
+theme coverage below the 90 % target. Next proposals: `docs/IDENTIFIER_PROPOSAL.md` (DOIs, ISBNs, ISSNs).
+
 **Principle for this phase:** keep it light. One static site, one CI workflow, two small curated CSV files, one
 small local classifier. No server, no new front-end framework, no LLM API.
 
