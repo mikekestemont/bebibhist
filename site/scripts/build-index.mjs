@@ -62,7 +62,8 @@ for await (const line of lines) {
       section: (record.section_path || []).slice(-1)[0] || "",
       source: record.source || "",
       ...categoryMeta(record, scheme),
-      authors: peopleLine(record).slice(0, 300),
+      authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
+      editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
       subtitle: (record.subtitle || "").slice(0, 300),
       host: (record.host?.title || "").slice(0, 300),
       hostSubtitle: (record.host?.subtitle || "").slice(0, 300),
@@ -192,10 +193,6 @@ function people(record) {
   return (record.persons || [])
     .map((person) => [person.family, person.given].filter(Boolean).join(" "))
     .join(" ");
-}
-
-function peopleLine(record) {
-  return nameLine(record.persons);
 }
 
 /**

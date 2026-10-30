@@ -99,10 +99,10 @@ function bibtex(hit: Hit, source: string): string {
   const meta = hit.meta;
   const kind = kindOf(meta.kind);
   const authors = people(meta.authors);
-  const editors = people(meta.hostEditors);
+  const editors = people(kind === "chapter" ? meta.hostEditors : meta.editors);
   const fields: [string, string][] = [
     ["author", authors.map(bibName).join(" and ")],
-    ["editor", kind === "chapter" ? editors.map(bibName).join(" and ") : ""],
+    ["editor", editors.map(bibName).join(" and ")],
     ["title", [meta.title, meta.subtitle].filter(Boolean).join(": ")],
     ["journal", kind === "article" ? meta.host || "" : ""],
     ["booktitle", kind === "chapter" ? [meta.host, meta.hostSubtitle].filter(Boolean).join(": ") : ""],
@@ -131,6 +131,7 @@ function ris(hit: Hit, source: string): string {
   const range = pageRange(meta.pages);
   const lines = [`TY  - ${RIS[kind]}`];
   for (const person of people(meta.authors)) lines.push(`AU  - ${risName(person)}`);
+  for (const person of people(meta.editors)) lines.push(`ED  - ${risName(person)}`);
   if (kind === "chapter") {
     for (const person of people(meta.hostEditors)) lines.push(`A2  - ${risName(person)}`);
   }
@@ -165,6 +166,7 @@ function mods(hit: Hit, source: string): string {
   if (meta.subtitle) parts.push(`    <subTitle>${xml(meta.subtitle)}</subTitle>`);
   parts.push(`  </titleInfo>`);
   for (const person of people(meta.authors)) parts.push(modsName(person, "author"));
+  for (const person of people(meta.editors)) parts.push(modsName(person, "editor"));
   if (meta.host || meta.volume || meta.issue || meta.pages) {
     parts.push(`  <relatedItem type="host">`);
     if (meta.host || meta.hostSubtitle) {

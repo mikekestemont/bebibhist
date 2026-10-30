@@ -238,6 +238,8 @@
     const editors = meta.hostEditors?.trim() || editorsBeforeHost(meta.citation || "", meta.host);
     const pairs: [string, string | undefined, boolean?][] = [
       [text.author, authorsWithout(meta.authors, editors)],
+      // A collected volume's own editors; a chapter's editors are its host's, below.
+      [text.hostEditors, meta.editors],
       [text.fieldTitle, meta.title, work],
       [text.subtitle, meta.subtitle ? capitalize(meta.subtitle) : undefined, work],
       [hostLabel, meta.host, true],

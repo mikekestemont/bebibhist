@@ -17,6 +17,7 @@ export interface Hit {
     categoryMachine?: string;
     categorySource?: string;
     authors?: string;
+    editors?: string;
     subtitle?: string;
     host?: string;
     hostSubtitle?: string;
