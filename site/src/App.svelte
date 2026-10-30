@@ -631,7 +631,7 @@
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
-      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost)}</span>
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry)}</span>
       {#if score !== undefined}<span class="score" title={text.similarScore}>{score.toFixed(2)}</span>{/if}
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
@@ -714,7 +714,7 @@
       <h1>
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
       </h1>
-      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost)}</p>
+      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost, text.volumeFromEntry)}</p>
       <div class="record-export">{@render wand(record)}{@render exporter(record)}</div>
       {#if rows(record).length}
         <dl class="fields">
@@ -847,7 +847,7 @@
     <p><a href="#/search?{sessionStorage.getItem("bhb-search") || ""}">{text.back}</a></p>
     <h1>{text.similar}</h1>
     {#if similarSource}
-      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost)}</a></p>
+      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry)}</a></p>
     {/if}
     <p class="similar-note">{text.similarNote}</p>
     {#if loading && similarHits.length === 0}

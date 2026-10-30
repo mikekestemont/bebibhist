@@ -1,6 +1,6 @@
 """Hand-written citations: articles, books, chapters, editors, series, cross-refs."""
 
-from bhb.parse.citation import parse_citation
+from bhb.parse.citation import parse_citation, split_contents
 
 
 def test_article_roman_volume_and_issue():
@@ -327,3 +327,64 @@ def test_cfr_inside_brackets_with_degree_sign():
     )
     assert parsed.cross_refs == [(None, "60552")]
     assert parsed.pages == "1-4"
+
+
+VOLUME = (
+    "Milis (Ludo), Lambert (Véronique), Kelders (Ann) eds. Verhalende bronnen. Gent, 1996, 123 p. "
+    "(Studia Historica Gandensia 283) Milis (Ludo). Vooruitblikken naar het verleden, pp. 5–15; "
+    "Lambert (Véronique). Potthast, Pirenne en de anderen, pp. 17–33; Rider (Jeff). Galbert of Bruges’ "
+    "Journal: from Medieval Flop to Modern Bestseller, pp. 67–93."
+)
+
+
+def test_collected_volume_with_its_contents_is_split():
+    head, items, note = split_contents(VOLUME)
+    assert head.endswith("(Studia Historica Gandensia 283)")
+    assert [(item.persons[0]["family"], item.title, item.pages) for item in items] == [
+        ("Milis", "Vooruitblikken naar het verleden", "5–15"),
+        ("Lambert", "Potthast, Pirenne en de anderen", "17–33"),
+        ("Rider", "Galbert of Bruges’ Journal: from Medieval Flop to Modern Bestseller", "67–93"),
+    ]
+    assert items[2].printed == "Rider (Jeff). Galbert of Bruges’ Journal: from Medieval Flop to Modern Bestseller, pp. 67–93"
+    assert note is None
+    assert [person["role"] for person in parse_citation(head).persons] == ["editor"] * 3
+
+
+def test_contents_separated_by_dashes_and_id_repeat_the_names():
+    head, items, _note = split_contents(
+        "De Maeyer (Jan) & Wynants (Paul) eds. De Vincentianen in België. Leuven, Univ. Press, 1992, 404 p. "
+        "Id. Inleiding, pp. 7–24. — Wouters (Wilfried). De bewogen start, pp. 27–43 ; Illustraties, pp. 44–50."
+    )
+    assert head.endswith("404 p.")
+    assert [[person["family"] for person in item.persons] for item in items] == [["De Maeyer", "Wynants"], ["Wouters"], []]
+    assert {person["role"] for person in items[0].persons} == {"author"}
+
+
+def test_a_serial_article_or_chapters_under_in_are_not_a_volume():
+    assert split_contents(
+        "Herbillon (Jules). Toponymes hutois. An. du Cercle hutois, XXIII, 50, pp. 32–41 ; XXIV, 51, pp. 1–12 ; 52, pp. 127–137."
+    ) is None
+    assert split_contents(
+        "Verhaeghe (Frans). Towns. In: La ville […], pp. 335–344 ; Bruneel (Claude). Conclusions. Ibid., pp. 345–358 ; "
+        "Dupont (A.). Slot. Ibid., pp. 359–360."
+    ) is None
+    # An article whose own pages do not hold the parts that follow.
+    assert split_contents(
+        "Vandepoel (G.). Nicolaes Cleynaerts. De Brabantse Folklore, 1993, 278, pp. 116–122 ; "
+        "Peeters (A.). Een ander stuk, pp. 130–140 ; Smets (B.). Nog een, pp. 141–150."
+    ) is None
+
+
+def test_a_journal_issue_holds_its_contents_within_its_pages():
+    head, items, _note = split_contents(
+        "La Wallonie, Albert Mockel et ses amis. La Vie wallonne, LX, 394–395, 1986, pp. 1–160. "
+        "Desama (Claude). Albert Mockel et son temps, pp. 8–15. Pinon (Roger). Albert Mockel et son projet politique, pp. 16–30."
+    )
+    assert head.endswith("pp. 1–160")
+    assert [item.pages for item in items] == ["8–15", "16–30"]
+
+
+def test_editor_mark_after_a_comma():
+    parsed = parse_citation("Dierkens (Alain) & Duvosquel (Jean-Marie), eds. Le culte de saint Hubert. Bruxelles, 1991, 143 p.")
+    assert [(person["family"], person["role"]) for person in parsed.persons] == [("Dierkens", "editor"), ("Duvosquel", "editor")]
+    assert parsed.title == "Le culte de saint Hubert"

@@ -324,3 +324,37 @@ def test_tagged_voyez_aussi_is_a_cross_listing(tmp_path: Path):
     record = load_jats(path, "print-straive")[0]
     assert record.is_cross_listing is True
     assert record.cross_refs == ["bhb:1952-2872", "bhb:1952-2886", "bhb:1952-2887"]
+
+
+def test_volume_printed_with_its_contents_becomes_a_book_and_its_chapters(tmp_path: Path):
+    path = tmp_path / "BGB_1996.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>II. Travaux généraux</title>
+        <ref id="ref754"><label>13322</label><mixed-citation publication-type="other"><person-group person-group-type="author"><string-name><surname>Milis</surname> (<given-names>Ludo</given-names>)</string-name>, <string-name><surname>Lambert</surname> (<given-names>Véronique</given-names>)</string-name></person-group> eds. <article-title>Verhalende bronnen</article-title>. <publisher-loc>Gent</publisher-loc>, <year>1996</year>, 123 p. (Studia Historica Gandensia 283) <person-group person-group-type="editor"><string-name><surname>Milis</surname> (<given-names>Ludo</given-names>)</string-name></person-group>. <source>Vooruitblikken naar het verleden</source>, pp. <fpage>5</fpage>–<lpage>15</lpage>; <person-group person-group-type="editor"><string-name><surname>Rider</surname> (<given-names>Jeff</given-names>)</string-name></person-group>. <source>Galbert of Bruges’ Journal</source>, pp. <fpage>67</fpage>–<lpage>93</lpage>.</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    book, first, second = load_jats(path, "print-straive")
+    assert (book.id, book.type, book.title, book.host) == ("bhb:1996-13322", "book", "Verhalende bronnen", None)
+    assert [(person.family, person.role) for person in book.persons] == [("Milis", "editor"), ("Lambert", "editor")]
+    assert book.printed.endswith("Galbert of Bruges’ Journal, pp. 67–93.")
+    assert (book.extent, book.series.number) == ("123 p.", "283")
+    assert (second.id, second.type, second.title) == ("bhb:1996-13322-c2", "chapter", "Galbert of Bruges’ Journal")
+    assert [(person.family, person.role) for person in second.persons] == [("Rider", "author")]
+    assert (second.host.id, second.host.pages, second.year) == ("bhb:1996-13322", "67–93", 1996)
+    assert second.printed == "Rider (Jeff). Galbert of Bruges’ Journal, pp. 67–93"
+    assert second.section_path == book.section_path
+    assert second.provenance.flags == ["split-from-contents"]
+    assert first.persons[0].family == "Milis"
+
+
+def test_tagged_book_with_a_bare_eds_has_editors(tmp_path: Path):
+    path = tmp_path / "BGB_1993.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="r"><label>1</label><mixed-citation publication-type="book"><person-group person-group-type="author"><string-name><surname>Brockmans</surname> (<given-names>Hans</given-names>)</string-name></person-group> ed. <article-title>Vlaanderen: een Franse kolonie?</article-title> <publisher-loc>Leuven</publisher-loc>, <publisher-name>Davidsfonds</publisher-name>, <year>1993</year>, 183 p.</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert [(person.family, person.role) for person in record.persons] == [("Brockmans", "editor")]

@@ -28,7 +28,7 @@ _CROSS = re.compile(
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _PERSON = re.compile(r"^([A-ZÀ-Ý][^().]{0,80}?)\s*\(\s*([^)]{1,60})\s*\)")
 _EDITOR = re.compile(r"^\s*\((?:éds?|eds?|réd|red|dir|édit)\.?\)", re.IGNORECASE)
-_EDITOR_BARE = re.compile(r"^\s+(?:dir|éd|ed|red)\.(?=\s|$)", re.IGNORECASE)
+_EDITOR_BARE = re.compile(r"^\s+(?:dir|éds?|eds?|réd|reds?|hrsg)\.(?=\s|$)", re.IGNORECASE)
 _ETAL = re.compile(r"^(?:e\.\s*a\.|e\.a\.|et\s+al\.)", re.IGNORECASE)
 _MMV = re.compile(
     r"^(?:m\.m\.v\.|avec la collaboration de|met medewerking van)\s+",
@@ -174,6 +174,114 @@ def parse_citation(text: str) -> ParsedCitation:
     return parsed
 
 
+@dataclass
+class ContentsItem:
+    """One contribution listed after a collected volume. ``printed`` is its slice of the printed line."""
+
+    persons: list[dict[str, str | None]]
+    title: str
+    pages: str
+    printed: str
+
+
+_ITEM_TAIL = re.compile(r"^(?P<title>.+?)[,.]?\s+pp?\.\s*(?P<pages>\d+(?:\s*[-–]\s*\d+)?)\s*\.?$", re.IGNORECASE)
+_LAST_ITEM = re.compile(r"^(?P<item>.+?[,.]?\s+pp?\.\s*\d+(?:\s*[-–]\s*\d+)?)\s*\.?\s*(?:[—–]\s*(?P<note>.*))?$", re.IGNORECASE)
+_NOT_CONTENTS = re.compile(r"\b(?:In|Dans)\s*:", re.IGNORECASE)
+_PAGE_RANGE = re.compile(r"\bpp?\.\s*\d", re.IGNORECASE)
+_ITEM_START = re.compile(r"(?:(?<=[.)])\s+|\s+(?=[A-ZÀ-Ý][^\s().]{0,40}\s*\())")
+# Contributions are separated by a semicolon, or after the closing page by a stop or a dash before the next name.
+_ITEM_SEP = re.compile(r"\s*;\s*|(?<=\d)\s*\.?\s*(?:[—–]\s*)?\s(?=[A-ZÀ-Ý][^\s().;]{0,40}(?:\s[^\s().;]{1,40}){0,3}\s*\()")
+
+
+def split_contents(text: str) -> tuple[str, list[ContentsItem], str | None] | None:
+    """A collected volume printed together with its contents, or None.
+
+    ``Milis (Ludo), Lambert (Véronique) eds. Verhalende bronnen. Gent, 1996, 123 p. (Series 283)
+    Milis (Ludo). Vooruitblikken naar het verleden, pp. 5–15; Lambert (Véronique). Potthast, pp. 17–33.``
+
+    Returns the volume's own part, the contributions and a trailing annotation. Every part after the
+    volume must read ``Name (Given). Title, pp. X–Y`` (``Id.`` repeats the previous names, and an
+    unsigned part such as ``Illustraties, pp. 30–101`` is allowed). At least two parts must be signed,
+    so a serial article printed in several instalments is not taken for a volume.
+    """
+    original = squash(text)
+    # Several chapters of one volume printed together (``In: …; Ibid.``) are another shape.
+    if _NOT_CONTENTS.search(original):
+        return None
+    # Keep the separators, so the volume's own part is a slice of the printed line.
+    pieces = re.split(f"({_ITEM_SEP.pattern})", original)
+    parts, separators = pieces[0::2], pieces[1::2]
+    if len(parts) < 2:
+        return None
+    last = _LAST_ITEM.match(parts[-1])
+    if not last:
+        return None
+    note = _tidy(last.group("note"))
+    parts[-1] = last.group("item")
+    # The imprint itself may hold a semicolon (``Gent ; Brussel, 1990``), so the volume can span the first parts.
+    for size in range(1, min(4, len(parts))):
+        first = "".join(piece for pair in zip(parts[:size], [*separators[: size - 1], ""]) for piece in pair)
+        for match in _ITEM_START.finditer(first):
+            head = first[: match.start()].strip().rstrip(" —–")
+            if not _YEAR.search(head):
+                continue
+            # ``Id.`` in first place repeats the volume's editors.
+            item = _contents_item(first[match.end() :], _split_authors(head)[0])
+            if item is None or not item.persons:
+                continue
+            items = _contents_items(parts[size:], item)
+            return (head, items, note) if items and _spans(head, items) else None
+        # The volume can also stand alone before the separator: ``…, 549 p. — Verhuist (A.). …``
+        items = _contents_items(parts[size:], None) if _YEAR.search(first) else None
+        if items and _spans(first, items):
+            return first.strip(" .—–"), items, note
+    return None
+
+
+def _spans(head: str, items: list[ContentsItem]) -> bool:
+    """A volume's own pages, as in a journal issue (``pp. 1–160``), must hold its contributions;
+    otherwise the first part is an article followed by others."""
+    ranges = list(re.finditer(r"\bpp?\.\s*(\d+)\s*[-–]\s*(\d+)", head, re.IGNORECASE))
+    if not _PAGE_RANGE.search(head):
+        return True
+    if not ranges:
+        return False
+    low, high = int(ranges[-1].group(1)), int(ranges[-1].group(2))
+    return all(low <= int(re.match(r"\d+", item.pages).group()) <= high for item in items)
+
+
+def _contents_items(parts: list[str], first: ContentsItem | None) -> list[ContentsItem] | None:
+    items = [first] if first else []
+    for part in parts:
+        item = _contents_item(part, items[-1].persons if items else [])
+        if item is None:
+            return None
+        items.append(item)
+    if sum(1 for item in items if item.persons) < 2:
+        return None
+    return items
+
+
+def _contents_item(text: str, previous: list[dict[str, str | None]]) -> ContentsItem | None:
+    text = text.strip()
+    if same := re.match(r"Id\.\s*,?\s*", text):
+        if not previous:
+            return None
+        persons, rest = [{**person, "role": "author"} for person in previous], text[same.end() :]
+    else:
+        persons, rest, _flags, _editors = _split_authors(text)
+    if not persons and not re.search(r"[a-zà-ÿ]{3}", rest.split(",")[0]):
+        return None
+    match = _ITEM_TAIL.match(rest.strip())
+    if not match:
+        return None
+    title = _tidy(re.sub(r"[.,]?\s*ibid\.?$", "", match.group("title"), flags=re.IGNORECASE))
+    if not title or re.search(r"\bpp?\.\s*\d|\d+\s*p\.", title):
+        return None
+    pages = re.sub(r"\s*[-–]\s*", "–", match.group("pages"))
+    return ContentsItem(persons=persons, title=title, pages=pages, printed=text.rstrip("."))
+
+
 def _cross_refs(text: str) -> tuple[str, list[tuple[int | None, str]]]:
     found: list[tuple[int | None, str]] = []
 
@@ -254,7 +362,9 @@ def _split_authors(text: str) -> tuple[list[dict[str, str | None]], str, list[st
     if not persons:
         return [], text, flags, False
     rest = rest.lstrip()
-    if marker := _EDITOR.match(rest) or _EDITOR_BARE.match(rest):
+    # A separator before the mark (``Duvosquel (Jean-Marie), eds.``) was already taken by the loop.
+    if marker := _EDITOR.match(rest) or _EDITOR_BARE.match(f" {rest}"):
+        rest = f" {rest}" if not _EDITOR.match(rest) else rest
         editors = True
         rest = rest[marker.end() :].lstrip()
     if rest.startswith("."):

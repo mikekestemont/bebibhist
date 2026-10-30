@@ -30,6 +30,7 @@ export interface Hit {
     place?: string;
     publisher?: string;
     imprintMachine?: string;
+    inVolume?: string;
     extent?: string;
     kind?: string;
     similar?: string;
@@ -128,11 +129,13 @@ function yearIn(text: string, year: string): boolean {
 /** Journal and monograph titles are italic; an article or chapter title stays roman. A subtitle is italic in the citation line. */
 export function citationHtml(
   citation: string,
-  meta: { title?: string; subtitle?: string; host?: string; kind?: string; pubyear?: string; yearMachine?: string },
+  meta: { title?: string; subtitle?: string; host?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string },
   yearNote = "",
+  volumeNote = "",
 ): string {
   const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
+  if (meta.inVolume) html = withVolume(html, meta.inVolume, meta.host, volumeNote);
   if (meta.yearMachine === "1" && meta.pubyear && yearIn(shown, meta.pubyear)) {
     const note = escapeHtml(yearNote);
     html = html.replace(meta.pubyear, `<span class="derived" title="${note}">${meta.pubyear}</span>`);
@@ -149,6 +152,17 @@ export function citationHtml(
   const subtitle = meta.subtitle?.trim();
   if (subtitle) html = emphasize(html, subtitle);
   return html;
+}
+
+/** The volume goes before the pages, as in a printed chapter line, and is marked as supplied. */
+function withVolume(html: string, line: string, host: string | undefined, note: string): string {
+  let volume = escapeHtml(line);
+  const title = host?.trim();
+  if (title) volume = volume.replace(escapeHtml(title), `<em>${escapeHtml(title)}</em>`);
+  const span = `<span class="derived" title="${escapeHtml(note)}">${volume}</span>`;
+  const pages = html.match(/[,.]?\s*(\bpp?\.\s*\d[^]*)$/);
+  if (pages && pages.index !== undefined) return `${html.slice(0, pages.index)}. ${span}, ${pages[1]}`;
+  return `${html.replace(/\.?$/, "")}. ${span}.`;
 }
 
 function emphasize(html: string, text: string): string {

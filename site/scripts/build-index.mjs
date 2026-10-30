@@ -76,6 +76,7 @@ for await (const line of lines) {
       place: record.publisher?.place || record.host?.publisher?.place || "",
       publisher: record.publisher?.name || record.host?.publisher?.name || "",
       imprintMachine: !record.publisher && (record.provenance?.flags || []).includes("host-from-cross-ref") ? "1" : "",
+      inVolume: volumeLine(record),
       extent: record.extent || "",
       kind: record.type || "",
       similar: similarLine(record),
@@ -231,6 +232,18 @@ function containerOf(record, counts) {
 function similarLine(record) {
   const scores = record.similar_scores || [];
   return (record.similar || []).map((id, index) => `${id} ${scores[index] ?? ""}`.trim()).join("|");
+}
+
+/** A contribution split from its volume's printed contents names the volume, which is printed only at the head of that entry. */
+function volumeLine(record) {
+  if (!(record.provenance?.flags || []).includes("split-from-contents") || !record.host?.title) return "";
+  const host = record.host;
+  if (record.type === "article") {
+    return `In: ${[host.title, host.volume, host.year, host.issue].filter(Boolean).join(", ")}`;
+  }
+  const editors = nameLine(host.editors);
+  const imprint = [host.publisher?.place, host.publisher?.name, host.year].filter(Boolean).join(", ");
+  return `In: ${editors ? `${editors} (eds.). ` : ""}${host.title}${imprint ? `. ${imprint}` : ""}`;
 }
 
 function nameLine(persons) {

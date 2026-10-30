@@ -9,14 +9,14 @@ from lxml import etree
 
 from bhb.labels import repair_labels
 from bhb.model import Host, PdfLink, Person, Provenance, Publisher, Record, Series
-from bhb.parse.citation import cross_listing_numbers, cross_references, parse_citation
+from bhb.parse.citation import cross_listing_numbers, cross_references, parse_citation, split_contents
 from bhb.paths import rel
 from bhb.sections import is_see_also_heading, path_of, push_heading, see_also_numbers
 from bhb.textutil import clean_heading, squash, superscript
 
 XML = etree.XMLParser(load_dtd=False, no_network=True, recover=True, resolve_entities=False, huge_tree=True)
 _YEAR_FILE = re.compile(r"BGB_((?:19|20)\d{2})\.xml$")
-_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir)\.?\)", re.IGNORECASE)
+_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir)\.?\)|(?<![\w(])(?:éds?|eds?|réds?|red|dir|hrsg)\.(?=\s|$)", re.IGNORECASE)
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _EXTENT = re.compile(r"(\d+\s*p\.|s\.p\.)", re.IGNORECASE)
 _SPECIFIC = re.compile(r"pdf-page:(\d+)(?:\s+print-page:(\d+))?")
@@ -97,7 +97,77 @@ def load_jats(path: Path, source: str) -> list[Record]:
                 record.provenance.flags.append("cross-ref-unresolved")
         record.provenance.flags = list(dict.fromkeys(record.provenance.flags))
     _apply_see_also(records, see_also)
-    return records
+    return [part for record in records for part in split_volume(record)]
+
+
+def split_volume(record: Record) -> list[Record]:
+    """A collected volume printed with its contents becomes the volume plus one record per contribution.
+
+    The vendor tagged each contributor as an editor and each contribution title as a source, so the
+    first contribution became the host and every contributor its editor. The volume keeps its id and
+    its printed line; a contribution's ``printed`` is its own slice of that line, its id is the
+    volume's id with ``-c1``, ``-c2``…, and it is flagged ``split-from-contents``.
+    """
+    if record.is_cross_listing or not record.printed:
+        return [record]
+    found = split_contents(record.printed)
+    if found is None:
+        return [record]
+    head, items, note = found
+    volume = parse_citation(head)
+    issue = volume.type == "article"
+    record.type = "journal-issue" if issue else "book"
+    if not (record.title and record.title in head):
+        record.title = volume.title
+    record.title_translated = volume.title_translated
+    record.persons = [
+        Person(family=person["family"] or "", given=person.get("given"), role=person.get("role") or "author")
+        for person in volume.persons
+        if person.get("family")
+    ]
+    record.year = volume.year or record.year
+    record.extent = volume.extent
+    record.note = note
+    record.host = Host(title=volume.host_title, volume=volume.volume, issue=volume.issue, year=str(record.year) if record.year else None) if issue else None
+    tagged = record.publisher
+    if not (tagged and all(part in head for part in (tagged.place, tagged.name) if part)):
+        record.publisher = Publisher(place=volume.place, name=volume.publisher) if volume.place or volume.publisher else None
+    if volume.series_title or volume.series_number:
+        record.series = Series(title=volume.series_title, number=volume.series_number)
+    record.provenance.flags.append("contents-split")
+    parts = [record]
+    for number, item in enumerate(items, start=1):
+        year = str(record.year) if record.year else None
+        host = Host(id=record.id, year=year, pages=item.pages)
+        if issue and record.host:
+            host = Host(id=record.id, title=record.host.title, volume=record.host.volume, issue=record.host.issue, year=year, pages=item.pages)
+        parts.append(
+            Record(
+                id=f"{record.id}-c{number}",
+                source=record.source,
+                bgb_year=record.bgb_year,
+                print_number=record.print_number,
+                printed=item.printed,
+                type="article" if issue else "chapter",
+                title=item.title,
+                persons=[Person(family=person["family"] or "", given=person.get("given")) for person in item.persons if person.get("family")],
+                host=host,
+                year=record.year,
+                section_path=list(record.section_path),
+                secondary_sections=[list(path) for path in record.secondary_sections],
+                pdf=record.pdf,
+                provenance=Provenance(
+                    file=record.provenance.file,
+                    xml_id=record.provenance.xml_id,
+                    vendor_type=record.provenance.vendor_type,
+                    label_raw=record.provenance.label_raw,
+                    parser="contents-rules@0.1",
+                    confidence=0.8 if item.persons else 0.6,
+                    flags=["split-from-contents"],
+                ),
+            )
+        )
+    return parts
 
 
 def _apply_see_also(records: list[Record], notes: list[tuple[list[str], list[str], int]]) -> None:

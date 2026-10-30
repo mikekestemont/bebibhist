@@ -15,6 +15,7 @@
   "yearFromVolume": "Jaar van de band",
   "yearFromHost": "Overgenomen uit het verzamelwerk waarnaar deze bijdrage verwijst. Het staat niet in deze regel.",
   "imprintFromHost": "Overgenomen uit het verzamelwerk waarnaar deze bijdrage verwijst. Het staat niet in deze regel.",
+  "volumeFromEntry": "Overgenomen uit het boek waaronder deze bijdrage staat: de gedrukte vermelding noemt het één keer, vóór de inhoud.",
   "fieldSearch": "Zoeken in",
   "fields": {
     "all": "Alle tekst",
