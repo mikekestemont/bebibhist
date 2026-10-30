@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relaxedQuery, searchBoth, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, relaxedQuery, searchBoth, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -40,6 +40,9 @@
   let dragTo = $state<number | null>(null);
   let openId = $state("");
   let withinBox = $state("");
+  let related = $state<Hit[]>([]);
+  let relatedKey = $state("");
+  let relatedLoading = $state(false);
 
   const pageSizes = [10, 20, 50, 100];
   let page = $derived(Math.max(1, Number(params.get("page") || "1")));
@@ -330,6 +333,22 @@
     if (!match || match.index === undefined) return value;
     const index = match.index;
     return value.slice(0, index) + value.charAt(index).toLocaleUpperCase(lang) + value.slice(index + 1);
+  }
+
+  /** Related by meaning is offered for a text search in relevance order; an author search has no subject. */
+  function canRelate(): boolean {
+    return Boolean(query.trim()) && total >= 3 && !params.get("sort") && searchField(fieldChoice) !== "author";
+  }
+
+  async function showRelated() {
+    if (!engine || relatedLoading) return;
+    relatedLoading = true;
+    relatedKey = scopeOf(params);
+    const top = await Promise.all(listed.slice(0, 20).map((item) => item.data()));
+    const asked = [query, ...params.getAll("more")].join(" ");
+    related = await relatedByMeaning(engine, top, asked, recall);
+    remember(related);
+    relatedLoading = false;
   }
 
   function recall(id: string): Hit | null {
@@ -845,6 +864,30 @@
           {@render resultRow(hit)}
         {/each}
         <div class="results-foot">{@render tools()}</div>
+        {#if page === 1 && canRelate()}
+          <div class="related">
+            {#if relatedKey !== scopeOf(params)}
+              <button type="button" class="related-button" onclick={showRelated} disabled={relatedLoading}>
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d="M2.5 13.5l7.5-7.5M9 5l2 2M12 1.5v2.5M10.75 2.75h2.5M14 6v2M13 7h2M6 1.5v2M5 2.5h2" />
+                </svg>
+                {relatedLoading ? text.loading : text.related}
+              </button>
+            {:else}
+              <h2>{text.related}</h2>
+              <p class="similar-note">{text.relatedNote}</p>
+              {#if relatedLoading}
+                <p>{text.loading}</p>
+              {:else if related.length === 0}
+                <p>{text.relatedNone}</p>
+              {:else}
+                {#each related as hit (hit.meta.id)}
+                  {@render resultRow(hit)}
+                {/each}
+              {/if}
+            {/if}
+          </div>
+        {/if}
       {/if}
     </section>
   </main>

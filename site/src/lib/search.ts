@@ -258,6 +258,50 @@ export function relaxedQuery(query: string, field: SearchField = "all"): string 
   return searchQuery(kept.join(" "), field);
 }
 
+/** The words of a query that carry meaning: folded, lower case, without function words. */
+export function contentWords(query: string): string[] {
+  return foldQuery(query).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 1 && !FUNCTION_WORDS.has(word));
+}
+
+/**
+ * Related by meaning (trial): the stored neighbours of the first hits, ranked by the sum of their scores, with
+ * the first hits weighing more. With five hits or more, a title must come back from at least two of them, so
+ * one stray hit does not pull the list off subject. Titles that hold every query word are left out: the keyword
+ * search lists them already. Nothing new is downloaded except the records shown.
+ */
+export async function relatedByMeaning(
+  pagefind: Pagefind,
+  top: Hit[],
+  query: string,
+  known: (id: string) => Hit | null,
+  limit = 10,
+): Promise<Hit[]> {
+  const shown = new Set(top.map((hit) => hit.meta.id));
+  const votes = new Map<string, { score: number; hits: number }>();
+  top.forEach((hit, rank) => {
+    for (const { id, score } of similarOf(hit.meta)) {
+      if (shown.has(id)) continue;
+      const vote = votes.get(id) || { score: 0, hits: 0 };
+      votes.set(id, { score: vote.score + score / (1 + rank / 10), hits: vote.hits + 1 });
+    }
+  });
+  const needed = top.length >= 5 ? 2 : 1;
+  const ranked = [...votes]
+    .filter(([, vote]) => vote.hits >= needed)
+    .sort((a, b) => b[1].score - a[1].score)
+    .slice(0, limit * 2)
+    .map(([id]) => id);
+  const loaded = await Promise.all(ranked.map(async (id) => known(id) || (await findRecord(pagefind, id))));
+  const words = contentWords(query);
+  return loaded
+    .filter((hit): hit is Hit => hit !== null)
+    .filter((hit) => {
+      const text = contentWords(`${hit.meta.citation || ""} ${hit.meta.title || ""}`);
+      return !words.every((word) => text.includes(word));
+    })
+    .slice(0, limit);
+}
+
 /**
  * Every word must match in Pagefind, so a search runs twice, as an engine with optional terms would rank it: the
  * hits with all the words first, in their own order, then the hits that miss only function words. The looser
