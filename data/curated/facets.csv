@@ -1,0 +1,16 @@
+facet,value,label_fr,label_nl,label_en,note
+period,aux,Sciences auxiliaires,Hulpwetenschappen,Auxiliary sciences,"not a period: the bibliography part on auxiliary sciences, kept for the site filter"
+period,general,Généralités,Algemeen,General,"not a period: works across periods, kept for the site filter"
+period,ancient,Antiquité,Oudheid,Antiquity,
+period,medieval,Moyen Âge,Middeleeuwen,Middle Ages,
+period,burgundian,Époque bourguignonne,Bourgondische tijd,Burgundian period,
+period,early-modern,Temps modernes,Nieuwe tijd,Early modern,
+period,contemporary,Époque contemporaine,Hedendaagse tijd,Contemporary,
+theme,reference,Bibliographies et sciences auxiliaires,Bibliografieën en hulpwetenschappen,Reference and auxiliary sciences,
+theme,general,Travaux généraux et historiographie,Algemene werken en historiografie,General works and historiography,
+theme,local,Histoire locale et régionale,Lokale en regionale geschiedenis,Local and regional history,
+theme,political,"Institutions, politique, droit, guerres","Instellingen, politiek, recht, oorlog","Institutions, politics, law and war",
+theme,economic,Vie économique,Economisch leven,Economic life,
+theme,social,Histoire sociale et démographie,Sociale geschiedenis en demografie,Social history and demography,
+theme,religious,Vie religieuse et laïcité,Religie en vrijzinnigheid,Religion and secularism,
+theme,cultural,"Culture, enseignement, sciences, arts","Cultuur, onderwijs, wetenschap, kunst","Culture, education, science and arts",

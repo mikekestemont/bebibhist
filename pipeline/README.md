@@ -15,7 +15,7 @@ python3.12 -m venv .venv                     # pinned in .python-version
 
 `requirements.lock` is compiled from `pyproject.toml` with every extra (`dev`, `classify`, `embed`, `lock`). After changing a dependency, run `.venv/bin/pip-compile --extra dev --extra classify --extra embed --extra lock --strip-extras --allow-unsafe -o requirements.lock pyproject.toml`, then `.venv/bin/pip-sync requirements.lock` and `.venv/bin/pip install --no-deps -e .`. CI installs the `dev` extra with the lock file as constraints.
 
-`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. Derived files go to `build/` (git-ignored).
+`bhb build` is the same sequence as `bhb ingest straive`, `bhb ingest pdfvol`, `bhb ingest vsmart` and `bhb merge`. `bhb export mods` writes that record as MODS 3.8, one file per BGB year, under `build/mods/`. `bhb export skos` writes the BHB scheme, the periods and the subject areas as SKOS to `build/skos/bhb.ttl`, from `data/curated/scheme.csv`, `theme_map.csv` and `facets.csv`. Derived files go to `build/` (git-ignored).
 
 Raw inputs are not in this repository. Set `BHB_RAW` to the folder that holds them, or place that folder at `../bebibhist-raw`. It contains `2023-12-29/`, `exports Rijksarchief/`, `data/raw/`, `data/interim/` and `legacy/`. A missing folder stops the ingest with one error that names `BHB_RAW`. 1964–1965 are read from `$BHB_RAW/data/interim/print-pdf/`. 2008 is rebuilt from `$BHB_RAW/data/raw/pdf/BGB_2008.pdf` when that file is present; the regenerated XML is written to `build/print-pdf/BGB_2008.xml`.
 

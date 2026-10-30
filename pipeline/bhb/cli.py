@@ -64,6 +64,8 @@ def main(argv: list[str] | None = None) -> None:
     export_sub = export.add_subparsers(dest="export_command", required=True)
     mods = export_sub.add_parser("mods", help="MODS 3.8, one collection per BGB year")
     mods.add_argument("--out", type=Path)
+    skos = export_sub.add_parser("skos", help="the BHB scheme, periods and themes as SKOS (Turtle)")
+    skos.add_argument("--out", type=Path)
 
     similar = sub.add_parser("similar", help="embed every entry and store its nearest neighbours (needs the embed extra)")
     similar.add_argument("--model", default=None, help="sentence-transformers model name")
@@ -81,6 +83,13 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
+        return
+    if args.command == "export" and args.export_command == "skos":
+        from bhb.skos import write_skos
+
+        destination = args.out or build_dir() / "skos" / "bhb.ttl"
+        counts = write_skos(destination)
+        print(f"skos: {counts['codes']} codes, {counts['periods']} periods, {counts['themes']} themes, {counts['facet_links']} facet links → {destination}")
         return
     if args.command == "export" and args.export_command == "mods":
         source = build_dir() / "records.jsonl"
