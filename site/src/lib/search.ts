@@ -193,7 +193,13 @@ interface Pagefind {
     query: string | null,
     options?: { filters?: Record<string, string[]>; sort?: Record<string, "asc" | "desc"> },
   ) => Promise<SearchResponse>;
+  options: (settings: { ranking?: { pageLength?: number } }) => Promise<void>;
 }
+
+/** Pagefind favours short records (default 0.75), so a short stub could outrank the work it points to.
+ * 0.4 kept the top hits of test queries or improved them; 0.1 let long entries such as volumes with
+ * their contents take over. */
+const PAGE_LENGTH_WEIGHT = 0.4;
 
 let engine: Pagefind | null = null;
 
@@ -203,6 +209,7 @@ export async function loadEngine(): Promise<Pagefind> {
   // Resolve against the page, not the bundle. A relative import from /assets/
   // would request /assets/pagefind/, where the index is not deployed.
   const loaded = await importer(new URL(`${import.meta.env.BASE_URL}pagefind/pagefind.js`, document.baseURI).href);
+  await loaded.options({ ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
   await loaded.init();
   await loaded.filters();
   engine = loaded;

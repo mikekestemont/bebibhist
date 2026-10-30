@@ -94,9 +94,9 @@
   "similar": "Gelijkaardige publicaties",
   "similarWhy": "Publicaties waarvan de titel qua betekenis het dichtst bij deze ligt, over de talen heen",
   "similarFor": "Qua betekenis het dichtst bij:",
-  "similarNote": "Proefversie, ter beoordeling. De lijst steunt alleen op titels en ondertitels en werd vooraf berekend met een open meertalig taalmodel; het getal is de gelijkenis (1 = identiek). Auteurs en tijdschriften tellen niet mee.",
+  "similarNote": "Proefversie, ter beoordeling. De lijst steunt alleen op titels en ondertitels en werd vooraf berekend met een open meertalig taalmodel, met een kleine bonus voor zeldzame woorden die twee titels delen, zoals namen; het getal is de gelijkenis (1 of iets meer = identiek). Auteurs en tijdschriften tellen niet mee.",
   "similarNone": "Voor deze titel werden geen gelijkaardige publicaties gevonden.",
-  "similarScore": "Gelijkenis (cosinus, 1 = identiek)",
+  "similarScore": "Gelijkenis: verwantschap in betekenis, plus een kleine bonus voor gedeelde zeldzame woorden zoals namen",
   "within": "Zoeken in deze resultaten",
   "removeChip": "Weghalen",
   "printed": "Zoals gedrukt",
@@ -104,7 +104,11 @@
   "beta": "Bèta — gedrukte delen 1952–2008; gedeeltelijke export 2009–2017.",
   "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Koninklijke Commissie voor Geschiedenis. CC BY-NC 4.0.",
   "commission": "Koninklijke Commissie voor Geschiedenis",
-  "address": ["Paleis der Academiën", "Hertogsstraat 1", "B-1000 Brussel"],
+  "address": [
+    "Paleis der Academiën",
+    "Hertogsstraat 1",
+    "B-1000 Brussel"
+  ],
   "phone": "+32 2 550 22 06",
   "email": "jeanluc.depaepe@gmail.com",
   "support": "Met de steun van",
@@ -129,6 +133,14 @@
         "De delen 1952–2017 verschenen jaarlijks in het <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. Deze site neemt die gedrukte delen op: de jaren 1952–2007 zoals ze in 2023 in XML zijn gezet, en 1964, 1965 en 2008 uit de PDF van het tijdschrift.",
         "Vanaf 2009 staan de lemma’s ook in de bibliotheekcatalogus van het Rijksarchief. Deze site bevat een gedeeltelijke export van die catalogus voor 2009–2017. Latere jaren zitten hier nog niet in.",
         "De bibliografie wordt aangeboden onder CC BY-NC 4.0 (Naamsvermelding-NietCommercieel 4.0 Internationaal, https://creativecommons.org/licenses/by-nc/4.0/). Bij hergebruik vermeldt u de Koninklijke Commissie voor Geschiedenis. Commercieel gebruik is niet toegestaan."
+      ]
+    },
+    {
+      "title": "Hoe de resultaten geordend zijn",
+      "paragraphs": [
+        "Een zoekopdracht vindt de vermeldingen die elk woord bevatten dat u typt, waar het ook staat: in de bibliografische beschrijving, de namen, het tijdschrift of de rubriek. Korte woorden zoals <em>de</em>, <em>van</em>, <em>la</em> of <em>of</em> zijn facultatief: eerst komen de vermeldingen met alle woorden, daarna die waarin alleen zulke woorden ontbreken. Bij een zoekopdracht op auteur blijven ze behouden, omdat ze tot de familienaam behoren.",
+        "Daarbinnen zet <em>Relevantie</em> de vermeldingen vooraan waarin uw woorden zeldzaam zijn in de hele bibliografie en vaak voorkomen in de vermelding zelf. De lengte van een vermelding telt een beetje mee. Dit is een statistische volgorde, geen oordeel over het belang: u kunt de resultaten ook ordenen op jaar van verschijnen, op jaargang van de bibliografie, op auteur of op titel.",
+        "Namen worden vergeleken zoals ze gedrukt zijn. Naamgenoten worden niet onderscheiden en verschillende spellingen van één naam niet samengevoegd; probeer dus de varianten die u kent."
       ]
     },
     {

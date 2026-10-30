@@ -10,8 +10,10 @@ static site.
 from __future__ import annotations
 
 import hashlib
+import heapq
 import random
 import time
+from operator import itemgetter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +36,14 @@ _MAX_TOKENS = 128
 
 _FRENCH = frozenset("le la les des du et aux au sur dans une un pour par".split())
 _DUTCH = frozenset("het een van en op voor naar uit bij met over tot".split())
+
+# Hybrid score: the embedding cosine plus LEXICAL_WEIGHT times a TF-IDF cosine of the titles over rare
+# words only (in at most RARE_TITLES titles). The embedding finds the same subject across languages; the
+# TF-IDF part rewards shared rare words, in practice names (Guibert, Gembloux), which the embedding weighs
+# too lightly. Common words are left out because they tie a title to others in its own language.
+LEXICAL_WEIGHT = 0.1
+RARE_TITLES = 50
+_SHORT_WORDS = _FRENCH | _DUTCH | frozenset("the and with from into dans sous entre zijn door naar onder tegen".split())
 
 
 def embed_text(record: Record) -> str | None:
@@ -97,28 +107,61 @@ def encode(
 
 
 def neighbours(vectors: Vectors, k: int = DEFAULT_K, chunk: int = 1024) -> dict[str, list[tuple[str, float]]]:
-    """Top-k neighbours by cosine, without the record itself and without records of the same text."""
+    """Top-k neighbours by the hybrid score, without the record itself and without records of the same text.
+
+    Candidates are the best by embedding and the best by TF-IDF, so three titles on Guibert of Gembloux
+    find each other although the embedding alone puts other subjects closer.
+    """
     keys = [same_work_key(text) for text in vectors.texts]
     matrix = vectors.matrix
     total = matrix.shape[0]
-    wanted = min(total - 1, k * 3)
+    wanted = min(total - 1, k * 5)
     found: dict[str, list[tuple[str, float]]] = {}
     if wanted <= 0:
         return found
+    lexical = _tfidf(vectors.texts)
     for start, columns, values in _top_candidates(matrix, wanted, chunk):
+        words = (lexical[start : start + columns.shape[0]] @ lexical.T).tocsr()
         for row in range(columns.shape[0]):
             source = start + row
+            low, high = words.indptr[row], words.indptr[row + 1]
+            shared = dict(zip(words.indices[low:high].tolist(), words.data[low:high].tolist()))
+            shared.pop(source, None)
+            cosine = dict(zip(columns[row].tolist(), values[row].tolist()))
+            extra = [column for column, _ in heapq.nlargest(k * 2, shared.items(), key=itemgetter(1)) if column not in cosine]
+            if extra:
+                cosine.update(zip(extra, (matrix[extra] @ matrix[source]).tolist()))
+            scored = sorted(
+                ((score + LEXICAL_WEIGHT * shared.get(column, 0.0), column) for column, score in cosine.items()),
+                reverse=True,
+            )
             kept: list[tuple[str, float]] = []
             seen = {keys[source]}
-            for column, score in zip(columns[row], values[row]):
+            for score, column in scored:
                 if keys[column] in seen:
                     continue
                 seen.add(keys[column])
-                kept.append((vectors.ids[column], round(float(score), 4)))
+                kept.append((vectors.ids[column], round(score, 4)))
                 if len(kept) == k:
                     break
             found[vectors.ids[source]] = kept
     return found
+
+
+def _tfidf(texts: list[str]):
+    """Rows are L2-normalised TF-IDF vectors of the folded titles, over words in 2 to RARE_TITLES titles."""
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    vectorizer = TfidfVectorizer(
+        preprocessor=fold,
+        token_pattern=r"(?u)\b[a-z]{3,}\b",
+        stop_words=sorted(_SHORT_WORDS),
+        sublinear_tf=True,
+        min_df=2,
+        max_df=RARE_TITLES,
+        dtype=np.float32,
+    )
+    return vectorizer.fit_transform(texts).tocsr()
 
 
 def _top_candidates(matrix: np.ndarray, wanted: int, chunk: int):

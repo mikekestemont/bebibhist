@@ -94,9 +94,9 @@
   "similar": "Similar publications",
   "similarWhy": "Publications whose titles are closest in meaning to this one, across languages",
   "similarFor": "Closest in meaning to:",
-  "similarNote": "Trial version for review. The list is based on titles and subtitles only and was computed in advance with an open multilingual language model; the number is the similarity (1 = identical). Authors and journals are not taken into account.",
+  "similarNote": "Trial version for review. The list is based on titles and subtitles only and was computed in advance with an open multilingual language model, plus a small bonus for rare words that two titles share, such as names; the number is the similarity (1 or a little above = identical). Authors and journals are not taken into account.",
   "similarNone": "No similar publications were found for this record.",
-  "similarScore": "Similarity (cosine, 1 = identical)",
+  "similarScore": "Similarity: closeness in meaning, plus a small bonus for shared rare words such as names",
   "within": "Search within these results",
   "removeChip": "Remove",
   "printed": "As printed",
@@ -104,7 +104,11 @@
   "beta": "Beta — printed volumes 1952–2008; partial export 2009–2017.",
   "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Royal Commission of History. CC BY-NC 4.0.",
   "commission": "Royal Commission of History",
-  "address": ["Palace of the Academies", "Rue Ducale 1", "B-1000 Brussels"],
+  "address": [
+    "Palace of the Academies",
+    "Rue Ducale 1",
+    "B-1000 Brussels"
+  ],
   "phone": "+32 2 550 22 06",
   "email": "jeanluc.depaepe@gmail.com",
   "support": "With the support of",
@@ -129,6 +133,14 @@
         "The volumes for 1952–2017 were published each year in the <em>Revue belge de philologie et d’histoire</em> / <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. This site includes those printed volumes: the years 1952–2007 as transcribed into XML in 2023, and 1964, 1965 and 2008 taken from the journal PDF.",
         "From 2009 the entries are also typed into the library catalogue of the State Archives of Belgium. This site holds a partial export of that catalogue for 2009–2017. Later years are not here yet.",
         "The bibliography is offered under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). If you reuse it, credit the Royal Commission of History. Commercial use is not permitted."
+      ]
+    },
+    {
+      "title": "How results are ordered",
+      "paragraphs": [
+        "A search finds the entries that contain every word you type, wherever it occurs: in the citation, the names, the journal or the heading. Short words such as <em>de</em>, <em>van</em>, <em>la</em> or <em>of</em> are optional: the entries with every word come first, then the entries that miss only such words. A search for an author keeps them, because they belong to the surname.",
+        "Within that, <em>Relevance</em> puts first the entries in which your words are rare in the bibliography as a whole and occur often in the entry itself. The length of an entry counts a little. This is a statistical order, not a judgement of importance: you can sort the results by publication year, by volume of the bibliography, by author or by title instead.",
+        "Names are matched as they are printed. Namesakes are not told apart, and different spellings of one name are not joined, so try the variants you know."
       ]
     },
     {

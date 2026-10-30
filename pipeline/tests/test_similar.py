@@ -75,3 +75,15 @@ def test_quality_counts_shared_codes_and_language_switches():
     assert scores["same_period"] == 0.5
     assert scores["same_section"] == 0.5
     assert scores["other_language"] == 0.5
+
+
+def test_a_shared_rare_name_lifts_a_neighbour_above_a_closer_subject():
+    angle = np.radians([0, 35, 30] + [90 + 3 * n for n in range(30)])
+    matrix = np.stack([np.cos(angle), np.sin(angle)], axis=1).astype(np.float32)
+    texts = ["Guibert de Gembloux et son monastère", "Hildegard and Guibert of Gembloux", "Les moines de Villers en Brabant"]
+    texts += [f"Guibert {n}" if n < 2 else f"Filler title number {n} spoorwegen" for n in range(30)]
+    vectors = Vectors(ids=[f"r{n}" for n in range(len(texts))], texts=texts, matrix=matrix)
+    found = neighbours(vectors, k=1)
+    # r2 is closer in meaning (cosine), but r1 shares the rare words Guibert and Gembloux.
+    assert found["r0"][0][0] == "r1"
+    assert found["r0"][0][1] > float(matrix[0] @ matrix[1])
