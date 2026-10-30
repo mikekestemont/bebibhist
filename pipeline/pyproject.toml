@@ -14,7 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7", "numpy>=1.26"]
 classify = ["scikit-learn>=1.4"]
-embed = ["sentence-transformers>=3.0", "torch>=2.4", "numpy>=1.26"]
+embed = ["sentence-transformers>=3.0", "torch>=2.4", "numpy>=1.26", "scikit-learn>=1.4"]
 lock = ["pip-tools>=7.4"]
 
 [project.scripts]

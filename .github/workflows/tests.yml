@@ -18,7 +18,7 @@ jobs:
           cache-dependency-path: pipeline/requirements.lock
 
       - name: Install
-        run: pip install -c pipeline/requirements.lock -e "pipeline[dev]"
+        run: pip install -c pipeline/requirements.lock -e "pipeline[dev,classify]"
 
       - name: Pytest
         working-directory: pipeline
