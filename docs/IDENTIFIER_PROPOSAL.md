@@ -41,6 +41,7 @@ There are no DOIs, 4 ISBNs, no ISSNs and 71 web links. Article hosts are written
 | DOI, ISSN, open-access URL, abstract | **OpenAlex** API | CC0 metadata. Journals ("sources") carry their ISSNs. |
 | DOI | **Persée** | Digitised French-language journals, including the *Revue belge de philologie et d'histoire*; DOIs under `10.3406`. Likely the best source for older Belgian articles. |
 | ISSN | OpenAlex sources, **Wikidata**, ROAD | The full ISSN Portal is paid; these free sources should cover most scholarly journals. Local periodicals may have none. |
+| DOI, ISBN, ISSN | **VABB-SHW** (ECOOM, open data on Zenodo, CC BY 4.0) | The Flemish Academic Bibliography for the Social Sciences and Humanities: publications by researchers at Flemish universities, with DOI, ISBN and ISSN. Editions VIII (2000–2017, 81,122 publications), IX (2008–2017) and 15 (2014–2023) are downloaded to `build/external/`. Local, so it covers Flemish journals and books that Crossref lacks; it has no francophone or pre-2000 publications. |
 | ISBN | **Open Library**, national library catalogues (SRU) | ISBNs exist from about 1970. KBR, DNB and the Library of Congress are to be checked for open access and terms. WorldCat needs a licence. |
 
 The terms of each service are checked before the first run, and the requests are throttled to what each asks.
@@ -109,6 +110,14 @@ some are spelling variants (`voiage`). A matched title is therefore a **proposal
 never replaces our title or `printed` automatically.
 
 **Run time for everything.** About 100,000 articles and chapters at this pace take roughly ten hours, once.
+
+## 5c. VABB-SHW (31 October 2026)
+
+An exact match on title and publication year (±1) finds 2,605 of our entries from 2000 on in one of the three VABB
+editions (4 %): 1,619 articles, 698 chapters, 268 books. What it adds is mostly what Crossref lacks: **ISSNs** for
+1,553 articles (journal identification, step E1) and **ISBNs** for 645 chapters and 229 books; DOIs for only 239.
+A fuzzy match, as for Crossref, will find more (OCR errors, subtitles). VABB also gives normalised names of Flemish
+authors, which may help to tell namesakes apart later. Credit: ECOOM, VABB-SHW editions VIII, IX and 15 (CC BY 4.0).
 
 ## 6. Site
 
