@@ -1,6 +1,7 @@
 # Proposal — DOIs, ISBNs and ISSNs for every entry
 
-Draft, 30 October 2026, for the product owner (Mike Kestemont). Nothing in this file is built yet. It answers one
+Draft, 30 October 2026, for the product owner (Mike Kestemont). The pilot (E0, Crossref only) ran on 31 October; its
+result is in §5b. Nothing is shown on the site yet. It answers one
 request: a later, thorough clean-up that finds a persistent identifier for as many entries as possible, and the links,
 open full texts and abstracts that come with them. It keeps the ground rules: no LLM API, static site, the printed text
 unchanged, machine values flagged, confidence floors.
@@ -72,6 +73,43 @@ No reliable estimate can be given before a pilot. Expect high coverage for V-Sma
 moderate coverage for 1993–2008, and low coverage before 1990 and for local history periodicals (heemkundige kringen,
 cercles d'histoire), which rarely registered DOIs. Persée may lift the older French-language journals.
 
+## 5b. Pilot result (31 October 2026)
+
+`bhb identifiers pilot` (`bhb/identifiers.py`) queried Crossref for 1,000 recent entries: 500 articles and chapters of
+the 2007 volume and 500 of the State Archives' catalogue (2016–2017), one query each (title, first author, journal or
+volume, year ±1), cached in `build/cache/crossref/`. The run took about six minutes. The candidates are in
+`build/identifiers/pilot.csv`.
+
+| Part | Entries | With a DOI |
+|---|---:|---:|
+| Print 2007, articles | 308 | 39 (13 %) |
+| Print 2007, chapters | 192 | 6 (3 %) |
+| Catalogue 2016–2017, articles | 386 | 28 (7 %) |
+| Catalogue 2016–2017, chapters | 114 | 26 (23 %) |
+| **All** | 1,000 | **99 (10 %)** |
+
+**Acceptance rule.** The title must be the same (similarity ≥ 95) or close enough for an OCR error (≥ 85, then three
+other fields must agree); the author and the year (±1) must not disagree; at least two of author, year, journal and
+first page must agree; a title shorter than 30 characters ("Belgium") also needs the journal or the first page. A
+different journal name does not reject a candidate, since Crossref often gives the series or an abbreviation (BMGN, WT)
+where we have the full title.
+
+**Precision.** All 99 accepted DOIs were checked by hand against title, journal and author: all are right. With 99 checks,
+this shows precision is very likely above 96 %, not yet that it is above the 98 % of E4; a larger check comes with the
+full run.
+
+**Coverage** follows the journals: the *Revue belge de philologie et d'histoire* and the *Bulletin* of the Commission
+(Persée), *Le Moyen Âge*, *Revue du Nord*, *BMGN*, *WT*, *Brood & Rozen*, *Handelingen* of several Ghent societies
+(`10.21825`, Ghent University's journal platform), Brepols and Brill volumes, international journals. Local periodicals
+mostly have no DOI.
+
+**OCR in titles.** In 8 of the 99 matches one word differs. Our title is wrong in four or five (`terrrein`, `7474`,
+`infirme` for `infime`, `literacy` for `literary`), Crossref's in others (`eonversacio`, an OCR error at Persée), and
+some are spelling variants (`voiage`). A matched title is therefore a **proposal** for correction, to be reviewed; it
+never replaces our title or `printed` automatically.
+
+**Run time for everything.** About 100,000 articles and chapters at this pace take roughly ten hours, once.
+
 ## 6. Site
 
 - A "DOI" link and, when OpenAlex reports one, an "Open copy" link on the record page and in the expanded row.
@@ -89,7 +127,7 @@ Writing and checking the code is a few days of work.
 
 | Step | Effort | Stop point |
 |---|---|---|
-| E0 pilot: 1,000 entries, stratified by decade and type, through E1–E3 | 1–2 days | **report**: coverage per stratum, precision on a hand-checked sample, run time |
+| E0 pilot: 1,000 recent entries, Crossref — **done 31 Oct, §5b** | 1–2 days | **report**: coverage per stratum, precision on a hand-checked sample, run time |
 | E1 journals and ISSNs | 2 days + review of the large clusters | review list for the editor or students |
 | E2–E3 all entries | 2 days of work, about 1–2 days of run time | report as in E0, then a data release |
 | E6 site: links, open copies, exports | 1 day | deploy |

@@ -82,6 +82,12 @@ def main(argv: list[str] | None = None) -> None:
     places_sub = places.add_subparsers(dest="places_command", required=True)
     places_sub.add_parser("apply", help="write the indexed places into build/records.jsonl")
 
+    identifiers = sub.add_parser("identifiers", help="DOIs from Crossref (docs/IDENTIFIER_PROPOSAL.md)")
+    identifiers_sub = identifiers.add_subparsers(dest="identifiers_command", required=True)
+    pilot = identifiers_sub.add_parser("pilot", help="match a sample of recent articles and chapters; write build/identifiers/pilot.csv")
+    pilot.add_argument("--size", type=int, default=1000)
+    pilot.add_argument("--seed", type=int, default=1)
+
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -101,6 +107,9 @@ def main(argv: list[str] | None = None) -> None:
         counts = apply_places(records, raw_root())
         write_jsonl(path, records)
         print(f"places: {counts} → {path}")
+        return
+    if args.command == "identifiers" and args.identifiers_command == "pilot":
+        _identifiers_pilot(args.size, args.seed)
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -319,3 +328,30 @@ def _emit(records: list[Record], labels: dict, out: Path | None) -> None:
     print(f"report: {build_dir() / 'ingest_report.md'}")
     for warning in heading_warnings(records):
         print(f"warning: {warning}")
+
+
+def _identifiers_pilot(size: int, seed: int) -> None:
+    import csv
+    from collections import Counter
+
+    from bhb.identifiers import pilot_sample, run
+
+    records = read_jsonl(build_dir() / "records.jsonl")
+    sample = pilot_sample(records, size, seed)
+    by_id = {record.id: record for record in sample}
+    matches = run(sample, build_dir() / "cache" / "crossref", progress=lambda n: print(f"  {n}", flush=True))
+    out = build_dir() / "identifiers" / "pilot.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    counts: Counter[tuple[str, int, bool]] = Counter()
+    with out.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "source", "type", "accepted", "doi", "title", "author", "year", "container", "page", "ours", "theirs", "their_container"])
+        for match in matches:
+            record = by_id[match.record_id]
+            counts[(record.source, record.type, match.accepted)] += 1
+            writer.writerow([match.record_id, record.source, record.type, int(match.accepted), match.doi or "",
+                             *(match.score.get(key, "") for key in ("title", "author", "year", "container", "page")),
+                             match.our_title, match.their_title, match.their_container])
+    for (source, kind, accepted), n in sorted(counts.items()):
+        print(f"{source:14} {kind:8} {'DOI' if accepted else 'none':4} {n}")
+    print(f"pilot → {out}")
