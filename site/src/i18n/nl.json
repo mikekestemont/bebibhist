@@ -31,7 +31,9 @@
   "suggestedWhy": {
     "classifier": "Voorgesteld op grond van de titel. Het is niet nagekeken.",
     "crosswalk": "Voorgesteld op grond van de gedrukte rubriek. De regel is niet nagekeken.",
-    "see-also": "Voorgesteld op grond van een zie-ook-verwijzing. Het is niet nagekeken."
+    "see-also": "Voorgesteld op grond van een zie-ook-verwijzing. Het is niet nagekeken.",
+    "semantic": "Voorgesteld op basis van inhoudelijk verwante titels. Niet met de hand gecontroleerd.",
+    "semantic-heading": "Voorgesteld op basis van de titels onder dezelfde gedrukte rubriek. Niet met de hand gecontroleerd."
   },
   "authorMatch": "Namen worden gezocht zoals ze geschreven zijn. Naamgenoten worden niet onderscheiden en spellingvarianten worden niet samengevoegd.",
   "themes": {
@@ -179,5 +181,13 @@
     "print-straive": "Gedrukte delen",
     "print-pdf": "Gedrukte delen (PDF)",
     "vsmart": "Catalogus van het Rijksarchief"
-  }
+  },
+  "subjects": "Onderwerpen",
+  "periodsLabel": "Periodes",
+  "suggestedValue": "Automatisch voorgesteld, op basis van inhoudelijk verwante titels of de gedrukte rubriek. Niet met de hand gecontroleerd.",
+  "suggestedSample": "Cursief:",
+  "suggestedLegend": "automatisch voorgesteld, nog niet met de hand gecontroleerd.",
+  "browse": "Bladeren per onderwerp",
+  "browseAll": "Alle periodes",
+  "browseIntro": "Alle publicaties per onderwerp en periode. De aantallen omvatten ook automatisch voorgestelde waarden; bij elke vermelding staan die cursief."
 }

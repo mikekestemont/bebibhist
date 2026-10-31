@@ -33,3 +33,22 @@ def test_a_heading_averages_its_entries_and_needs_five_of_them():
     means = pooled(ids, scores, groups)
     assert set(means) == {"flandre"}
     assert round(means["flandre"]["local"], 2) == 0.7 and round(means["flandre"]["religious"], 2) == 0.3
+
+
+def test_values_from_a_machine_are_marked_as_suggested():
+    from bhb.facet_suggest import mark_origin
+    from bhb.model import Category, Record
+
+    record = Record(
+        id="bhb:1970-1",
+        source="print-straive",
+        bgb_year=1970,
+        section_path=["III. Histoire par époques", "Époque contemporaine — tot heden"],
+        categories=[Category(code=None, source="semantic-heading", machine=True, theme="religious")],
+        theme=["religious"],
+        period=["contemporary", "early-modern"],
+    )
+    mark_origin(record, [("III.D.", "political")])
+    assert record.theme_suggested == ["religious"]
+    # The printed heading gives "contemporary"; "early-modern" came from the machine.
+    assert record.period_suggested == ["early-modern"]

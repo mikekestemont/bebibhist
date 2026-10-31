@@ -406,3 +406,61 @@ def _report(records, themes, periods, period_run, entry_run, heading_run, groups
                      f"{', '.join(sorted(heading_run.suggestions[members[0].id]))}. "
                      + "; ".join(f"*{(member.title or '')[:70]}*" for member in members[:3]))
     return "\n".join(lines) + "\n"
+
+
+def mark_origin(record: Record, theme_map: list[tuple[str, str]]) -> None:
+    """Fill ``theme_suggested`` and ``period_suggested``: the values no person or printed volume gave."""
+    themes = checked_themes(record, theme_map)
+    periods = set(assign_period(record.section_path, checked_codes(record)))
+    record.theme_suggested = [theme for theme in record.theme if theme not in themes]
+    record.period_suggested = [period for period in record.period if period not in periods]
+
+
+def apply_suggestions(records: list[Record], build_dir) -> dict[str, int]:
+    """Add the suggested periods and subject areas to every entry, also beside values it already has, and mark
+    which values are suggested. Subject areas come per printed heading and, where a title alone is clear enough,
+    per entry; periods per entry. Each is kept only above its held-out 90 % threshold."""
+    from pathlib import Path
+
+    from bhb.categorise import heading_key
+    from bhb.model import Category
+    from bhb.scheme import load_theme_map
+    from bhb.similar import DEFAULT_MODEL, encode
+
+    theme_map = load_theme_map()
+    entries = [record for record in records if record.role == "entry" and not record.is_cross_listing]
+    vectors = encode(entries, DEFAULT_MODEL, Path(build_dir) / "vectors" / f"{DEFAULT_MODEL.replace('/', '__')}.npz")
+    by_id = {record.id: record for record in entries}
+    themes = {record_id: checked_themes(by_id[record_id], theme_map) for record_id in vectors.ids}
+    periods = {record_id: checked_periods(by_id[record_id]) for record_id in vectors.ids}
+    held = {record_id: held_out(by_id[record_id]) for record_id in vectors.ids}
+    groups = {
+        record_id: f"{'old' if (by_id[record_id].bgb_year or 0) < 1993 else 'new'}|{heading_key(by_id[record_id].section_path)}"
+        for record_id in vectors.ids
+        if by_id[record_id].source != "vsmart" and by_id[record_id].section_path
+    }
+    every = list(vectors.ids)
+    period_run = run_facet("period", every, vectors.matrix, periods, held, every)
+    entry_run = run_facet("theme", every, vectors.matrix, themes, held, every)
+    heading_run = run_headings("theme", every, vectors.matrix, themes, held, groups, every)
+    counts = {"themes_added": 0, "periods_added": 0, "entries_with_new_theme": 0, "entries_with_new_period": 0}
+    for record_id, record in by_id.items():
+        added = False
+        for source, run in (("semantic-heading", heading_run), ("semantic", entry_run)):
+            for theme in sorted(run.suggestions.get(record_id, set())):
+                if theme in record.theme:
+                    continue
+                record.theme.append(theme)
+                record.categories.append(
+                    Category(code=None, source=source, confidence=0.9, machine=True, primary=not record.categories, theme=theme)
+                )
+                counts["themes_added"] += 1
+                added = True
+        counts["entries_with_new_theme"] += added
+        new_periods = [period for period in sorted(period_run.suggestions.get(record_id, set())) if period not in record.period]
+        record.period.extend(new_periods)
+        counts["periods_added"] += len(new_periods)
+        counts["entries_with_new_period"] += bool(new_periods)
+    for record in records:
+        mark_origin(record, theme_map)
+    return counts

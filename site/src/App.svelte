@@ -40,6 +40,28 @@
   let dragTo = $state<number | null>(null);
   let openId = $state("");
   let withinBox = $state("");
+  let browseTotals = $state<Record<string, number>>({});
+  let browsePeriods = $state<Record<string, number>>({});
+  let openTheme = $state("");
+
+  /** The subject tree: totals per subject area, then the periods inside the one that is open. */
+  async function loadBrowse() {
+    const pagefind = await loadEngine();
+    const totals = await pagefind.filters();
+    browseTotals = { ...(totals.theme || {}) };
+  }
+
+  async function toggleTheme(theme: string) {
+    if (openTheme === theme) {
+      openTheme = "";
+      return;
+    }
+    openTheme = theme;
+    browsePeriods = {};
+    const pagefind = await loadEngine();
+    const response = await pagefind.search(null, { filters: { theme: [theme] } });
+    if (openTheme === theme) browsePeriods = { ...(response.filters?.period || {}) };
+  }
   let related = $state<Hit[]>([]);
   let relatedKey = $state("");
   let relatedLoading = $state(false);
@@ -146,6 +168,11 @@
       const found = await Promise.all(wanted.map(async (item) => ({ hit: recall(item.id) || (await findRecord(engine!, item.id)), score: item.score })));
       similarHits = found.filter((item): item is { hit: Hit; score: number } => item.hit !== null);
       remember(similarHits.map((item) => item.hit));
+      loading = false;
+      return;
+    }
+    if (path === "/browse") {
+      await loadBrowse();
       loading = false;
       return;
     }
@@ -600,8 +627,29 @@
   {/if}
 {/snippet}
 
+{#snippet facetValues(group: "theme" | "period", values: string, suggested: string)}
+  {@const own = values.split("|").filter(Boolean)}
+  {@const machine = suggested.split("|").filter(Boolean)}
+  {#each own as value, index}
+    {#if index > 0}, {/if}
+    {#if machine.includes(value)}
+      <span class="value-suggested" title={text.suggestedValue}>{label(group, value)}</span>
+    {:else}
+      <span class="value-checked">{label(group, value)}</span>
+    {/if}
+  {/each}
+{/snippet}
+
 {#snippet categoryBlock(hit: Hit)}
   {@const category = categoryOf(hit)}
+  {@const anySuggested = Boolean(hit.meta.themesSuggested || hit.meta.periodsSuggested)}
+  {#if hit.meta.themes}
+    <p class="category-line"><span class="theme">{text.subjects}</span> {@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}</p>
+  {/if}
+  {#if hit.meta.periods}
+    <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
+  {/if}
+  {#if anySuggested}<p class="suggested-legend"><span class="value-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</p>{/if}
   <p class="category-line">
     <span class="theme">{text.category}</span>
     {category || text.themes.unclassified}
@@ -722,6 +770,7 @@
       <button type="submit">{text.search}</button>
     </form>
   {/if}
+  <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined}>{text.browse}</a>
   <nav class="langs">
     {#each ["fr", "nl", "en"] as code}
       <button type="button" aria-current={lang === code ? "true" : undefined} onclick={() => choose(code as Lang)}>{code.toUpperCase()}</button>
@@ -909,6 +958,30 @@
       {/each}
     {/if}
   </main>
+{:else if path === "/browse"}
+  <main class="wrap browse">
+    <h1>{text.browse}</h1>
+    <p class="similar-note">{text.browseIntro}</p>
+    <ul class="tree">
+      {#each groups.theme.filter((value) => value !== "unclassified") as theme}
+        <li>
+          <button type="button" class="tree-toggle" aria-expanded={openTheme === theme} onclick={() => toggleTheme(theme)}>
+            <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+            {label("theme", theme)}
+          </button>
+          <span class="tree-count">{(browseTotals[theme] || 0).toLocaleString(lang)}</span>
+          {#if openTheme === theme}
+            <ul>
+              <li><a href={"#/search?theme=" + theme}>{text.browseAll}</a> <span class="tree-count">{(browseTotals[theme] || 0).toLocaleString(lang)}</span></li>
+              {#each groups.period.filter((value) => (browsePeriods[value] || 0) > 0) as period}
+                <li><a href={"#/search?theme=" + theme + "&period=" + period}>{label("period", period)}</a> <span class="tree-count">{(browsePeriods[period] || 0).toLocaleString(lang)}</span></li>
+              {/each}
+            </ul>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </main>
 {:else if path === "/about"}
   <main class="wrap about">
     <h1>{text.aboutTitle}</h1>
@@ -929,7 +1002,7 @@
       <input bind:value={query} type="search" placeholder={text.placeholder} aria-label={text.search} />
       <button type="submit">{text.search}</button>
     </form>
-    <p class="about-link"><a href="#/about">{text.aboutTitle}</a></p>
+    <p class="about-link"><a href="#/browse">{text.browse}</a> · <a href="#/about">{text.aboutTitle}</a></p>
   </main>
 {/if}
 

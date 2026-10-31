@@ -31,7 +31,9 @@
   "suggestedWhy": {
     "classifier": "Suggested from the title. It has not been checked by hand.",
     "crosswalk": "Suggested from the printed heading. It has not been reviewed.",
-    "see-also": "Suggested from a see-also pointer. It has not been checked by hand."
+    "see-also": "Suggested from a see-also pointer. It has not been checked by hand.",
+    "semantic": "Suggested from titles close in meaning. It has not been checked by hand.",
+    "semantic-heading": "Suggested from the titles under the same printed heading. It has not been checked by hand."
   },
   "authorMatch": "Names are matched as written. Namesakes are not separated, and spelling variants are not joined.",
   "themes": {
@@ -179,5 +181,13 @@
     "print-straive": "Printed volumes",
     "print-pdf": "Printed volumes (PDF)",
     "vsmart": "State Archives catalogue"
-  }
+  },
+  "subjects": "Subject areas",
+  "periodsLabel": "Periods",
+  "suggestedValue": "Suggested automatically, from titles close in meaning or from the printed heading. Not checked by hand.",
+  "suggestedSample": "In italics:",
+  "suggestedLegend": "suggested automatically, not yet checked by hand.",
+  "browse": "Browse by subject",
+  "browseAll": "All periods",
+  "browseIntro": "All publications by subject area and period. The counts include values suggested automatically; on each record those are shown in italics."
 }

@@ -31,7 +31,9 @@
   "suggestedWhy": {
     "classifier": "Suggéré à partir du titre. Ce n’est pas une relecture.",
     "crosswalk": "Suggéré à partir de la rubrique imprimée. La ligne n’a pas été revue.",
-    "see-also": "Suggéré à partir d’un renvoi. Ce n’est pas une relecture."
+    "see-also": "Suggéré à partir d’un renvoi. Ce n’est pas une relecture.",
+    "semantic": "Suggéré à partir de titres proches par le sens. Non vérifié à la main.",
+    "semantic-heading": "Suggéré à partir des titres sous la même rubrique imprimée. Non vérifié à la main."
   },
   "authorMatch": "Les noms sont cherchés tels qu’ils sont écrits. Les homonymes ne sont pas séparés et les variantes d’orthographe ne sont pas réunies.",
   "themes": {
@@ -179,5 +181,13 @@
     "print-straive": "Volumes imprimés",
     "print-pdf": "Volumes imprimés (PDF)",
     "vsmart": "Catalogue des Archives de l’État"
-  }
+  },
+  "subjects": "Domaines",
+  "periodsLabel": "Périodes",
+  "suggestedValue": "Suggéré automatiquement, à partir de titres proches par le sens ou de la rubrique imprimée. Non vérifié à la main.",
+  "suggestedSample": "En italique :",
+  "suggestedLegend": "suggéré automatiquement, pas encore vérifié à la main.",
+  "browse": "Parcourir par domaine",
+  "browseAll": "Toutes les périodes",
+  "browseIntro": "Toutes les publications par domaine et par période. Les nombres comprennent les valeurs suggérées automatiquement ; sur chaque notice, elles sont en italique."
 }

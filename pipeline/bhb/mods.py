@@ -105,7 +105,10 @@ def to_mods(record: Record) -> etree._Element:
         for code in record.bhb_codes:
             _text(_sub(mods, "classification", authority="bhb"), code)
     for period in record.period:
-        _text(_sub(mods, "classification", authority="bhb-period"), period)
+        attrib = {"authority": "bhb-period"}
+        if period in record.period_suggested:
+            attrib["displayLabel"] = "machine-suggested"
+        _text(_sub(mods, "classification", **attrib), period)
     for place in record.places:
         subject = _sub(mods, "subject")
         _text(_sub(subject, "geographic"), place)

@@ -76,6 +76,7 @@ def main(argv: list[str] | None = None) -> None:
     facets = sub.add_parser("facets", help="facet values from neighbours in meaning (needs the embed extra)")
     facets_sub = facets.add_subparsers(dest="facets_command", required=True)
     facets_sub.add_parser("suggest", help="measure on held-out years; write build/facet_report.md and a review file")
+    facets_sub.add_parser("apply", help="add suggested periods and subject areas to build/records.jsonl, marked as suggested")
 
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
@@ -87,6 +88,15 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
+        return
+    if args.command == "facets" and args.facets_command == "apply":
+        from bhb.facet_suggest import apply_suggestions
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        counts = apply_suggestions(records, build_dir())
+        write_jsonl(path, records)
+        print(f"facets: {counts} → {path}")
         return
     if args.command == "facets" and args.facets_command == "suggest":
         from bhb.facet_suggest import suggest_command
@@ -165,6 +175,12 @@ def build() -> list[Record]:
 
     print("categorise…")
     categorise(merged)
+    from bhb.facet_suggest import mark_origin
+    from bhb.scheme import load_theme_map
+
+    theme_map = load_theme_map()
+    for record in merged:
+        mark_origin(record, theme_map)
     _emit(merged, labels, None)
     return merged
 

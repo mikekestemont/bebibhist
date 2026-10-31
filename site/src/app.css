@@ -686,3 +686,25 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .footer { grid-template-columns: 1fr; padding: 1.75rem 1.25rem; }
   .legal { padding: 0.75rem 1.25rem; }
 }
+
+/* A value a person or the printed volume gave is set plainly; a suggested one is italic, lighter and underlined. */
+.value-suggested {
+  font-style: italic;
+  color: #5b7a5c;
+  border-bottom: 1px dotted #5b7a5c;
+  cursor: help;
+}
+
+.suggested-legend { font-size: 14px; color: #6b6e73; margin: 0.2rem 0 0.6rem; }
+
+.browse-link { color: inherit; font-size: 15px; margin-left: auto; margin-right: 1rem; white-space: nowrap; }
+.browse-link[aria-current="true"] { text-decoration: underline; }
+
+.tree, .tree ul { list-style: none; padding-left: 0; margin: 0; }
+.tree > li { border-bottom: 1px solid #e3e4e6; padding: 0.45rem 0; }
+.tree ul { padding: 0.3rem 0 0.2rem 1.6rem; }
+.tree ul li { padding: 0.15rem 0; }
+.tree-toggle { font: inherit; font-size: 17px; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; gap: 0.4rem; }
+.tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
+.tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }

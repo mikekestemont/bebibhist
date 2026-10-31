@@ -84,19 +84,27 @@ its held-out suggestions are right (at least 50 suggestions).
 | Facet | How | Right (held out) | Held-out entries that get a value | Gain |
 |---|---|---:|---:|---|
 | Period | per entry, from its 20 nearest checked titles | 95.4 % | 82 % | 31,534 entries without a checked period get one |
-| Subject area | per entry | 92.4 % | 2.9 % | too few to use: a title alone rarely tells social from political history |
-| Subject area | **per printed heading**: the title scores of all entries under one heading, averaged | 95.3 % | 51.5 % | 46,632 entries; before 1993, coverage rises from 14–35 % to 56–71 % per year |
+| Subject area | per entry | 90.7 % | 11 % | used only to add a value beside others, where the title alone is clear |
+| Subject area | **per printed heading**: the title scores of all entries under one heading, averaged | 96.2 % | 76 % | before 1993, entries with a subject area rise from 24 % to 72 %; 1993–2008 from 78 % to 89 % |
 
 All five periods and all eight subject areas pass their 90 % threshold. The per-heading result is also a proposal
 per row of the crosswalk: the editor checks a heading, not each entry under it (2,581 rows).
 
+**The theme map had errors.** The first run showed that `data/curated/theme_map.csv`, drafted on 11 October and not
+yet reviewed, mapped 36 sector codes to the wrong subject area, mostly to *general*: painting, music, literature,
+the army, elections, crime, transport, the Catholic church in the early modern period. Those rows are corrected from
+their labels and marked "to review" in a new `note` column. Since every entry under such a code inherits its subject
+area, the checked values themselves were too narrow; after the correction, V-Smart entries with two or more subject
+areas rose to 28 %.
+
 What a random sample of twenty old headings shows: canals and roads → *economic*; painting → *cultural*; internal
 politics → *political*; archives, genealogy, place names → *reference*; methodology → *general*. The weak point is the
 second value: under a regional heading ("Flandre > Saints, monastères …") only *local* is suggested, where
-*religious* is right too. The heading's own wording names that subject, so a second step can add it.
+*religious* is right too.
 
-Caveats: the held-out years use the modern headings; old headings can be broader, so 100 pre-1993 entries must be
-checked before these values are shown, marked "suggested". Nothing has been written into the records yet.
+Caveats: the held-out years use the modern headings; old headings can be broader, so 100 pre-1993 entries should be
+checked. `bhb facets apply` writes the values into the records, each marked as suggested (`theme_suggested`,
+`period_suggested`); the site shows them in italics.
 
 ## 4. Linked to SKOS and open vocabularies
 

@@ -99,4 +99,6 @@ def record_from_dict(data: dict) -> Record:
         provenance=provenance,
         similar=list(data.get("similar") or []),
         similar_scores=[float(score) for score in data.get("similar_scores") or []],
+        theme_suggested=list(data.get("theme_suggested") or []),
+        period_suggested=list(data.get("period_suggested") or []),
     )

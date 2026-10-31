@@ -112,6 +112,9 @@ class Record:
     provenance: Provenance = field(default_factory=Provenance)
     similar: list[str] = field(default_factory=list)
     similar_scores: list[float] = field(default_factory=list)
+    # Values in ``theme`` and ``period`` that a machine suggested, not a person or the printed volume.
+    theme_suggested: list[str] = field(default_factory=list)
+    period_suggested: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return _clean(asdict(self))
