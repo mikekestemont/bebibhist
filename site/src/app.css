@@ -566,6 +566,9 @@ main .search { margin: 1.6rem 0; }
   cursor: help;
 }
 
+/* A link with a note (DOI, ISBN, ISSN, a grouped journal) is still a link: the hand, not the question mark. */
+a.derived { cursor: pointer; }
+
 .suggested {
   margin-left: 0.4rem;
   font-size: 14px;
