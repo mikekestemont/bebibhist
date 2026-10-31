@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, relaxedQuery, searchBoth, searchQuery, similarOf, type Hit, type SearchField } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -40,28 +40,28 @@
   let dragTo = $state<number | null>(null);
   let openId = $state("");
   let withinBox = $state("");
-  let browseTotals = $state<Record<string, number>>({});
-  let browsePeriods = $state<Record<string, number>>({});
+  type BrowseNode = { n: number; periods: Record<string, { n: number; decades: Record<string, number> }> };
+  let browseTree = $state<Record<string, BrowseNode>>({});
   let openTheme = $state("");
+  let openPeriod = $state("");
+  /** A list longer than this opens one level further, by decade of publication: Pagefind needs seconds per 10,000 hits. */
+  const BROWSE_LIST_MAX = 5000;
 
-  /** The subject tree: totals per subject area, then the periods inside the one that is open. */
+  /** The subject tree's counts are made when the index is built; nothing is searched to show them. */
   async function loadBrowse() {
-    const pagefind = await loadEngine();
-    const totals = await pagefind.filters();
-    browseTotals = { ...(totals.theme || {}) };
+    if (Object.keys(browseTree).length) return;
+    try {
+      const response = await fetch(new URL(`${import.meta.env.BASE_URL}browse.json`, document.baseURI).href);
+      if (response.ok) browseTree = await response.json();
+    } catch {
+      browseTree = {};
+    }
   }
 
-  async function toggleTheme(theme: string) {
-    if (openTheme === theme) {
-      openTheme = "";
-      return;
-    }
-    openTheme = theme;
-    browsePeriods = {};
-    const pagefind = await loadEngine();
-    const response = await pagefind.search(null, { filters: { theme: [theme] } });
-    if (openTheme === theme) browsePeriods = { ...(response.filters?.period || {}) };
+  function flip(current: string, value: string): string {
+    return current === value ? "" : value;
   }
+
   let related = $state<Hit[]>([]);
   let relatedKey = $state("");
   let relatedLoading = $state(false);
@@ -125,8 +125,8 @@
     location.hash = hash;
   }
 
-  function activeFilters(): Record<string, string[]> | undefined {
-    const filters: Record<string, string[]> = {};
+  function activeFilters(): Filters | undefined {
+    const filters: Filters = {};
     for (const group of Object.keys(groups)) {
       const values = params.getAll(group);
       if (values.length) filters[group] = values;
@@ -138,7 +138,7 @@
       const end = Math.max(from || 1945, to || new Date().getFullYear());
       const years: string[] = [];
       for (let year = start; year <= end; year += 1) years.push(String(year));
-      filters.pubyear = years;
+      filters.pubyear = { any: years };
     }
     return Object.keys(filters).length ? filters : undefined;
   }
@@ -630,14 +630,15 @@
 {#snippet facetValues(group: "theme" | "period", values: string, suggested: string)}
   {@const own = values.split("|").filter(Boolean)}
   {@const machine = suggested.split("|").filter(Boolean)}
-  {#each own as value, index}
-    {#if index > 0}, {/if}
-    {#if machine.includes(value)}
-      <span class="value-suggested" title={text.suggestedValue}>{label(group, value)}</span>
-    {:else}
-      <span class="value-checked">{label(group, value)}</span>
-    {/if}
-  {/each}
+  <span class="tags">
+    {#each own as value}
+      {#if machine.includes(value)}
+        <span class="tag tag-suggested" title={text.suggestedValue}>{label(group, value)}</span>
+      {:else}
+        <span class="tag">{label(group, value)}</span>
+      {/if}
+    {/each}
+  </span>
 {/snippet}
 
 {#snippet categoryBlock(hit: Hit)}
@@ -649,15 +650,18 @@
   {#if hit.meta.periods}
     <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
   {/if}
-  {#if anySuggested}<p class="suggested-legend"><span class="value-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</p>{/if}
+  {#if anySuggested}<p class="suggested-legend"><span class="tag tag-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</p>{/if}
+  <!-- The BHB code's own label, only when there is a code; a subject area alone is already shown above. -->
+  {#if hit.meta.categoryFr || hit.meta.categoryNl || hit.meta.categoryEn}
   <p class="category-line">
     <span class="theme">{text.category}</span>
-    {category || text.themes.unclassified}
+    {category}
     {#if category && hit.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
     {#if category && hit.meta.categoryMachine === "1"}
       <span class="suggested" title={text.suggestedWhy[hit.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{text.suggested}</span>
     {/if}
   </p>
+  {/if}
 {/snippet}
 
 {#snippet fieldSelect()}
@@ -963,18 +967,35 @@
     <h1>{text.browse}</h1>
     <p class="similar-note">{text.browseIntro}</p>
     <ul class="tree">
-      {#each groups.theme.filter((value) => value !== "unclassified") as theme}
+      {#each groups.theme.filter((value) => browseTree[value]) as theme}
         <li>
-          <button type="button" class="tree-toggle" aria-expanded={openTheme === theme} onclick={() => toggleTheme(theme)}>
+          <button type="button" class="tree-toggle" aria-expanded={openTheme === theme} onclick={() => { openTheme = flip(openTheme, theme); openPeriod = ""; }}>
             <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
             {label("theme", theme)}
           </button>
-          <span class="tree-count">{(browseTotals[theme] || 0).toLocaleString(lang)}</span>
+          <span class="tree-count">{browseTree[theme].n.toLocaleString(lang)}</span>
           {#if openTheme === theme}
             <ul>
-              <li><a href={"#/search?theme=" + theme}>{text.browseAll}</a> <span class="tree-count">{(browseTotals[theme] || 0).toLocaleString(lang)}</span></li>
-              {#each groups.period.filter((value) => (browsePeriods[value] || 0) > 0) as period}
-                <li><a href={"#/search?theme=" + theme + "&period=" + period}>{label("period", period)}</a> <span class="tree-count">{(browsePeriods[period] || 0).toLocaleString(lang)}</span></li>
+              {#each groups.period.filter((value) => browseTree[theme].periods[value]) as period}
+                {@const node = browseTree[theme].periods[period]}
+                <li>
+                  {#if node.n > BROWSE_LIST_MAX}
+                    <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
+                      <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+                      {label("period", period)}
+                    </button>
+                  {:else}
+                    <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
+                  {/if}
+                  <span class="tree-count">{node.n.toLocaleString(lang)}</span>
+                  {#if openPeriod === period && node.n > BROWSE_LIST_MAX}
+                    <ul>
+                      {#each Object.entries(node.decades).sort((a, b) => Number(a[0]) - Number(b[0])) as [decade, count]}
+                        <li><a href={`#/search?theme=${theme}&period=${period}&from=${decade}&to=${Number(decade) + 9}`}>{text.browseDecade.replace("{d}", decade)}</a> <span class="tree-count">{count.toLocaleString(lang)}</span></li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </li>
               {/each}
             </ul>
           {/if}

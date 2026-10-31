@@ -12,6 +12,9 @@ const synonymsPath = new URL("../../data/curated/place_synonyms.csv", import.met
 const schemePath = new URL("../../data/curated/scheme.csv", import.meta.url);
 const outputPath = new URL("../public/pagefind", import.meta.url).pathname;
 const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathname;
+const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
+// Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
+const browse = {};
 
 const synonyms = await loadSynonyms(synonymsPath);
 const scheme = await loadScheme(schemePath);
@@ -90,7 +93,7 @@ for await (const line of lines) {
       container: container?.hash || "",
       containerCount: container ? String(container.count) : "",
     },
-    filters: filters(record),
+    filters: countBrowse(filters(record)),
     sort: sortKeys(record),
   });
   if (response.errors?.length) {
@@ -119,6 +122,7 @@ if (wasm.size < 1000) {
   process.exit(1);
 }
 await ensureEntry(outputPath, indexed);
+await writeFile(browsePath, JSON.stringify(browse));
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
 
 /** Pagefind 1.4 sometimes leaves pagefind-entry.json empty, and search then never starts. */
@@ -232,6 +236,22 @@ function containerOf(record, counts) {
 }
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
+/** Subject area → period → decade of publication, with counts; the same values as the Pagefind filters. */
+function countBrowse(values) {
+  const year = Number(values.pubyear?.[0]);
+  const decade = year ? String(Math.floor(year / 10) * 10) : "";
+  for (const theme of values.theme || []) {
+    const node = (browse[theme] ??= { n: 0, periods: {} });
+    node.n += 1;
+    for (const period of values.period || []) {
+      const child = (node.periods[period] ??= { n: 0, decades: {} });
+      child.n += 1;
+      if (decade) child.decades[decade] = (child.decades[decade] || 0) + 1;
+    }
+  }
+  return values;
+}
+
 function similarLine(record) {
   const scores = record.similar_scores || [];
   return (record.similar || []).map((id, index) => `${id} ${scores[index] ?? ""}`.trim()).join("|");

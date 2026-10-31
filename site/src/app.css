@@ -687,11 +687,25 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .legal { padding: 0.75rem 1.25rem; }
 }
 
-/* A value a person or the printed volume gave is set plainly; a suggested one is italic, lighter and underlined. */
-.value-suggested {
+/* Each subject area or period is a tag: solid when a person or the printed volume gave it, dashed and italic when
+   it was suggested automatically. Labels contain commas themselves, so a comma list would be ambiguous. */
+.tags { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; vertical-align: middle; }
+.tag {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid #486249;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #2f4430;
+  background: #f3f6f2;
+}
+.tag-suggested {
+  border-style: dashed;
+  border-color: #7d977e;
   font-style: italic;
   color: #5b7a5c;
-  border-bottom: 1px dotted #5b7a5c;
+  background: transparent;
   cursor: help;
 }
 
@@ -704,6 +718,7 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tree > li { border-bottom: 1px solid #e3e4e6; padding: 0.45rem 0; }
 .tree ul { padding: 0.3rem 0 0.2rem 1.6rem; }
 .tree ul li { padding: 0.15rem 0; }
+.tree-toggle.small { font-size: 15px; }
 .tree-toggle { font: inherit; font-size: 17px; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; gap: 0.4rem; }
 .tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
 .tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }

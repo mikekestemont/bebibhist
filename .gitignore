@@ -14,6 +14,7 @@ build/
 site/public/pagefind/
 site/public/pagefind-build/
 site/public/pagefind-previous/
+site/public/browse.json
 site/dist/
 
 # Students' bulky intermediate outputs (reproducible; archived elsewhere)

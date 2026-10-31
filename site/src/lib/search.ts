@@ -190,12 +190,15 @@ export interface SearchResponse {
   filters?: Record<string, Record<string, number>>;
 }
 
+/** A list of values means "all of them" in Pagefind; `{ any: [...] }` means "one of them", as for a range of years. */
+export type Filters = Record<string, string[] | { any: string[] }>;
+
 interface Pagefind {
   init: () => Promise<void>;
   filters: () => Promise<Record<string, Record<string, number>>>;
   search: (
     query: string | null,
-    options?: { filters?: Record<string, string[]>; sort?: Record<string, "asc" | "desc"> },
+    options?: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
   ) => Promise<SearchResponse>;
   options: (settings: { ranking?: { pageLength?: number } }) => Promise<void>;
   preload: (query: string) => Promise<void>;
@@ -347,7 +350,7 @@ export async function searchBoth(
   pagefind: Pagefind,
   strict: string | null,
   loose: string | null,
-  options: { filters?: Record<string, string[]>; sort?: Record<string, "asc" | "desc"> },
+  options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
 ): Promise<SearchResponse> {
   if (!loose || loose === strict) return pagefind.search(strict, options);
   const [all, more] = await Promise.all([pagefind.search(strict, options), pagefind.search(loose, options)]);
