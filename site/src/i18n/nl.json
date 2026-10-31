@@ -191,5 +191,7 @@
   "browseDecade": "Verschenen in de jaren {d}",
   "asPrinted": "Uit de rubriek in de gedrukte bibliografie",
   "browseDecades": "Per decennium van verschijnen",
-  "bhbCode": "BHB-code"
+  "bhbCode": "BHB-code",
+  "narrowerSample": "onderwerp",
+  "narrowerLegend": "= een nauwer onderwerp binnen het onderwerp ervoor"
 }

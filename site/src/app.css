@@ -715,8 +715,11 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 /* The same notation for a suggested classification in running text. */
 .text-suggested { font-style: italic; color: #5b7a5c; border-bottom: 1px dashed #7d977e; cursor: help; }
 .source-note { color: #6b6e73; font-size: 14px; }
-.legal .legend { margin-right: auto; }
+.legal .legend:nth-of-type(2) { margin-right: auto; }
 .legal .legend .tag { font-size: 12px; padding: 0 0.35rem; }
+/* On the dark footer bar the samples keep their shape (dashed, italic, ›) in light colours. */
+.legal .legend .tag-suggested { color: #fff; border-color: rgba(255, 255, 255, 0.85); }
+.legal .legend .tag-narrow { color: #2f4430; }
 
 .browse-link { color: inherit; font-size: 15px; margin-left: auto; margin-right: 1rem; white-space: nowrap; }
 .browse-link[aria-current="true"] { text-decoration: underline; }

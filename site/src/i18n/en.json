@@ -191,5 +191,7 @@
   "browseDecade": "Published in the {d}s",
   "asPrinted": "From the heading in the printed volume",
   "browseDecades": "By decade of publication",
-  "bhbCode": "BHB code"
+  "bhbCode": "BHB code",
+  "narrowerSample": "topic",
+  "narrowerLegend": "= a narrower subject within the subject area before it"
 }

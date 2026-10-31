@@ -191,5 +191,7 @@
   "browseDecade": "Parues dans les années {d}",
   "asPrinted": "D’après la rubrique du volume imprimé",
   "browseDecades": "Par décennie de parution",
-  "bhbCode": "Code BHB"
+  "bhbCode": "Code BHB",
+  "narrowerSample": "sujet",
+  "narrowerLegend": "= un sujet plus précis au sein du domaine qui le précède"
 }

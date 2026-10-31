@@ -1034,6 +1034,7 @@
   </div>
   <div class="legal">
     <span class="legend"><span class="tag tag-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</span>
+    <span class="legend"><span class="tag tag-narrow">{text.narrowerSample}</span> {text.narrowerLegend}</span>
     <span>{text.copyright}</span>
     <a href="#/about" aria-current={path === "/about" ? "true" : undefined}>{text.about}</a>
     <a href={text.privacyUrl}>{text.privacy}</a>
