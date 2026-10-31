@@ -1,6 +1,6 @@
 """Scoring of Crossref candidates, without the network."""
 
-from bhb.identifiers import accept, best_match, query_params, same_name, score
+from bhb.identifiers import accept, best_match, query_params, same_name, score, title_language
 from bhb.model import Host, Person, Record
 
 
@@ -73,3 +73,12 @@ def test_an_edited_volume_is_compared_by_its_editor():
     record.persons[0].role = "editor"
     item = _item(family="Bousmar")
     assert score(record, item)["author"] is True
+
+
+def test_the_same_book_in_another_language_is_not_a_match():
+    assert title_language("Hieronymus Cock: De renaissance in prent van de Lage Landen") == "nl"
+    assert title_language("Hieronymus Cock. The Renaissance in Print of the Low Countries") == "en"
+    assert title_language("Hieronymus Cock") is None
+    record = _record(title="Hieronymus Cock: De renaissance in prent van de Lage Landen", pages=None)
+    item = _item(title="Hieronymus Cock. The Renaissance in Print of the Low Countries", page=None)
+    assert score(record, item)["language"] is False and not accept(score(record, item), 60, 90, 85)

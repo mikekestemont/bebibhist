@@ -159,6 +159,23 @@ def _first_page(pages: str | None) -> str | None:
     return match.group(1) if match else None
 
 
+_FUNCTION_WORDS = {
+    "nl": {"de", "het", "een", "van", "en", "voor", "met", "over", "naar", "bij", "uit", "tot", "op"},
+    "en": {"the", "of", "and", "a", "an", "for", "with", "from", "to", "on", "between"},
+    "fr": {"le", "la", "les", "des", "du", "et", "une", "un", "pour", "sur", "dans", "aux", "au"},
+    "de": {"der", "die", "das", "und", "im", "zur", "zum", "von", "mit", "über"},
+}
+
+
+def title_language(text: str) -> str | None:
+    """The language whose function words a title uses most, when one clearly leads; None for a title too short or
+    too mixed to tell (a bilingual title, or names only)."""
+    words = fold(text).split()
+    counts = sorted(((sum(word in vocabulary for word in words), language) for language, vocabulary in _FUNCTION_WORDS.items()), reverse=True)
+    (best, language), (second, _) = counts[0], counts[1]
+    return language if best >= 2 and best >= 2 * second else None
+
+
 def score(record, item: dict) -> dict[str, float | bool | None]:
     """How well a Crossref item fits an entry. ``None`` means the field is missing on one side."""
     ours = fold(_full_title(record.title, record.subtitle))
@@ -177,8 +194,11 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
     container = fold(" ".join(item.get("container-title") or []))
     page = _first_page(record.host.pages if record.host else None)
     their_page = _first_page(item.get("page"))
+    ours_language, their_language = title_language(_full_title(record.title, record.subtitle)), title_language(their_full)
     return {
         "title": round(title, 1),
+        # The same publication in another language (a catalogue in a Dutch and an English edition) has its own ISBN.
+        "language": ours_language == their_language if ours_language and their_language else None,
         "author": author,
         "year": abs(year - record.year) <= 1 if year and record.year else None,
         "container": round(fuzz.partial_ratio(host, container), 1) if host and container else None,
@@ -190,12 +210,12 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
 SHORT_TITLE = 30
 
 
-def accept(features: dict[str, float | bool | None], title_length: int = SHORT_TITLE) -> bool:
+def accept(features: dict[str, float | bool | None], title_length: int = SHORT_TITLE, same: float = TITLE_SAME, close: float = TITLE_CLOSE) -> bool:
     """A DOI is stored when the title is the same, or close enough for an OCR error, and enough of author, year,
     journal and first page agree. A different author or year rejects the candidate. A different journal name does
     not, since Crossref often names the series or an abbreviation (BMGN, WT) where the volume has the full title; a
     different first page rejects it unless the journal agrees."""
-    if features["title"] < TITLE_CLOSE or features["author"] is False or features["year"] is False:
+    if features["title"] < close or features["author"] is False or features["year"] is False or features.get("language") is False:
         return False
     container = features["container"] >= 80 if features["container"] is not None else None
     if features["page"] is False and not container:
@@ -203,7 +223,7 @@ def accept(features: dict[str, float | bool | None], title_length: int = SHORT_T
     support = sum(check is True for check in (features["author"], features["year"], container, features["page"]))
     if title_length < SHORT_TITLE and not (container or features["page"]):
         return False
-    return support >= 2 if features["title"] >= TITLE_SAME else support >= 3
+    return support >= 2 if features["title"] >= same else support >= 3
 
 
 def best_match(record, data: dict) -> Match:

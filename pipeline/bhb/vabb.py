@@ -26,6 +26,12 @@ EDITIONS = ("vabb-15", "vabb-09", "vabb-08")  # newest first: its values win whe
 TYPES = {"1": "article", "2": "book", "3": "book", "4": "chapter", "5": "chapter"}
 # Title words in more publications than this do not pick candidates.
 COMMON = 1500
+# VABB is a curated bibliography of the same field with full author lists, so its titles may differ a little more
+# than Crossref's (a reworded subtitle, a dropped article) before a candidate is refused: 90 counts as the same
+# title (Crossref: 95). Close stays at 85, as for Crossref: between 80 and 85 a hand check found other chapters of
+# the same book, another text by the same author and the edition in another language.
+TITLE_SAME = 90
+TITLE_CLOSE = 85
 
 
 @dataclass
@@ -160,10 +166,10 @@ def match(record, index: Index) -> tuple[Match, Publication | None]:
     best: tuple[tuple, dict, Publication] | None = None
     for pub in index.candidates(record.title or "", record.year):
         features = score(record, pub.as_item())
-        rank = (accept(features, len(ours)), features["title"])
+        rank = (accept(features, len(ours), TITLE_SAME, TITLE_CLOSE), features["title"])
         if best is None or rank > best[0]:
             best = (rank, features, pub)
     if best is None:
         return Match(record.id, None, {}, False, ours, "", ""), None
     _, features, pub = best
-    return Match(record.id, pub.doi, features, accept(features, len(ours)), ours, pub.title, pub.container), pub
+    return Match(record.id, pub.doi, features, accept(features, len(ours), TITLE_SAME, TITLE_CLOSE), ours, pub.title, pub.container), pub
