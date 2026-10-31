@@ -305,8 +305,12 @@ main .search { margin: 1.6rem 0; }
   margin-bottom: 0.65rem;
 }
 
+/* One line on wide screens; where the filter column leaves too little room (tablets, phones) the controls wrap,
+   right-aligned, instead of running past the edge. */
 .tools {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
@@ -688,7 +692,6 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; }
-  .tools { flex-wrap: wrap; justify-content: flex-end; }
   .filters { position: static; }
   .filters-button {
     display: inline-flex;
@@ -712,7 +715,7 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .brand strong { display: none; }
   h1 { font-size: 1.78rem; }
   .home { margin: 2rem 1.25rem; }
-  .search select.field { max-width: 8rem; min-width: 0; }
+  .search select.field { max-width: 9rem; min-width: 0; }
   .search input { min-width: 0; }
   .footer { grid-template-columns: 1fr; padding: 1.75rem 1.25rem; }
   .legal { padding: 0.75rem 1.25rem; }
@@ -761,14 +764,14 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .browse-link[aria-current="true"] { text-decoration: underline; }
 
 /* Wide screens: the menu wrapper drops out of the layout, so its links and languages sit in the bar as before. */
-.menu { display: contents; }
+.site-menu { display: contents; }
 .menu-button { display: none; }
 
 /* Phones and tablets: a menu button opens the links and languages as a panel under the logo, with the search form
    below it. The one-line bar needs about 1010px with the search form in it (French and Dutch labels). */
 @media (max-width: 1020px) {
   .bar { flex-wrap: wrap; gap: 0.75rem; padding: 0.7rem 1rem; }
-  .bar .search { order: 1; flex-basis: 100%; margin: 0; }
+  .bar .search { order: 1; flex-basis: 100%; min-width: 0; margin: 0; }
   .menu-button {
     display: inline-flex;
     align-items: center;
@@ -781,12 +784,12 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   }
   .menu-button svg { fill: none; stroke: currentColor; stroke-width: 1.8; }
   .menu-button[aria-expanded="true"] { background: rgba(215, 236, 221, 0.15); }
-  .menu { display: none; }
-  .menu.open { display: flex; flex-direction: column; flex-basis: 100%; }
-  .menu .browse-link { margin: 0; padding: 0.65rem 0; font-size: 16px; text-decoration: none; border-top: 1px solid rgba(215, 236, 221, 0.3); }
-  .menu .browse-link[aria-current="true"] { text-decoration: underline; }
-  .menu .langs { gap: 1.25rem; padding-top: 0.5rem; border-top: 1px solid rgba(215, 236, 221, 0.3); }
-  .menu .langs button { font-size: 15px; padding: 0.4rem 0.2rem; }
+  .site-menu { display: none; }
+  .site-menu.open { display: flex; flex-direction: column; flex-basis: 100%; }
+  .site-menu .browse-link { margin: 0; padding: 0.65rem 0; font-size: 16px; text-decoration: none; border-top: 1px solid rgba(215, 236, 221, 0.3); }
+  .site-menu .browse-link[aria-current="true"] { text-decoration: underline; }
+  .site-menu .langs { gap: 1.25rem; padding-top: 0.5rem; border-top: 1px solid rgba(215, 236, 221, 0.3); }
+  .site-menu .langs button { font-size: 15px; padding: 0.4rem 0.2rem; }
 }
 
 .tree, .tree ul { list-style: none; padding-left: 0; margin: 0; }

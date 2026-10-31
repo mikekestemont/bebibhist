@@ -954,7 +954,7 @@
   <button type="button" class="menu-button" aria-expanded={menuOpen} aria-controls="site-menu" aria-label={text.menu} bind:this={menuButton} onclick={() => { menuOpen = !menuOpen; }}>
     <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><path d="M0 1h20M0 7h20M0 13h20" /></svg>
   </button>
-  <div class="menu" class:open={menuOpen} id="site-menu" bind:this={menuPanel}>
+  <div class="site-menu" class:open={menuOpen} id="site-menu" bind:this={menuPanel}>
     <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.browse}</a>
     <a class="browse-link" href="#/map" aria-current={path === "/map" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.map}</a>
     <nav class="langs">
