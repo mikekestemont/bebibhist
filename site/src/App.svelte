@@ -502,7 +502,7 @@
 
   function identifierSource(kind: string, meta: Hit["meta"]): string | undefined {
     const source = (meta.identifiersFrom || "").split("|").find((entry: string) => entry.startsWith(`${kind}:`))?.split(":")[1];
-    return source === "crossref" ? text.fromCrossref : source === "vabb" ? text.fromVabb : undefined;
+    return source === "crossref" ? text.fromCrossref : source === "vabb" ? text.fromVabb : source === "openlibrary" ? text.fromOpenLibrary : undefined;
   }
 
   function derivedNote(label: string, meta: Hit["meta"]): string | undefined {

@@ -178,3 +178,17 @@ def test_free_to_read_comes_from_openalex_or_a_persee_doi(tmp_path, monkeypatch)
     assert persee.free_to_read and persee.identifiers_from["free"] == "persee"
     assert open_.free_to_read and open_.identifiers_from["free"] == "openalex"
     assert closed.free_to_read is None
+
+
+def test_open_library_takes_only_a_work_with_one_edition():
+    from bhb.openlibrary import score
+
+    record = _record(title="Histoire des Belges et de la Belgique", family="Dumont", pages=None, year=2002)
+    record.type, record.host = "book", None
+    one = {"key": "/works/OL1W", "title": "Histoire des Belges et de la Belgique", "author_name": ["Georges-Henri Dumont"],
+           "publish_year": [2002], "edition_count": 1, "isbn": ["2711744310", "9782711744312"]}
+    assert score(record, one).accepted and score(record, one).isbn == ["2711744310", "9782711744312"]
+    several = dict(one, edition_count=3, isbn=["2711744310", "9782711744312", "9782804170707"])
+    assert not score(record, several).accepted
+    other_year = dict(one, publish_year=[1977])
+    assert not score(record, other_year).accepted

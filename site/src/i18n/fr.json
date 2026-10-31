@@ -135,7 +135,7 @@
         "Les volumes 1952–2017 ont paru chaque année dans la <em>Revue belge de philologie et d’histoire</em>. Ce site reprend ces volumes imprimés : les années 1952–2007 telles qu’elles ont été transcrites en XML en 2023, et 1964, 1965 et 2008 à partir du PDF de la revue.",
         "Depuis 2009, les notices sont aussi saisies dans le catalogue de la bibliothèque des Archives de l’État. Ce site contient un export partiel de ce catalogue pour 2009–2017. Les années suivantes n’y figurent pas encore.",
         "La bibliographie est proposée sous licence CC BY-NC 4.0 (Attribution - Pas d’Utilisation Commerciale 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). En cas de réutilisation, mentionnez la Commission royale d’Histoire. L’usage commercial n’est pas permis.",
-        "Les DOI, ISBN et ISSN ont été trouvés automatiquement, d’après le titre, l’auteur et l’année, dans <a href=\"https://www.crossref.org/\">Crossref</a> et dans les données ouvertes du <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0). Ils sont signalés comme tels et n’ont pas été vérifiés à la main."
+        "Les DOI, ISBN et ISSN ont été trouvés automatiquement, d’après le titre, l’auteur et l’année, dans <a href=\"https://www.crossref.org/\">Crossref</a> et dans les données ouvertes du <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) et dans <a href=\"https://openlibrary.org/\">Open Library</a>. Ils sont signalés comme tels et n’ont pas été vérifiés à la main."
       ]
     },
     {
@@ -218,5 +218,6 @@
   "journalGrouped": "Affiche tous les articles de cette revue, quelle que soit la graphie de son titre. Les graphies ont été regroupées automatiquement et n’ont pas été vérifiées à la main.",
   "freeToRead": "en libre accès",
   "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",
-  "freePersee": "Publiée sur Persée, où elle est en libre accès ; le lien DOI y mène."
+  "freePersee": "Publiée sur Persée, où elle est en libre accès ; le lien DOI y mène.",
+  "fromOpenLibrary": "Trouvé automatiquement dans Open Library, d’après le titre, l’auteur et l’année ; seule une œuvre n’ayant qu’une édition est retenue. Non vérifié à la main."
 }

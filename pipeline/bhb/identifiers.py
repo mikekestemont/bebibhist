@@ -373,6 +373,13 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             add(record, "isbn", [value for value in row["isbn"].split(";") if value], "vabb")
             if record.host and (record.host.title or "").startswith(MISSING_HOST) and row["their_container"]:
                 host_names[record.host.id or record.id][row["their_container"]] += 1
+    library = folder / "openlibrary.csv"
+    if library.exists():
+        for row in csv.DictReader(library.open(encoding="utf-8")):
+            record = by_id.get(row["id"])
+            if row["accepted"] == "1" and record is not None and not record.isbn:
+                add(record, "isbn", [value for value in row["isbn"].split(";") if value], "openlibrary")
+                counts["isbn from openlibrary"] += 1
     # A journal name for the articles of a missing journal record, when the matches agree on it.
     for record in records:
         names = host_names.get((record.host.id or record.id) if record.host else "")

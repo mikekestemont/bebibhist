@@ -135,7 +135,7 @@
         "The volumes for 1952–2017 were published each year in the <em>Revue belge de philologie et d’histoire</em> / <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. This site includes those printed volumes: the years 1952–2007 as transcribed into XML in 2023, and 1964, 1965 and 2008 taken from the journal PDF.",
         "From 2009 the entries are also typed into the library catalogue of the State Archives of Belgium. This site holds a partial export of that catalogue for 2009–2017. Later years are not here yet.",
         "The bibliography is offered under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). If you reuse it, credit the Royal Commission of History. Commercial use is not permitted.",
-        "DOIs, ISBNs and ISSNs were found automatically, by title, author and year, in <a href=\"https://www.crossref.org/\">Crossref</a> and in the open data of the <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0). They are marked as such and have not been checked by hand."
+        "DOIs, ISBNs and ISSNs were found automatically, by title, author and year, in <a href=\"https://www.crossref.org/\">Crossref</a> and in the open data of the <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) and <a href=\"https://openlibrary.org/\">Open Library</a>. They are marked as such and have not been checked by hand."
       ]
     },
     {
@@ -218,5 +218,6 @@
   "journalGrouped": "Opens every article in this journal, whatever the spelling. The spellings were grouped automatically and have not been checked by hand.",
   "freeToRead": "free to read",
   "freeOpenAlex": "According to OpenAlex, this publication can be read free of charge; the DOI link leads to it. Checked automatically, not by hand.",
-  "freePersee": "Published on Persée, where it can be read free of charge; the DOI link leads to it."
+  "freePersee": "Published on Persée, where it can be read free of charge; the DOI link leads to it.",
+  "fromOpenLibrary": "Found automatically in Open Library, by title, author and year; only a work with a single edition is used. Not checked by hand."
 }

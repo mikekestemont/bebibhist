@@ -162,6 +162,16 @@ for the journal clean-up, and an answer key: 4,180 entries whose fields are know
 catalogue, 201 print sample, 99 pilot), for the citation clean-up pass (decision of 31 Oct). They cannot clean the
 other 90 % of the entries themselves.
 
+## 5e. Shown on the site, and further sources (31 October 2026)
+
+`bhb identifiers apply` writes the matches into the records and the site shows them (decision of 31 Oct): 6,311
+entries with an identifier, 4,163 DOIs, of which 1,888 are free to read (OpenAlex, or Persée's DOIs), 559 journal
+names for articles whose journal record was not exported. The open-copy question (§8) is answered without linking
+to repositories: a "free to read" label beside the DOI, whose link the publisher maintains. The printed years are
+matched overnight, each printed article first within its journal's ISSN; Open Library adds ISBNs for books from
+1970 on (single-edition works only). `bhb identifiers ocr` lists 332 words and names in which our entries and the
+matched sources differ, as proposals for the citation clean-up pass.
+
 ## 6. Site
 
 - A "DOI" link and, when OpenAlex reports one, an "Open copy" link on the record page and in the expanded row.

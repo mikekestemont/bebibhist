@@ -91,6 +91,8 @@ def main(argv: list[str] | None = None) -> None:
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
     identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
+    openlib = identifiers_sub.add_parser("openlibrary", help="ISBNs for books from 1970 on from Open Library; write build/identifiers/openlibrary.csv")
+    openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
@@ -158,6 +160,9 @@ def main(argv: list[str] | None = None) -> None:
             writer.writeheader()
             writer.writerows(rows)
         print(f"{len(rows)} proposals ({sum(row['field'] == 'author' for row in rows)} author names) → {out}")
+        return
+    if args.command == "identifiers" and args.identifiers_command == "openlibrary":
+        _identifiers_openlibrary(args.limit)
         return
     if args.command == "identifiers" and args.identifiers_command == "vabb":
         _identifiers_vabb(args.limit)
@@ -440,6 +445,35 @@ def _identifiers_vabb(limit: int | None) -> None:
     for (part, kind, accepted), n in sorted(counts.items()):
         print(f"{part:10} {kind:14} {'match' if accepted else 'none':5} {n}")
     print(f"vabb → {out}")
+
+
+def _identifiers_openlibrary(limit: int | None) -> None:
+    import csv
+    import random
+    from collections import Counter
+
+    from bhb.openlibrary import books, match
+
+    chosen = books(read_jsonl(build_dir() / "records.jsonl"))
+    if limit:
+        chosen = random.Random(4).sample(chosen, min(limit, len(chosen)))
+    print(f"{len(chosen)} books from 1970 on without an ISBN", flush=True)
+    out = build_dir() / "identifiers" / ("openlibrary-trial.csv" if limit else "openlibrary.csv")
+    counts: Counter[str] = Counter()
+    with out.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "accepted", "isbn", "work", "title", "author", "year", "editions", "ours", "theirs"])
+        for number, record in enumerate(chosen, 1):
+            found = match(record, build_dir() / "cache" / "openlibrary")
+            if found is None:
+                counts["no candidate"] += 1
+                continue
+            counts["isbn" if found.accepted else "none"] += 1
+            writer.writerow([found.record_id, int(found.accepted), ";".join(found.isbn), found.work, found.title, found.author,
+                             found.year, found.editions, found.ours, found.theirs])
+            if number % 500 == 0:
+                print(f"  {number}", flush=True)
+    print(dict(counts), f"→ {out}")
 
 
 def _identifiers_sample(size: int, seed: int) -> None:

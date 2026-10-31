@@ -135,7 +135,7 @@
         "De delen 1952–2017 verschenen jaarlijks in het <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. Deze site neemt die gedrukte delen op: de jaren 1952–2007 zoals ze in 2023 in XML zijn gezet, en 1964, 1965 en 2008 uit de PDF van het tijdschrift.",
         "Vanaf 2009 staan de lemma’s ook in de bibliotheekcatalogus van het Rijksarchief. Deze site bevat een gedeeltelijke export van die catalogus voor 2009–2017. Latere jaren zitten hier nog niet in.",
         "De bibliografie wordt aangeboden onder CC BY-NC 4.0 (Naamsvermelding-NietCommercieel 4.0 Internationaal, https://creativecommons.org/licenses/by-nc/4.0/). Bij hergebruik vermeldt u de Koninklijke Commissie voor Geschiedenis. Commercieel gebruik is niet toegestaan.",
-        "DOI's, ISBN's en ISSN's werden automatisch gevonden, op titel, auteur en jaar, in <a href=\"https://www.crossref.org/\">Crossref</a> en in de open data van het <a href=\"https://www.ecoom.be/nl/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0). Ze zijn als zodanig gemarkeerd en niet met de hand gecontroleerd."
+        "DOI's, ISBN's en ISSN's werden automatisch gevonden, op titel, auteur en jaar, in <a href=\"https://www.crossref.org/\">Crossref</a> en in de open data van het <a href=\"https://www.ecoom.be/nl/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) en <a href=\"https://openlibrary.org/\">Open Library</a>. Ze zijn als zodanig gemarkeerd en niet met de hand gecontroleerd."
       ]
     },
     {
@@ -218,5 +218,6 @@
   "journalGrouped": "Toont alle artikels in dit tijdschrift, hoe de naam ook gespeld is. De spellingen werden automatisch gegroepeerd en niet met de hand gecontroleerd.",
   "freeToRead": "gratis te lezen",
   "freeOpenAlex": "Volgens OpenAlex is deze publicatie gratis te lezen; de DOI-link leidt ernaartoe. Automatisch nagegaan, niet met de hand.",
-  "freePersee": "Gepubliceerd op Persée, waar ze gratis te lezen is; de DOI-link leidt ernaartoe."
+  "freePersee": "Gepubliceerd op Persée, waar ze gratis te lezen is; de DOI-link leidt ernaartoe.",
+  "fromOpenLibrary": "Automatisch gevonden in Open Library, op titel, auteur en jaar; alleen een werk met één enkele uitgave wordt gebruikt. Niet met de hand gecontroleerd."
 }
