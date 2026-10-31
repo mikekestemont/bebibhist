@@ -158,6 +158,9 @@ main .search { margin: 1.6rem 0; }
   cursor: pointer;
 }
 
+/* The search page has a filter column beside the results, so it may use more of a wide screen. */
+.wrap.layout { max-width: 84rem; }
+
 .layout {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
@@ -318,6 +321,7 @@ main .search { margin: 1.6rem 0; }
   align-items: center;
   gap: 0.4rem;
   margin: 0;
+  white-space: nowrap;
   color: #303133;
   font-size: 14px;
 }
@@ -575,7 +579,9 @@ main .search { margin: 1.6rem 0; }
 a.author-link,
 a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
-.pager { display: flex; gap: 0.45rem; align-items: center; margin: 0; font-size: 14px; }
+.pager { display: flex; gap: 0.45rem; align-items: center; margin: 0; font-size: 14px; white-space: nowrap; }
+/* The page-size menu holds "100" at most. */
+.tools .sort:first-of-type select { min-width: 4.5rem; }
 
 .pager button {
   display: inline-flex;
@@ -680,6 +686,7 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; }
+  .tools { flex-wrap: wrap; justify-content: flex-end; }
   .filters { position: static; }
   .brand strong { display: none; }
   h1 { font-size: 1.78rem; }
