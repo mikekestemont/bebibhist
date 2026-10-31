@@ -89,6 +89,16 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
+    sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
+    sample.add_argument("--size", type=int, default=3000)
+    sample.add_argument("--seed", type=int, default=2)
+
+    citations = sub.add_parser("citations", help="the LLM clean-up pass over printed citations (OpenRouter)")
+    citations_sub = citations.add_subparsers(dest="citations_command", required=True)
+    cpilot = citations_sub.add_parser("pilot", help="score a model and the parser against the DOI answer key")
+    cpilot.add_argument("--model", required=True, help="an OpenRouter model id with a pinned version")
+    cpilot.add_argument("--size", type=int, default=500)
+    cpilot.add_argument("--seed", type=int, default=3)
 
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
@@ -115,6 +125,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "identifiers" and args.identifiers_command == "match":
         _identifiers_match(args.source)
+        return
+    if args.command == "identifiers" and args.identifiers_command == "sample":
+        _identifiers_sample(args.size, args.seed)
+        return
+    if args.command == "citations" and args.citations_command == "pilot":
+        _citations_pilot(args.model, args.size, args.seed)
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -347,6 +363,86 @@ def _identifiers_match(source: str) -> None:
     chosen = [record for record in records if record.source == source and record.role == "entry" and record.type in ("article", "chapter") and record.title]
     print(f"{len(chosen)} articles and chapters from {source}", flush=True)
     _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv")
+
+
+def _identifiers_sample(size: int, seed: int) -> None:
+    """Printed articles and chapters, the same number from each decade, for an answer key of the OCR years."""
+    import random
+    from collections import defaultdict
+
+    records = read_jsonl(build_dir() / "records.jsonl")
+    by_decade = defaultdict(list)
+    for record in records:
+        if record.source.startswith("print") and record.role == "entry" and record.type in ("article", "chapter") and record.title and record.year:
+            by_decade[record.bgb_year // 10 * 10].append(record)
+    rng = random.Random(seed)
+    share = size // len(by_decade)
+    chosen = [record for decade in sorted(by_decade) for record in rng.sample(by_decade[decade], min(share, len(by_decade[decade])))]
+    print(f"{len(chosen)} printed articles and chapters, {share} per decade", flush=True)
+    _identifiers_write(chosen, build_dir() / "identifiers" / "print-sample.csv")
+
+
+def _citations_pilot(model: str, size: int, seed: int) -> None:
+    import csv
+    import random
+    from collections import Counter
+
+    from bhb.citations import ask, fields_of_answer, fields_of_record, key_from_crossref, score
+    from bhb.identifiers import fetch, query_params
+
+    records = {record.id: record for record in read_jsonl(build_dir() / "records.jsonl")}
+    cache = build_dir() / "cache" / "crossref"
+    keyed = []
+    for name in ("print-sample.csv", "pilot.csv", "vsmart.csv"):
+        path = build_dir() / "identifiers" / name
+        if not path.exists():
+            continue
+        for row in csv.DictReader(path.open(encoding="utf-8")):
+            record = records.get(row["id"])
+            if row["accepted"] != "1" or record is None or not record.printed or any(entry[0].id == record.id for entry in keyed):
+                continue
+            item = next(i for i in fetch(query_params(record), cache)["message"]["items"] if i.get("DOI") == row["doi"])
+            keyed.append((record, key_from_crossref(item)))
+    # The OCR years first: that is where the pass is meant to help.
+    rng = random.Random(seed)
+    printed = [entry for entry in keyed if entry[0].source.startswith("print")]
+    catalogue = [entry for entry in keyed if not entry[0].source.startswith("print")]
+    rng.shuffle(printed)
+    rng.shuffle(catalogue)
+    sample = (printed + catalogue)[:size]
+    print(f"answer key: {len(keyed)} entries ({len(printed)} printed); pilot on {len(sample)}", flush=True)
+    tallies = {"parser": Counter(), "model": Counter()}
+    cost = 0.0
+    providers: Counter[str] = Counter()
+    out = build_dir() / "citations"
+    out.mkdir(parents=True, exist_ok=True)
+    slug = model.replace("/", "_")
+    with (out / f"pilot-{slug}.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "source", "field", "parser", "model", "printed"])
+        for index, (record, key) in enumerate(sample, 1):
+            answer = ask(record.printed, model, build_dir() / "cache" / "citations")
+            cost += answer.cost or 0.0
+            providers[answer.provider or "?"] += 1
+            ours, theirs = score(fields_of_record(record), key), score(fields_of_answer(answer.fields), key)
+            for field_name in ours:
+                for who, value in (("parser", ours[field_name]), ("model", theirs[field_name])):
+                    if value is not None:
+                        tallies[who][(field_name, value)] += 1
+                if ours[field_name] != theirs[field_name]:
+                    writer.writerow([record.id, record.source, field_name, ours[field_name], theirs[field_name], record.printed])
+            if index % 50 == 0:
+                print(f"  {index}", flush=True)
+    lines = [f"# Citation pilot: {model}", "", f"{len(sample)} entries with a Crossref answer key; cost ${cost:.4f}; providers {dict(providers)}.", "",
+             "| Field | Parser right | Model right | Checked |", "|---|---:|---:|---:|"]
+    for field_name in ("title", "authors", "volume", "issue", "first_page", "year"):
+        checked = tallies["parser"][(field_name, True)] + tallies["parser"][(field_name, False)]
+        if checked:
+            lines.append(f"| {field_name} | {tallies['parser'][(field_name, True)] / checked:.1%} | {tallies['model'][(field_name, True)] / max(1, tallies['model'][(field_name, True)] + tallies['model'][(field_name, False)]):.1%} | {checked} |")
+    report = out / f"pilot-{slug}.md"
+    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
+    print(f"report → {report}; disagreements → {out / f'pilot-{slug}.csv'}")
 
 
 def _identifiers_write(sample, out: Path) -> None:
