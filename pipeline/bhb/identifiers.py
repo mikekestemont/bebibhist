@@ -72,6 +72,25 @@ def _first_author(record) -> str | None:
     return None
 
 
+def _first_editor(record) -> str | None:
+    return next((person.family for person in record.persons if person.role == "editor" and fold(person.family) not in _NO_NAME), None)
+
+
+def _compact(name: str) -> str:
+    return fold(name).replace(" ", "").replace("ij", "y")
+
+
+def same_name(ours: str, theirs: str) -> bool:
+    """Family names that are one name in two spellings: spaces ("Van Bruaene", "Vanbruaene"), ij and y ("Dijck",
+    "Dyck"), a particle dropped ("Van Dyck", "Dijck") or a letter misread by the OCR ("Godderis", "Goddeeris")."""
+    left, right = _compact(ours), _compact(theirs)
+    if not left or not right:
+        return False
+    if left == right or (min(len(left), len(right)) >= 4 and (left.endswith(right) or right.endswith(left))):
+        return True
+    return min(len(left), len(right)) >= 5 and fuzz.ratio(left, right) >= 80
+
+
 def query_params(record) -> dict[str, str] | None:
     """The Crossref query for one entry, or None when it has no title or year."""
     title = _full_title(record.title, record.subtitle)
@@ -146,10 +165,11 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
     their_title = " ".join(item.get("title") or [])
     their_full = fold(_full_title(their_title, " ".join(item.get("subtitle") or [])))
     title = max(fuzz.ratio(ours, their_full), fuzz.ratio(fold(record.title or ""), fold(their_title))) if ours and their_full else 0.0
-    people = [fold(person.get("family", "")) for person in (item.get("author") or []) + (item.get("editor") or [])]
-    first = fold(_first_author(record) or "")
-    if first and people:
-        author: bool | None = any(first == family or first in family.split() or family in first.split() for family in people if family)
+    people = [person.get("family", "") for person in (item.get("author") or []) + (item.get("editor") or [])]
+    # An edited volume has no author: its first editor stands in.
+    first = _first_author(record) or _first_editor(record) or ""
+    if first and any(people):
+        author: bool | None = any(same_name(first, family) for family in people if family)
     else:
         author = None
     year = _year(item)

@@ -1,6 +1,6 @@
 """Scoring of Crossref candidates, without the network."""
 
-from bhb.identifiers import accept, best_match, query_params, score
+from bhb.identifiers import accept, best_match, query_params, same_name, score
 from bhb.model import Host, Person, Record
 
 
@@ -58,3 +58,18 @@ def test_a_short_title_needs_the_journal_or_the_page():
     item = _item(title="Belgium", page=None)
     item["container-title"] = ["Imagology"]
     assert not accept(score(record, item), len("Belgium"))
+
+
+def test_one_name_in_two_spellings_is_the_same_author():
+    for ours, theirs in (("Vanbruaene", "Van Bruaene"), ("Van Dyck", "Dijck"), ("Godderis", "Goddeeris"),
+                         ("Quaeghebeur", "Quaghebeur"), ("Van Ysacker", "Vanysacker"), ("Vandewinkel", "Vande Winkel")):
+        assert same_name(ours, theirs), (ours, theirs)
+    for ours, theirs in (("Haquin", "Lamberigts"), ("Spellers", "Van Linthout"), ("Mommaers", "Vanneste")):
+        assert not same_name(ours, theirs), (ours, theirs)
+
+
+def test_an_edited_volume_is_compared_by_its_editor():
+    record = _record(family="Bousmar")
+    record.persons[0].role = "editor"
+    item = _item(family="Bousmar")
+    assert score(record, item)["author"] is True

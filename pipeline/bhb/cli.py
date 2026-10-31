@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
+    vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
+    vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
     sample.add_argument("--size", type=int, default=3000)
     sample.add_argument("--seed", type=int, default=2)
@@ -125,6 +127,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "identifiers" and args.identifiers_command == "match":
         _identifiers_match(args.source)
+        return
+    if args.command == "identifiers" and args.identifiers_command == "vabb":
+        _identifiers_vabb(args.limit)
         return
     if args.command == "identifiers" and args.identifiers_command == "sample":
         _identifiers_sample(args.size, args.seed)
@@ -363,6 +368,38 @@ def _identifiers_match(source: str) -> None:
     chosen = [record for record in records if record.source == source and record.role == "entry" and record.type in ("article", "chapter") and record.title]
     print(f"{len(chosen)} articles and chapters from {source}", flush=True)
     _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv")
+
+
+def _identifiers_vabb(limit: int | None) -> None:
+    import csv
+    from collections import Counter
+
+    from bhb.vabb import Index, load, match
+
+    index = Index(load(build_dir() / "external"))
+    records = [record for record in read_jsonl(build_dir() / "records.jsonl")
+               if record.role == "entry" and record.title and record.year and record.year >= 1999]
+    records = records[:limit] if limit else records
+    out = build_dir() / "identifiers" / "vabb.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    counts: Counter[tuple[str, str, bool]] = Counter()
+    with out.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "source", "type", "year", "host", "accepted", "vabb_id", "doi", "isbn", "issn", "title", "author",
+                         "year_ok", "container", "page", "ours", "theirs", "their_container"])
+        for number, record in enumerate(records, 1):
+            found, pub = match(record, index)
+            part = "catalogue" if record.source == "vsmart" else "print"
+            counts[(part, record.type, found.accepted)] += 1
+            writer.writerow([record.id, record.source, record.type, record.year, record.host.title if record.host else "", int(found.accepted),
+                             pub.id if pub else "", (pub.doi or "") if pub else "", ";".join(pub.isbn) if pub else "", ";".join(pub.issn) if pub else "",
+                             *(found.score.get(key, "") for key in ("title", "author", "year", "container", "page")),
+                             found.our_title, found.their_title, found.their_container])
+            if number % 10000 == 0:
+                print(f"  {number}", flush=True)
+    for (part, kind, accepted), n in sorted(counts.items()):
+        print(f"{part:10} {kind:14} {'match' if accepted else 'none':5} {n}")
+    print(f"vabb → {out}")
 
 
 def _identifiers_sample(size: int, seed: int) -> None:
