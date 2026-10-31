@@ -123,7 +123,7 @@ def test_apply_writes_crossref_first_and_recovers_a_missing_journal(tmp_path, mo
                      persons=[Person(family="Rys")], host=Host(title="[host record not exported]", id="bhb:vs-9"), provenance=Provenance())
     item = _item()
     item["ISSN"] = ["07724764"]
-    monkeypatch.setattr(identifiers, "fetch", lambda params, cache: {"message": {"items": [item]}})
+    monkeypatch.setattr(identifiers, "_cached", lambda params, cache: {"message": {"items": [item]}})
     columns = ["id", "accepted", "doi", "isbn", "issn", "their_container"]
     with (tmp_path / "vsmart.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, columns)
@@ -150,3 +150,11 @@ def test_a_printed_article_is_looked_for_in_its_journal_first():
     item["ISSN"] = ["0772-4764"]
     record.host.title = "Ghendtsche Tyd."
     assert score(record, item)["container"] == 100.0
+
+
+def test_ocr_proposals_keep_misreadings_and_skip_plurals_and_conventions():
+    from bhb.identifiers import word_differences
+
+    assert word_differences("Een kleurijke geschiedenis van Gent", "Een kleurrijke geschiedenis van Gent") == [("kleurijke", "kleurrijke")]
+    assert word_differences("Early modern painting in Antwerp", "Early modern paintings in Antwerp") == []
+    assert word_differences("The Centre of Bruges", "The Center of Bruges") == []

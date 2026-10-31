@@ -154,15 +154,25 @@ def _pace(headers) -> None:
         INTERVAL = int(interval[:-1]) / int(limit) * 1.05
 
 
-def candidates(record, cache: Path) -> dict:
+def _cached(params: dict[str, str], cache: Path) -> dict | None:
+    url = f"{API}?{urllib.parse.urlencode(params)}"
+    path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def candidates(record, cache: Path, offline: bool = False) -> dict:
     """Crossref's answer for an entry. A printed article in a journal with an ISSN is looked for in that journal
     first, and only when that finds nothing in all of Crossref; the catalogue years keep their plain query (and their
-    cache)."""
+    cache). ``offline`` reads only the cache, for the steps that use answers already fetched."""
+    queries = []
     if record.source.startswith("print") and _journal_issn(record):
-        data = fetch(query_params(record, in_journal=True), cache)
-        if (data.get("message") or {}).get("items"):
+        queries.append(query_params(record, in_journal=True))
+    queries.append(query_params(record))
+    for params in queries:
+        data = _cached(params, cache) if offline else fetch(params, cache)
+        if data and (data.get("message") or {}).get("items"):
             return data
-    return fetch(query_params(record), cache)
+    return {"message": {"items": []}}
 
 
 def _year(item: dict) -> int | None:
@@ -337,7 +347,7 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             record = by_id.get(row["id"])
             if row["accepted"] != "1" or record is None or record.doi:
                 continue
-            item = next((i for i in candidates(record, cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+            item = next((i for i in candidates(record, cache, offline=True)["message"]["items"] if i.get("DOI") == row["doi"]), None)
             if item is None:
                 continue
             record.doi = item["DOI"].lower()
@@ -378,3 +388,70 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
         counts["isbn"] += bool(record.isbn)
         counts["issn"] += bool(record.issn)
     return dict(counts)
+
+
+# --- OCR proposals: where a matched source spells a word or name differently ---------------------------------------
+
+_TAG = re.compile(r"<[^>]+>")
+
+
+def _inside(left: str, right: str) -> bool:
+    """The two spellings differ inside the word, as an OCR error does ("kleurijke", "kleurrijke"), not only in its
+    ending, as a plural or a spelling convention does ("painting", "paintings"; "Centre", "Center")."""
+    prefix = len(next((left[:n] for n in range(min(len(left), len(right)), 0, -1) if left[:n] == right[:n]), ""))
+    return prefix < min(len(left), len(right)) - 2
+
+
+def word_differences(ours: str, theirs: str) -> list[tuple[str, str]]:
+    """Words of our title that the matched title spells slightly differently ("terrrein" / "terrein"); case,
+    accents, punctuation and missing or added words do not count."""
+    import difflib
+
+    left = re.findall(r"[^\W_]+(?:['’-][^\W_]+)*", ours)
+    right = re.findall(r"[^\W_]+(?:['’-][^\W_]+)*", _TAG.sub("", theirs))
+    pairs = []
+    matcher = difflib.SequenceMatcher(None, [fold(word) for word in left], [fold(word) for word in right], autojunk=False)
+    for operation, i1, i2, j1, j2 in matcher.get_opcodes():
+        if operation == "replace" and i2 - i1 == j2 - j1:
+            for word, other in zip(left[i1:i2], right[j1:j2]):
+                if fold(word) != fold(other) and len(word) >= 4 and fuzz.ratio(fold(word), fold(other)) >= 75 and _inside(fold(word), fold(other)):
+                    pairs.append((word, other))
+    return pairs
+
+
+def ocr_proposals(records, folder: Path, cache: Path) -> list[dict]:
+    """One row per word or author name in which an entry differs from the source it was matched to. Either side can
+    be the misspelt one, so these are proposals for review or for the citation pass, never applied."""
+    import csv
+
+    from bhb.vabb import Index, load  # noqa: F401  (VABB names come from the matched publication)
+
+    by_id = {record.id: record for record in records}
+    rows: list[dict] = []
+    vabb_pubs = None
+    for name in (*MATCH_FILES, "vabb.csv"):
+        path = folder / name
+        if not path.exists():
+            continue
+        for row in csv.DictReader(path.open(encoding="utf-8")):
+            record = by_id.get(row["id"])
+            if row["accepted"] != "1" or record is None:
+                continue
+            source = "vabb" if name == "vabb.csv" else "crossref"
+            for word, other in word_differences(row["ours"], row["theirs"]):
+                rows.append({"id": record.id, "field": "title", "ours": word, "theirs": other, "source": source})
+            if source == "crossref":
+                item = next((i for i in candidates(record, cache, offline=True)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+                families = [person.get("family", "") for person in (item or {}).get("author") or []]
+            else:
+                if vabb_pubs is None:
+                    vabb_pubs = load(folder.parent / "external")
+                families = vabb_pubs[row["vabb_id"]].families if row.get("vabb_id") in vabb_pubs else []
+            for person in record.persons:
+                for family in families:
+                    left, right = _compact(person.family), _compact(re.sub(r"\s+[A-Z]$", "", family.strip()))
+                    # A particle or initial more or less ("van Rossem", "Rossem") is a convention, not a misreading.
+                    if same_name(person.family, family) and left != right and not (left.endswith(right) or right.endswith(left)):
+                        rows.append({"id": record.id, "field": "author", "ours": person.family, "theirs": family, "source": source})
+    unique = {(row["id"], row["field"], row["ours"], row["theirs"]): row for row in rows}
+    return list(unique.values())

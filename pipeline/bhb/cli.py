@@ -90,6 +90,7 @@ def main(argv: list[str] | None = None) -> None:
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
+    identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
@@ -141,6 +142,19 @@ def main(argv: list[str] | None = None) -> None:
         counts = apply_identifiers(records, build_dir() / "identifiers", build_dir() / "cache" / "crossref")
         write_jsonl(path, records)
         print(f"identifiers: {counts} → {path}")
+        return
+    if args.command == "identifiers" and args.identifiers_command == "ocr":
+        import csv
+
+        from bhb.identifiers import ocr_proposals
+
+        rows = ocr_proposals(read_jsonl(build_dir() / "records.jsonl"), build_dir() / "identifiers", build_dir() / "cache" / "crossref")
+        out = build_dir() / "identifiers" / "ocr-proposals.csv"
+        with out.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, ["id", "field", "ours", "theirs", "source"])
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"{len(rows)} proposals ({sum(row['field'] == 'author' for row in rows)} author names) → {out}")
         return
     if args.command == "identifiers" and args.identifiers_command == "vabb":
         _identifiers_vabb(args.limit)
@@ -461,7 +475,7 @@ def _citations_pilot(model: str, size: int, seed: int) -> None:
             record = records.get(row["id"])
             if row["accepted"] != "1" or record is None or not record.printed or any(entry[0].id == record.id for entry in keyed):
                 continue
-            item = next((i for i in candidates(record, cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+            item = next((i for i in candidates(record, cache, offline=True)["message"]["items"] if i.get("DOI") == row["doi"]), None)
             if item is None:
                 continue
             keyed.append((record, key_from_crossref(item)))
