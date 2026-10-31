@@ -24,8 +24,7 @@
     "host": "Journal / book"
   },
   "theme": "Theme",
-  "category": "Classification (BHB code)",
-  "printedTheme": "Heading in the printed volume",
+  "category": "Classification",
   "suggested": "suggested",
   "draftLabel": "draft translation",
   "suggestedWhy": {
@@ -185,9 +184,10 @@
   "subjects": "Subject areas",
   "periodsLabel": "Periods",
   "suggestedValue": "Suggested automatically, from titles close in meaning or from the printed heading. Not checked by hand.",
-  "suggestedSample": "suggested",
-  "suggestedLegend": "Dashed and in italics: suggested automatically, not yet checked by hand.",
+  "suggestedSample": "dashed",
+  "suggestedLegend": "= suggested automatically, not checked by hand",
   "browse": "Browse by subject",
   "browseIntro": "All publications by subject area and period. Large groups open further by decade of publication. The counts include values suggested automatically; on each record those are shown with a dashed border.",
-  "browseDecade": "Published in the {d}s"
+  "browseDecade": "Published in the {d}s",
+  "asPrinted": "heading in the printed volume"
 }

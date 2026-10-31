@@ -24,8 +24,7 @@
     "host": "Revue ou livre"
   },
   "theme": "Thème",
-  "category": "Classement (code BHB)",
-  "printedTheme": "Rubrique dans le volume imprimé",
+  "category": "Classement",
   "suggested": "suggéré",
   "draftLabel": "traduction provisoire",
   "suggestedWhy": {
@@ -185,9 +184,10 @@
   "subjects": "Domaines",
   "periodsLabel": "Périodes",
   "suggestedValue": "Suggéré automatiquement, à partir de titres proches par le sens ou de la rubrique imprimée. Non vérifié à la main.",
-  "suggestedSample": "suggéré",
-  "suggestedLegend": "En pointillé et en italique : suggéré automatiquement, pas encore vérifié à la main.",
+  "suggestedSample": "en pointillé",
+  "suggestedLegend": "= suggéré automatiquement, non vérifié à la main",
   "browse": "Parcourir par domaine",
   "browseIntro": "Toutes les publications par domaine et par période. Les grands groupes s’ouvrent ensuite par décennie de parution. Les nombres comprennent les valeurs suggérées automatiquement ; sur chaque notice, elles ont un cadre en pointillé.",
-  "browseDecade": "Parues dans les années {d}"
+  "browseDecade": "Parues dans les années {d}",
+  "asPrinted": "rubrique du volume imprimé"
 }

@@ -24,8 +24,7 @@
     "host": "Tijdschrift of boek"
   },
   "theme": "Thema",
-  "category": "Classificatie (BHB-code)",
-  "printedTheme": "Rubriek in de gedrukte bibliografie",
+  "category": "Classificatie",
   "suggested": "voorgesteld",
   "draftLabel": "voorlopige vertaling",
   "suggestedWhy": {
@@ -185,9 +184,10 @@
   "subjects": "Onderwerpen",
   "periodsLabel": "Periodes",
   "suggestedValue": "Automatisch voorgesteld, op basis van inhoudelijk verwante titels of de gedrukte rubriek. Niet met de hand gecontroleerd.",
-  "suggestedSample": "voorgesteld",
-  "suggestedLegend": "Gestippeld en cursief: automatisch voorgesteld, nog niet met de hand gecontroleerd.",
+  "suggestedSample": "gestippeld",
+  "suggestedLegend": "= automatisch voorgesteld, niet met de hand gecontroleerd",
   "browse": "Bladeren per onderwerp",
   "browseIntro": "Alle publicaties per onderwerp en periode. Grote groepen openen verder per decennium van verschijnen. De aantallen omvatten ook automatisch voorgestelde waarden; bij elke vermelding hebben die een gestippelde rand.",
-  "browseDecade": "Verschenen in de jaren {d}"
+  "browseDecade": "Verschenen in de jaren {d}",
+  "asPrinted": "rubriek in de gedrukte bibliografie"
 }

@@ -643,24 +643,26 @@
 
 {#snippet categoryBlock(hit: Hit)}
   {@const category = categoryOf(hit)}
-  {@const anySuggested = Boolean(hit.meta.themesSuggested || hit.meta.periodsSuggested)}
   {#if hit.meta.themes}
     <p class="category-line"><span class="theme">{text.subjects}</span> {@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}</p>
   {/if}
   {#if hit.meta.periods}
     <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
   {/if}
-  {#if anySuggested}<p class="suggested-legend"><span class="tag tag-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</p>{/if}
-  <!-- The BHB code's own label, only when there is a code; a subject area alone is already shown above. -->
+  <!-- One classification line: the BHB code's label when there is one, else the printed heading (before 1993 the
+       only classification a person made); for 1993–2008 the code was derived from that heading. -->
   {#if hit.meta.categoryFr || hit.meta.categoryNl || hit.meta.categoryEn}
-  <p class="category-line">
-    <span class="theme">{text.category}</span>
-    {category}
-    {#if category && hit.meta.categoryDraft === "1" && lang === "en"} <span class="suggested">{text.draftLabel}</span>{/if}
-    {#if category && hit.meta.categoryMachine === "1"}
-      <span class="suggested" title={text.suggestedWhy[hit.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{text.suggested}</span>
-    {/if}
-  </p>
+    <p class="category-line">
+      <span class="theme">{text.category}</span>
+      {#if hit.meta.categoryMachine === "1"}
+        <span class="text-suggested" title={text.suggestedWhy[hit.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{category}</span>
+      {:else}
+        {category}
+      {/if}
+      {#if hit.meta.categoryDraft === "1" && lang === "en"} <span class="source-note">({text.draftLabel})</span>{/if}
+    </p>
+  {:else if hit.meta.section}
+    <p class="category-line"><span class="theme">{text.category}</span> {hit.meta.section} <span class="source-note">({text.asPrinted})</span></p>
   {/if}
 {/snippet}
 
@@ -725,7 +727,6 @@
           </dl>
         {/if}
         {@render categoryBlock(hit)}
-        {#if hit.meta.section}<p><span class="theme">{text.printedTheme}</span> {hit.meta.section}</p>{/if}
         <div class="expanded-actions">
           {@render wand(hit)}
           {@render exporter(hit)}
@@ -805,7 +806,6 @@
         </dl>
       {/if}
       {@render categoryBlock(record)}
-      {#if record.meta.section}<p><span class="theme">{text.printedTheme}</span> {record.meta.section}</p>{/if}
       <p class="imprint">{text.printed}{record.meta.year ? ` · BGB ${record.meta.year}` : ""}{record.meta.number ? ` · ${record.meta.number}` : ""}</p>
     {:else}
       <p>{text.notFound}</p>
@@ -1050,6 +1050,7 @@
     </div>
   </div>
   <div class="legal">
+    <span class="legend"><span class="tag tag-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</span>
     <span>{text.copyright}</span>
     <a href="#/about" aria-current={path === "/about" ? "true" : undefined}>{text.about}</a>
     <a href={text.privacyUrl}>{text.privacy}</a>

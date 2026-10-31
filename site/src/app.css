@@ -709,7 +709,11 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   cursor: help;
 }
 
-.suggested-legend { font-size: 14px; color: #6b6e73; margin: 0.2rem 0 0.6rem; }
+/* The same notation for a suggested classification in running text. */
+.text-suggested { font-style: italic; color: #5b7a5c; border-bottom: 1px dashed #7d977e; cursor: help; }
+.source-note { color: #6b6e73; font-size: 14px; }
+.legal .legend { margin-right: auto; }
+.legal .legend .tag { font-size: 12px; padding: 0 0.35rem; }
 
 .browse-link { color: inherit; font-size: 15px; margin-left: auto; margin-right: 1rem; white-space: nowrap; }
 .browse-link[aria-current="true"] { text-decoration: underline; }
