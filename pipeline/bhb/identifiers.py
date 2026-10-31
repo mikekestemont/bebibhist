@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -25,12 +27,18 @@ from rapidfuzz import fuzz
 from bhb.textutil import fold
 
 API = "https://api.crossref.org/works"
-# Crossref asks clients to identify themselves; the project page is the contact, no personal address is sent.
-USER_AGENT = "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"
-# The public pool allows one request per second, one at a time (its x-rate-limit headers, October 2026); requests
-# start at least this many seconds apart.
+# Crossref asks clients to identify themselves. With a contact address in ``BHB_CONTACT`` (never in the code), the
+# queries go to its faster "polite" pool; the address goes in the User-Agent, not the URL, so the cache keys stay the
+# same either way.
+CONTACT = os.environ.get("BHB_CONTACT", "").strip()
+USER_AGENT = "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist" + (f"; mailto:{CONTACT})" if CONTACT else ")")
+# The public pool allows one request per second, one at a time (its x-rate-limit headers, October 2026); the polite
+# pool more. Requests start at least this many seconds apart; ``pace`` adapts it to the headers of the first answer.
 INTERVAL = 1.05
+# Requests at once: one in the public pool, three in the polite pool (its x-concurrency-limit).
+WORKERS = 3 if CONTACT else 1
 _last_start = 0.0
+_lock = threading.Lock()
 FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-print,published-online,volume,issue,page,type,ISSN,ISBN"
 
 # A title this similar to a candidate's counts as the same title; below it, the OCR has to explain the difference.
@@ -89,11 +97,13 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
     global _last_start
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(5):
-        time.sleep(max(0.0, _last_start + INTERVAL - time.monotonic()))
-        _last_start = time.monotonic()
+        with _lock:
+            time.sleep(max(0.0, _last_start + INTERVAL - time.monotonic()))
+            _last_start = time.monotonic()
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
+                _pace(response.headers)
             break
         except urllib.error.HTTPError as error:
             if error.code not in (429, 500, 502, 503, 504) or attempt == 4:
@@ -107,6 +117,14 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
     cache.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data), encoding="utf-8")
     return data
+
+
+def _pace(headers) -> None:
+    """Space requests as the rate-limit headers allow: ``x-rate-limit-limit`` requests per ``x-rate-limit-interval``."""
+    global INTERVAL
+    limit, interval = headers.get("x-rate-limit-limit"), headers.get("x-rate-limit-interval", "1s")
+    if limit and limit.isdigit() and int(limit) > 0 and interval.endswith("s") and interval[:-1].isdigit():
+        INTERVAL = int(interval[:-1]) / int(limit) * 1.05
 
 
 def _year(item: dict) -> int | None:
@@ -192,10 +210,19 @@ def pilot_sample(records, size: int, seed: int = 1) -> list:
 
 
 def run(records, cache: Path, progress=None) -> list[Match]:
-    matches = []
-    for index, record in enumerate(records):
+    from concurrent.futures import ThreadPoolExecutor
+
+    done = 0
+
+    def one(record) -> Match:
+        nonlocal done
         params = query_params(record)
-        matches.append(best_match(record, fetch(params, cache)) if params else Match(record.id, None, {}, False, record.title or "", "", ""))
-        if progress and (index + 1) % 100 == 0:
-            progress(index + 1)
-    return matches
+        match = best_match(record, fetch(params, cache)) if params else Match(record.id, None, {}, False, record.title or "", "", "")
+        with _lock:
+            done += 1
+            if progress and done % 100 == 0:
+                progress(done)
+        return match
+
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        return list(pool.map(one, records))
