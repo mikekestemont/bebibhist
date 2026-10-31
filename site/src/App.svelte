@@ -44,8 +44,6 @@
   let browseTree = $state<Record<string, BrowseNode>>({});
   let openTheme = $state("");
   let openPeriod = $state("");
-  /** A list longer than this opens one level further, by decade of publication: Pagefind needs seconds per 10,000 hits. */
-  const BROWSE_LIST_MAX = 5000;
 
   /** The subject tree's counts are made when the index is built; nothing is searched to show them. */
   async function loadBrowse() {
@@ -979,16 +977,12 @@
               {#each groups.period.filter((value) => browseTree[theme].periods[value]) as period}
                 {@const node = browseTree[theme].periods[period]}
                 <li>
-                  {#if node.n > BROWSE_LIST_MAX}
-                    <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
-                      <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-                      {label("period", period)}
-                    </button>
-                  {:else}
-                    <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
-                  {/if}
+                  <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} aria-label={text.browseDecades} title={text.browseDecades} onclick={() => { openPeriod = flip(openPeriod, period); }}>
+                    <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+                  </button>
+                  <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
                   <span class="tree-count">{node.n.toLocaleString(lang)}</span>
-                  {#if openPeriod === period && node.n > BROWSE_LIST_MAX}
+                  {#if openPeriod === period}
                     <ul>
                       {#each Object.entries(node.decades).sort((a, b) => Number(a[0]) - Number(b[0])) as [decade, count]}
                         <li><a href={`#/search?theme=${theme}&period=${period}&from=${decade}&to=${Number(decade) + 9}`}>{text.browseDecade.replace("{d}", decade)}</a> <span class="tree-count">{count.toLocaleString(lang)}</span></li>

@@ -187,7 +187,8 @@
   "suggestedSample": "dashed",
   "suggestedLegend": "= suggested automatically, not checked by hand",
   "browse": "Browse by subject",
-  "browseIntro": "All publications by subject area and period. Large groups open further by decade of publication. The counts include values suggested automatically; on each record those are shown with a dashed border.",
+  "browseIntro": "All publications by subject area and period; each period opens further by decade of publication. Large lists take a few seconds to load. The counts include values suggested automatically.",
   "browseDecade": "Published in the {d}s",
-  "asPrinted": "heading in the printed volume"
+  "asPrinted": "heading in the printed volume",
+  "browseDecades": "By decade of publication"
 }

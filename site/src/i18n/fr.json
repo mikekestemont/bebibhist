@@ -187,7 +187,8 @@
   "suggestedSample": "en pointillé",
   "suggestedLegend": "= suggéré automatiquement, non vérifié à la main",
   "browse": "Parcourir par domaine",
-  "browseIntro": "Toutes les publications par domaine et par période. Les grands groupes s’ouvrent ensuite par décennie de parution. Les nombres comprennent les valeurs suggérées automatiquement ; sur chaque notice, elles ont un cadre en pointillé.",
+  "browseIntro": "Toutes les publications par domaine et par période ; chaque période s’ouvre ensuite par décennie de parution. Les grandes listes se chargent en quelques secondes. Les nombres comprennent les valeurs suggérées automatiquement.",
   "browseDecade": "Parues dans les années {d}",
-  "asPrinted": "rubrique du volume imprimé"
+  "asPrinted": "rubrique du volume imprimé",
+  "browseDecades": "Par décennie de parution"
 }
