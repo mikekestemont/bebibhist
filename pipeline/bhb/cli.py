@@ -87,6 +87,8 @@ def main(argv: list[str] | None = None) -> None:
     pilot = identifiers_sub.add_parser("pilot", help="match a sample of recent articles and chapters; write build/identifiers/pilot.csv")
     pilot.add_argument("--size", type=int, default=1000)
     pilot.add_argument("--seed", type=int, default=1)
+    match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
+    match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
 
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
@@ -110,6 +112,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "identifiers" and args.identifiers_command == "pilot":
         _identifiers_pilot(args.size, args.seed)
+        return
+    if args.command == "identifiers" and args.identifiers_command == "match":
+        _identifiers_match(args.source)
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -331,27 +336,39 @@ def _emit(records: list[Record], labels: dict, out: Path | None) -> None:
 
 
 def _identifiers_pilot(size: int, seed: int) -> None:
+    from bhb.identifiers import pilot_sample
+
+    records = read_jsonl(build_dir() / "records.jsonl")
+    _identifiers_write(pilot_sample(records, size, seed), build_dir() / "identifiers" / "pilot.csv")
+
+
+def _identifiers_match(source: str) -> None:
+    records = read_jsonl(build_dir() / "records.jsonl")
+    chosen = [record for record in records if record.source == source and record.role == "entry" and record.type in ("article", "chapter") and record.title]
+    print(f"{len(chosen)} articles and chapters from {source}", flush=True)
+    _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv")
+
+
+def _identifiers_write(sample, out: Path) -> None:
     import csv
     from collections import Counter
 
-    from bhb.identifiers import pilot_sample, run
+    from bhb.identifiers import run
 
-    records = read_jsonl(build_dir() / "records.jsonl")
-    sample = pilot_sample(records, size, seed)
     by_id = {record.id: record for record in sample}
     matches = run(sample, build_dir() / "cache" / "crossref", progress=lambda n: print(f"  {n}", flush=True))
-    out = build_dir() / "identifiers" / "pilot.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
-    counts: Counter[tuple[str, int, bool]] = Counter()
+    counts: Counter[tuple[str, str, bool]] = Counter()
     with out.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["id", "source", "type", "accepted", "doi", "title", "author", "year", "container", "page", "ours", "theirs", "their_container"])
+        writer.writerow(["id", "source", "type", "year", "host", "accepted", "doi", "title", "author", "year_ok", "container", "page", "ours", "theirs", "their_container"])
         for match in matches:
             record = by_id[match.record_id]
             counts[(record.source, record.type, match.accepted)] += 1
-            writer.writerow([match.record_id, record.source, record.type, int(match.accepted), match.doi or "",
+            writer.writerow([match.record_id, record.source, record.type, record.year or "", record.host.title if record.host else "",
+                             int(match.accepted), match.doi or "",
                              *(match.score.get(key, "") for key in ("title", "author", "year", "container", "page")),
                              match.our_title, match.their_title, match.their_container])
     for (source, kind, accepted), n in sorted(counts.items()):
         print(f"{source:14} {kind:8} {'DOI' if accepted else 'none':4} {n}")
-    print(f"pilot → {out}")
+    print(f"identifiers → {out}")
