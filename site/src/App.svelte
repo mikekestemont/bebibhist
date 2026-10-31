@@ -409,7 +409,7 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; href?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -432,6 +432,9 @@
       [text.extent, meta.extent],
       [text.series, seriesLine(meta)],
       [text.contents, meta.kind === "book" && meta.container ? text.contentsCount.replace("{n}", String(Number(meta.containerCount) - 1)) : ""],
+      [text.doi, meta.doi],
+      [text.isbn, (meta.isbn || "").split("|").join(", ")],
+      [text.issn, (meta.issn || "").split("|").join(", ")],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
@@ -444,6 +447,7 @@
             authors: label === text.author || label === text.hostEditors,
             derived: derivedNote(label, meta),
             container: containerLink(label, meta),
+            href: identifierLink(label, value),
           }]
         : [],
     );
@@ -469,7 +473,26 @@
     go("/search", next);
   }
 
+  /** A DOI opens the publication; an ISBN a library catalogue; an ISSN the journal's record at the ISSN portal. */
+  function identifierLink(label: string, value: string): string | undefined {
+    const first = value.split(",")[0].trim();
+    if (label === text.doi) return `https://doi.org/${first}`;
+    if (label === text.isbn) return `https://openlibrary.org/search?isbn=${first.replace(/[^0-9Xx]/g, "")}`;
+    if (label === text.issn) return `https://portal.issn.org/resource/ISSN/${first}`;
+    return undefined;
+  }
+
+  function identifierSource(kind: string, meta: Hit["meta"]): string | undefined {
+    const source = (meta.identifiersFrom || "").split("|").find((entry: string) => entry.startsWith(`${kind}:`))?.split(":")[1];
+    return source === "crossref" ? text.fromCrossref : source === "vabb" ? text.fromVabb : undefined;
+  }
+
   function derivedNote(label: string, meta: Hit["meta"]): string | undefined {
+    if (label === text.doi) return identifierSource("doi", meta);
+    if (label === text.isbn) return identifierSource("isbn", meta);
+    if (label === text.issn) return identifierSource("issn", meta);
+    if (label === text.journal && meta.hostMatched === "1") return text.hostMatched;
+    if ((label === text.journal || label === text.host) && meta.hostFromIbid === "1") return text.hostFromIbid;
     if (label === text.pubyear && meta.yearMachine === "1") return text.yearFromHost;
     if ((label === text.place || label === text.publisher) && meta.imprintMachine === "1") return text.imprintFromHost;
     return undefined;
@@ -771,14 +794,18 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string })}
-  {#if row.container}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; href?: string })}
+  {#if row.href}
+    <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>
+  {:else if row.container}
     <a class="container-link" href={row.container} title={text.containerWhy}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>
   {:else if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
       {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>
     {/each}
+  {:else if row.italic && row.derived}
+    <em class="derived" title={row.derived}>{row.value}</em>
   {:else if row.italic}
     <em>{row.value}</em>
   {:else if row.derived}

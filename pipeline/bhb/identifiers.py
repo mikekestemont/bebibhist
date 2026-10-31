@@ -269,3 +269,90 @@ def run(records, cache: Path, progress=None) -> list[Match]:
 
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         return list(pool.map(one, records))
+
+
+# --- writing the matches into the records ---------------------------------------------------------------------------
+
+MATCH_FILES = ("vsmart.csv", "print-straive.csv", "print-pdf.csv", "print-sample.csv", "pilot.csv")
+MISSING_HOST = "[host record not exported"
+
+
+def _normal_issn(value: str) -> str | None:
+    digits = re.sub(r"[^0-9Xx]", "", value or "").upper()
+    return f"{digits[:4]}-{digits[4:]}" if len(digits) == 8 else None
+
+
+def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
+    """Write the accepted matches into the records: the DOI from Crossref (it wins when VABB gives another), ISSNs
+    and ISBNs from both, and for an article whose journal record was not exported, the journal name its own match or
+    another article of the same missing journal gives. Every value records its source in ``identifiers_from``; the
+    printed citation is not touched."""
+    import csv
+    from collections import Counter, defaultdict
+
+    from bhb.vabb import normalise_doi
+
+    by_id = {record.id: record for record in records}
+    counts: Counter[str] = Counter()
+    for record in records:
+        record.doi, record.isbn, record.issn, record.identifiers_from = None, [], [], {}
+        if "host-title-matched" in record.provenance.flags:
+            record.provenance.flags.remove("host-title-matched")
+            record.host.title = f"{MISSING_HOST}]"
+    host_names: dict[str, Counter[str]] = defaultdict(Counter)
+
+    def add(record, kind: str, values: list[str], source: str) -> None:
+        target = record.isbn if kind == "isbn" else record.issn
+        for value in values:
+            if value and value not in target:
+                target.append(value)
+                record.identifiers_from.setdefault(kind, source)
+
+    for name in MATCH_FILES:
+        path = folder / name
+        if not path.exists():
+            continue
+        for row in csv.DictReader(path.open(encoding="utf-8")):
+            record = by_id.get(row["id"])
+            if row["accepted"] != "1" or record is None or record.doi:
+                continue
+            item = next((i for i in fetch(query_params(record), cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+            if item is None:
+                continue
+            record.doi = item["DOI"].lower()
+            record.identifiers_from["doi"] = "crossref"
+            add(record, "issn", [_normal_issn(value) for value in item.get("ISSN") or []], "crossref")
+            add(record, "isbn", item.get("ISBN") or [], "crossref")
+            if record.host and (record.host.title or "").startswith(MISSING_HOST) and item.get("container-title"):
+                host_names[record.host.id or record.id][" ".join(item["container-title"])] += 1
+            counts["doi from crossref"] += 1
+    vabb = folder / "vabb.csv"
+    if vabb.exists():
+        for row in csv.DictReader(vabb.open(encoding="utf-8")):
+            record = by_id.get(row["id"])
+            if row["accepted"] != "1" or record is None:
+                continue
+            doi = normalise_doi(row["doi"])
+            if doi and not record.doi:
+                record.doi = doi
+                record.identifiers_from["doi"] = "vabb"
+                counts["doi from vabb"] += 1
+            add(record, "issn", [_normal_issn(value) for value in row["issn"].split(";")], "vabb")
+            add(record, "isbn", [value for value in row["isbn"].split(";") if value], "vabb")
+            if record.host and (record.host.title or "").startswith(MISSING_HOST) and row["their_container"]:
+                host_names[record.host.id or record.id][row["their_container"]] += 1
+    # A journal name for the articles of a missing journal record, when the matches agree on it.
+    for record in records:
+        names = host_names.get((record.host.id or record.id) if record.host else "")
+        if not names or not (record.host.title or "").startswith(MISSING_HOST):
+            continue
+        name, votes = names.most_common(1)[0]
+        if all(fuzz.partial_ratio(fold(name), fold(other)) >= 90 for other in names):
+            record.host.title = re.sub(r"\s+\d+$", "", name.replace("&amp;", "&"))
+            record.provenance.flags.append("host-title-matched")
+            counts["journal name recovered"] += 1
+    for record in records:
+        counts["with an identifier"] += bool(record.doi or record.isbn or record.issn)
+        counts["isbn"] += bool(record.isbn)
+        counts["issn"] += bool(record.issn)
+    return dict(counts)

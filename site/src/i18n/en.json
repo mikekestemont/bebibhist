@@ -134,7 +134,8 @@
       "paragraphs": [
         "The volumes for 1952–2017 were published each year in the <em>Revue belge de philologie et d’histoire</em> / <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. This site includes those printed volumes: the years 1952–2007 as transcribed into XML in 2023, and 1964, 1965 and 2008 taken from the journal PDF.",
         "From 2009 the entries are also typed into the library catalogue of the State Archives of Belgium. This site holds a partial export of that catalogue for 2009–2017. Later years are not here yet.",
-        "The bibliography is offered under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). If you reuse it, credit the Royal Commission of History. Commercial use is not permitted."
+        "The bibliography is offered under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). If you reuse it, credit the Royal Commission of History. Commercial use is not permitted.",
+        "DOIs, ISBNs and ISSNs were found automatically, by title, author and year, in <a href=\"https://www.crossref.org/\">Crossref</a> and in the open data of the <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0). They are marked as such and have not been checked by hand."
       ]
     },
     {
@@ -205,5 +206,12 @@
   "placesLabel": "Places",
   "placeChip": "Place:",
   "placeIndexed": "From the place index of the printed volume. Click to see every publication about this place.",
-  "placeFromTitle": "Suggested automatically: a Belgian place named in the title. Not checked by hand. Click to see every publication about this place."
+  "placeFromTitle": "Suggested automatically: a Belgian place named in the title. Not checked by hand. Click to see every publication about this place.",
+  "doi": "DOI",
+  "isbn": "ISBN",
+  "issn": "ISSN",
+  "fromCrossref": "Found automatically in Crossref, by title, author and year. Not checked by hand.",
+  "fromVabb": "Found automatically in the VABB-SHW (Flemish Academic Bibliography, ECOOM), by title, author and year. Not checked by hand.",
+  "hostMatched": "The catalogue's record of this journal was not exported; the name was found automatically in Crossref or the VABB-SHW, through this article or another one in the same journal. Not checked by hand.",
+  "hostFromIbid": "Printed as “Ibid.”: taken from the entry printed just before this one."
 }

@@ -31,6 +31,17 @@ export interface Hit {
     place?: string;
     publisher?: string;
     imprintMachine?: string;
+    /** "1" when the journal name was found by matching, because the catalogue did not export the journal's record. */
+    hostMatched?: string;
+    /** "1" when the journal or volume is printed as "Ibid." and was taken from the entry printed before. */
+    hostFromIbid?: string;
+    /** "1" when the places were found in the title, not in the printed index. */
+    placesSuggested?: string;
+    doi?: string;
+    isbn?: string;
+    issn?: string;
+    /** Per identifier its source, as "doi:crossref|issn:vabb". */
+    identifiersFrom?: string;
     inVolume?: string;
     extent?: string;
     seriesTitle?: string;

@@ -113,6 +113,9 @@ function bibtex(hit: Hit, source: string): string {
     ["pages", meta.pages || ""],
     ["address", meta.place || ""],
     ["publisher", meta.publisher || ""],
+    ["doi", meta.doi || ""],
+    ["isbn", (meta.isbn || "").split("|").filter(Boolean).join(", ")],
+    ["issn", (meta.issn || "").split("|").filter(Boolean).join(", ")],
     ["note", presentCitation(meta.citation || "")],
     ["rights", DATA_RIGHTS],
     ["source", source],
@@ -147,6 +150,8 @@ function ris(hit: Hit, source: string): string {
   push(lines, "PY", yearOf(meta.pubyear));
   push(lines, "CY", meta.place);
   push(lines, "PB", meta.publisher);
+  push(lines, "DO", meta.doi);
+  for (const number of [...(meta.isbn || "").split("|"), ...(meta.issn || "").split("|")]) push(lines, "SN", number);
   push(lines, "N1", presentCitation(meta.citation || ""));
   push(lines, "N1", DATA_RIGHTS);
   push(lines, "ID", meta.id);
@@ -176,6 +181,7 @@ function mods(hit: Hit, source: string): string {
       parts.push(`    </titleInfo>`);
     }
     for (const person of people(meta.hostEditors)) parts.push(modsName(person, "editor", "    "));
+    for (const issn of (meta.issn || "").split("|").filter(Boolean)) parts.push(`    <identifier type="issn">${xml(issn)}</identifier>`);
     if (meta.volume || meta.issue || meta.pages) {
       parts.push(`    <part>`);
       if (meta.volume) parts.push(`      <detail type="volume"><number>${xml(meta.volume)}</number></detail>`);

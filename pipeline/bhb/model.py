@@ -108,6 +108,14 @@ class Record:
     place_ids: list[str] = field(default_factory=list)
     # Places in ``place_ids`` that a machine found in the title, not the printed index.
     place_suggested: list[str] = field(default_factory=list)
+    # Identifiers found by matching (``bhb identifiers apply``), never printed: the DOI, ISBNs, ISSNs, and per
+    # identifier the source that gave it ("crossref" or "vabb").
+    doi: str | None = None
+    isbn: list[str] = field(default_factory=list)
+    issn: list[str] = field(default_factory=list)
+    identifiers_from: dict[str, str] = field(default_factory=dict)
+    # The journal of an article (``bhb journals apply``): "issn:<ISSN>" or "t:<title>"; see data/curated/journals.csv.
+    journal_id: str | None = None
     cross_refs: list[str] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
     is_cross_listing: bool = False

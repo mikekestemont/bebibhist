@@ -109,3 +109,32 @@ def test_vabb_dois_are_normalised():
     assert normalise_doi("doi:10.1093/jsh/shs092.") == "10.1093/jsh/shs092"
     assert normalise_doi("http://dx.doi.org/10.1080/14664208.2016.1243883") == "10.1080/14664208.2016.1243883"
     assert normalise_doi("n/a") is None
+
+
+def test_apply_writes_crossref_first_and_recovers_a_missing_journal(tmp_path, monkeypatch):
+    import csv
+
+    import bhb.identifiers as identifiers
+    from bhb.model import Provenance
+
+    first = _record()
+    first.host.title, first.host.id = "[host record not exported]", "bhb:vs-9"
+    sibling = Record(id="bhb:vs-2", source="vsmart", bgb_year=2017, type="article", title="Een ander artikel", year=2017,
+                     persons=[Person(family="Rys")], host=Host(title="[host record not exported]", id="bhb:vs-9"), provenance=Provenance())
+    item = _item()
+    item["ISSN"] = ["07724764"]
+    monkeypatch.setattr(identifiers, "fetch", lambda params, cache: {"message": {"items": [item]}})
+    columns = ["id", "accepted", "doi", "isbn", "issn", "their_container"]
+    with (tmp_path / "vsmart.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, columns)
+        writer.writeheader()
+        writer.writerow({"id": first.id, "accepted": "1", "doi": item["DOI"], "isbn": "", "issn": "", "their_container": ""})
+    with (tmp_path / "vabb.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, columns)
+        writer.writeheader()
+        writer.writerow({"id": first.id, "accepted": "1", "doi": "doi:10.9999/other.", "isbn": "", "issn": "0772-4764", "their_container": "Ghendtsche Tydinghen"})
+    identifiers.apply_identifiers([first, sibling], tmp_path, tmp_path)
+    assert first.doi == item["DOI"].lower() and first.identifiers_from == {"doi": "crossref", "issn": "crossref"}
+    assert first.issn == ["0772-4764"]
+    assert sibling.host.title == "Ghendtsche Tydinghen" and "host-title-matched" in sibling.provenance.flags
+    assert sibling.doi is None

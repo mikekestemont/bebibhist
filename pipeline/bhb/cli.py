@@ -89,11 +89,16 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
+    identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
     sample.add_argument("--size", type=int, default=3000)
     sample.add_argument("--seed", type=int, default=2)
+
+    journals = sub.add_parser("journals", help="one name per journal (docs/JOURNAL_PROPOSAL.md)")
+    journals_sub = journals.add_subparsers(dest="journals_command", required=True)
+    journals_sub.add_parser("apply", help="resolve Ibid., write data/curated/journals.csv and the spelling map, give articles a journal id")
 
     citations = sub.add_parser("citations", help="the LLM clean-up pass over printed citations (OpenRouter)")
     citations_sub = citations.add_subparsers(dest="citations_command", required=True)
@@ -128,11 +133,29 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "identifiers" and args.identifiers_command == "match":
         _identifiers_match(args.source)
         return
+    if args.command == "identifiers" and args.identifiers_command == "apply":
+        from bhb.identifiers import apply_identifiers
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        counts = apply_identifiers(records, build_dir() / "identifiers", build_dir() / "cache" / "crossref")
+        write_jsonl(path, records)
+        print(f"identifiers: {counts} → {path}")
+        return
     if args.command == "identifiers" and args.identifiers_command == "vabb":
         _identifiers_vabb(args.limit)
         return
     if args.command == "identifiers" and args.identifiers_command == "sample":
         _identifiers_sample(args.size, args.seed)
+        return
+    if args.command == "journals" and args.journals_command == "apply":
+        from bhb.journals import apply_journals
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        counts = apply_journals(records, repo_root() / "data" / "curated")
+        write_jsonl(path, records)
+        print(f"journals: {counts} → {path}")
         return
     if args.command == "citations" and args.citations_command == "pilot":
         _citations_pilot(args.model, args.size, args.seed)
