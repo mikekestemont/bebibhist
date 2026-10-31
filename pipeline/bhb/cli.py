@@ -73,6 +73,10 @@ def main(argv: list[str] | None = None) -> None:
     similar.add_argument("--batch-size", type=int, default=128)
     similar.add_argument("--records", type=Path)
 
+    facets = sub.add_parser("facets", help="facet values from neighbours in meaning (needs the embed extra)")
+    facets_sub = facets.add_subparsers(dest="facets_command", required=True)
+    facets_sub.add_parser("suggest", help="measure on held-out years; write build/facet_report.md and a review file")
+
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -83,6 +87,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
+        return
+    if args.command == "facets" and args.facets_command == "suggest":
+        from bhb.facet_suggest import suggest_command
+
+        for written in suggest_command(build_dir() / "records.jsonl", build_dir()):
+            print(f"facets: {written}")
         return
     if args.command == "export" and args.export_command == "skos":
         from bhb.skos import write_skos

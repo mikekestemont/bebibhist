@@ -4,7 +4,7 @@ Draft, 30 October 2026, for the product owner (Mike Kestemont) and the Royal Com
 of the Commission: an entry should be able to carry more than one category, where the printed volumes allowed only
 one. It keeps the ground rules: no LLM API, static site, the printed text unchanged, machine values flagged, confidence
 floors. It builds on `docs/VOCABULARY_PROPOSAL.md` (open vocabularies per facet) and `docs/SEMANTIC_INDEX_PROPOSAL.md`
-(meaning-based neighbours). Step F1 below is built; the rest is not.
+(meaning-based neighbours). Steps F1 and F3 are done (§3b, §4); the rest is not.
 
 ## 1. What we do now
 
@@ -74,6 +74,30 @@ Principles:
 3. **People check samples.** The held-out years are modern, so they overstate accuracy before 1993. A sample of 100
    pre-1993 entries is checked by the editor or by students before machine values for those years are shown.
 
+## 3b. Result of F3 (31 October 2026)
+
+`bhb facets suggest` measures the machine suggestions of §3 and writes `build/facet_report.md` and
+`build/heading_subject_proposals.csv`. Training: the 93,000 entries with a checked value outside the held-out years;
+test: V-Smart 2015–2017 and print 2005–2008. Each value gets its own threshold, the lowest at which at least 90 % of
+its held-out suggestions are right (at least 50 suggestions).
+
+| Facet | How | Right (held out) | Held-out entries that get a value | Gain |
+|---|---|---:|---:|---|
+| Period | per entry, from its 20 nearest checked titles | 95.4 % | 82 % | 31,534 entries without a checked period get one |
+| Subject area | per entry | 92.4 % | 2.9 % | too few to use: a title alone rarely tells social from political history |
+| Subject area | **per printed heading**: the title scores of all entries under one heading, averaged | 95.3 % | 51.5 % | 46,632 entries; before 1993, coverage rises from 14–35 % to 56–71 % per year |
+
+All five periods and all eight subject areas pass their 90 % threshold. The per-heading result is also a proposal
+per row of the crosswalk: the editor checks a heading, not each entry under it (2,581 rows).
+
+What a random sample of twenty old headings shows: canals and roads → *economic*; painting → *cultural*; internal
+politics → *political*; archives, genealogy, place names → *reference*; methodology → *general*. The weak point is the
+second value: under a regional heading ("Flandre > Saints, monastères …") only *local* is suggested, where
+*religious* is right too. The heading's own wording names that subject, so a second step can add it.
+
+Caveats: the held-out years use the modern headings; old headings can be broader, so 100 pre-1993 entries must be
+checked before these values are shown, marked "suggested". Nothing has been written into the records yet.
+
 ## 4. Linked to SKOS and open vocabularies
 
 **Built (30 October).** `bhb export skos` writes `build/skos/bhb.ttl` from the curated files:
@@ -109,7 +133,7 @@ reaches every code and every entry under it. Nothing has to be labelled again.
 |---|---|---|
 | F1 facet values file, `bhb export skos` with code → facet links | done 30 Oct | — |
 | F2 move "auxiliary sciences" and "general" out of the period facet | ½ day | **Commission's go** (§7) |
-| F3 machine suggestions per facet (S0b), with precision and coverage per year | 1 day | **report** before anything is shown |
+| F3 machine suggestions per facet (S0b), with precision and coverage per year — **done 31 Oct, §3b** | 1 day | **report** before anything is shown |
 | F4 finer periods (about 17, with dates) and subject wordings (137) as narrower concepts | 1 day + the editor's review of dates | editor's review |
 | F5 links to PeriodO, Wikidata, FAST (VOCABULARY_PROPOSAL V2–V4) | 2–3 days + checking | sample check |
 | F6 serve `bhb.ttl` and a page per concept on the site; URIs in MODS | 1 day | deploy |
