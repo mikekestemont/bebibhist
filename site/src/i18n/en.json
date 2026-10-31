@@ -216,7 +216,7 @@
   "hostFromIbid": "Printed as “Ibid.”: taken from the entry printed just before this one.",
   "journalChip": "Journal:",
   "journalGrouped": "Opens every article in this journal, whatever the spelling. The spellings were grouped automatically and have not been checked by hand.",
-  "freeToRead": "free to read",
+  "freeToRead": "open access",
   "freeOpenAlex": "According to OpenAlex, this publication can be read free of charge; the DOI link leads to it. Checked automatically, not by hand.",
   "freePersee": "Published on Persée, where it can be read free of charge; the DOI link leads to it.",
   "fromOpenLibrary": "Found automatically in Open Library, by title, author and year; only a work with a single edition is used. Not checked by hand."

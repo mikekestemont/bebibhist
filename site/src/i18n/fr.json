@@ -216,7 +216,7 @@
   "hostFromIbid": "Imprimé « Ibid. » : repris de la notice imprimée juste avant celle-ci.",
   "journalChip": "Revue :",
   "journalGrouped": "Affiche tous les articles de cette revue, quelle que soit la graphie de son titre. Les graphies ont été regroupées automatiquement et n’ont pas été vérifiées à la main.",
-  "freeToRead": "en libre accès",
+  "freeToRead": "libre accès",
   "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",
   "freePersee": "Publiée sur Persée, où elle est en libre accès ; le lien DOI y mène.",
   "fromOpenLibrary": "Trouvé automatiquement dans Open Library, d’après le titre, l’auteur et l’année ; seule une œuvre n’ayant qu’une édition est retenue. Non vérifié à la main."
