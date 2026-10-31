@@ -342,8 +342,22 @@ reason). Keep `printed` untouched. Update the internal project plan §9 at the e
 
 ---
 
+## 5b. Next: language of publication (added 31 Oct 2026)
+
+No entry has a language yet (0 of 183,578). It would serve in several places:
+- **a facet** "Language / Taal / Langue", multi-valued (a bilingual title has two), beside period, subject and place;
+- **matching**: a translated edition is another publication with its own ISBN (the Dutch and English *Hieronymus
+  Cock* catalogues); `bhb.identifiers` now refuses a match when the function words of the two titles disagree, which
+  a real language value would do better;
+- **similar publications and search**: measure and steer cross-language neighbours; choose the stemming per language;
+- **the citation clean-up pass**, whose schema already asks the model for the title's language, as a check.
+
+Method: a local, open language identifier on title and subtitle (no API), checked against the model's answer and a
+hand sample per period; V-Smart may carry a language code in the raw export, to be checked first. Values are machine
+values and shown as suggested; a title in two languages gets both.
+
 ## 6. Not in this phase
 
-Places, language detection, embedding-based similar items (TF-IDF neighbours are in E8), PDF page links for
+Places (first version done 31 Oct), language detection (see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for
 1952–2007, XLSX/CSV export, an advanced search form with several fields at once (E5 offers one field at a time), person/journal identification, the map. They stay in the internal project plan and `docs/PROTOTYPE_SPEC.md` P4–P6
 for the next phase.
