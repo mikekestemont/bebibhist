@@ -12,7 +12,8 @@ ranking) are recorded in `docs/DECISIONS.md`. Still open: the review of `heading
 theme coverage below the 90 % target. Next proposals: `docs/IDENTIFIER_PROPOSAL.md` (DOIs, ISBNs, ISSNs).
 
 **Principle for this phase:** keep it light. One static site, one CI workflow, two small curated CSV files, one
-small local classifier. No server, no new front-end framework, no LLM API.
+small local classifier. No server, no new front-end framework, no LLM API (since 31 Oct, one exception: the citation clean-up pass, see
+`AGENTS.md` and `docs/DECISIONS.md`).
 
 ---
 

@@ -9,7 +9,10 @@ Ground rules:
 - This repository is public. Internal notes (people, terms of work, assessments, budget, governance, correspondence, to-do lists) go to `../bebibhist-raw/notes/`, never here.
 - Never commit large data (PDFs, SQLite, CSV > 20 MB); see `.gitignore`.
 - Python code lives in the `bhb` package (`pipeline/`), with pytest tests; no notebooks.
-- No LLM API calls (decision of 11 Oct 2026). Local open models are allowed.
+- LLM API calls only for the citation clean-up pass, through OpenRouter (decision of 31 Oct 2026, replacing the ban
+  of 11 Oct): providers that neither train on nor keep the data, pinned model versions, every answer cached, the
+  key in `OPENROUTER_API_KEY` and never in the repository; entries already right, or matched to a DOI or VABB
+  record, are not sent. Local open models are allowed for everything else.
 - Record decisions you take on your own in `docs/DECISIONS.md` (one line each, with rationale).
 - Keep the printed citation text intact; flag machine-derived values.
 - The data are CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/). The code stays MIT.

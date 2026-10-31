@@ -56,7 +56,7 @@ This brief covers the **prototype** that will be demonstrated to the Commission.
 | Hosting | GitHub Pages, repository under Mike's GitHub account; no server, no paid services. |
 | Builds | Run locally (macOS, Apple Silicon). Python ≥ 3.10 is available (`python3`, miniconda). |
 | Licence | Data **CC BY-NC 4.0 with attribution, on the whole bibliography** (every year, the site, every download). Commercial use is not permitted. Code MIT. |
-| LLM APIs | **Not to be used** in the prototype. Local open models (embeddings) are fine. |
+| LLM APIs | **Not to be used** in the prototype. Local open models (embeddings) are fine. Since 31 Oct 2026 one exception: the citation clean-up pass through OpenRouter (`AGENTS.md`). |
 | Archival format | **MODS 3.8 XML**, one file per BGB year, written by the pipeline. |
 | Search engine | **Pagefind.** The P1 benchmark rejected live SQLite-over-HTTP (`sql.js-httpvfs`): see `docs/BENCHMARK.md`. |
 | Frontend | Vite + Svelte 5 + TypeScript, static build. |
