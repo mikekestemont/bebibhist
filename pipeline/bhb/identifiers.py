@@ -199,6 +199,8 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
         "title": round(title, 1),
         # The same publication in another language (a catalogue in a Dutch and an English edition) has its own ISBN.
         "language": ours_language == their_language if ours_language and their_language else None,
+        # A book (no journal or volume, a publisher) is not a journal article of the same title: that is a review of it.
+        "kind": False if not (record.host and record.host.title) and record.publisher and item.get("type") == "journal-article" else None,
         "author": author,
         "year": abs(year - record.year) <= 1 if year and record.year else None,
         "container": round(fuzz.partial_ratio(host, container), 1) if host and container else None,
@@ -215,7 +217,7 @@ def accept(features: dict[str, float | bool | None], title_length: int = SHORT_T
     journal and first page agree. A different author or year rejects the candidate. A different journal name does
     not, since Crossref often names the series or an abbreviation (BMGN, WT) where the volume has the full title; a
     different first page rejects it unless the journal agrees."""
-    if features["title"] < close or features["author"] is False or features["year"] is False or features.get("language") is False:
+    if features["title"] < close or features["author"] is False or features["year"] is False or features.get("language") is False or features.get("kind") is False:
         return False
     container = features["container"] >= 80 if features["container"] is not None else None
     if features["page"] is False and not container:

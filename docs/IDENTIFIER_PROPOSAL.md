@@ -119,6 +119,49 @@ editions (4 %): 1,619 articles, 698 chapters, 268 books. What it adds is mostly 
 A fuzzy match, as for Crossref, will find more (OCR errors, subtitles). VABB also gives normalised names of Flemish
 authors, which may help to tell namesakes apart later. Credit: ECOOM, VABB-SHW editions VIII, IX and 15 (CC BY 4.0).
 
+## 5d. Full run for 2009–2017, a print sample, and VABB with scoring (31 October 2026)
+
+**Catalogue 2009–2017, all articles and chapters (38,558).** Crossref gives a DOI to **3,880 (10.1 %)**: 2,514
+articles and 1,366 chapters. The share rises with the year of publication, from 5–6 % for 2004–2008 to 12–14 % for
+2014–2017. With VABB, 4,783 (12.4 %) have a DOI, ISBN or ISSN from at least one source. The run took about 3.5 hours
+in Crossref's polite pool (three requests a second, with a contact address in `BHB_CONTACT`); the public pool allows
+one a second.
+
+**Print sample (3,000 articles and chapters, 500 per decade, 1950s–2000s).** 201 DOIs (6.7 %), strikingly even
+across the decades: 5–8 % of the articles in every decade, mostly in the *Revue belge de philologie et d'histoire*
+and the Commission's *Bulletin* (Persée), *Revue du Nord*, *Scriptorium*, *Revue bénédictine*, *Res Publica*,
+*WT*, *Archivum Latinitatis Medii Aevi*, the *Handelingen* of the Bruges and Ghent societies.
+
+**VABB with the same scoring** (`bhb identifiers vabb`): 2,927 matches among the entries from 1999 on (1,876 articles,
+753 chapters, 276 books); they carry 1,963 ISSNs, 1,015 ISBNs and 220 DOIs. VABB titles may differ a little more
+than Crossref's (90 counts as the same title, not 95). A hand check of 60 matches found all right.
+
+**Precision.**
+- Crossref, hand-checked: 99 of 99 in the pilot, 199 of 200 in a random sample of the 2009–2017 run, 49 of 50 in
+  the print sample. The two errors led to two rules: a short title ("Conclusion") needs the author to agree, and a
+  book cannot match a journal article of the same title (that is a review of it: Fryde on Carus-Wilson in
+  *Economica*).
+- Crossref against VABB: on the 163 entries both match with a DOI, 154 DOIs are the same; in the other nine,
+  Crossref is right every time (VABB has two mistyped DOIs, twice the next article in the issue, three times the
+  book's DOI for a chapter, and the article where the catalogue has its corrigendum as a separate entry). Crossref
+  therefore takes precedence for DOIs; VABB adds ISBNs and ISSNs.
+- Rules added on the way: names in two spellings count as one author (Vanbruaene / Van Bruaene, Godderis /
+  Goddeeris); an edited volume is compared by its editor; titles whose function words put them in different
+  languages are different publications (a catalogue in a Dutch and an English edition).
+
+**Journals for "[host record not exported]".** The 3,176 articles without a journal point to 537 missing host
+records. The matches name 159 of those hosts, so 563 articles (18 %) can get a journal name, 395 of them by their
+own match and the rest through another article of the same host. 393 hosts with 2,631 articles stay unnamed; the
+three largest alone hold 514 articles. Those need the State Archives' export.
+
+**OCR.** The matches expose OCR errors in titles and author names (`terrrein`, `infirme`, `wolniverheid`,
+`lothringinschen`, `Quaeghebeur` / `Quaghebeur`), but either side can be wrong, so they are proposals for review.
+
+**What it means.** Coverage is about 10 % in recent years and 7 % in the older ones. Identifiers bring links, ISSNs
+for the journal clean-up, and an answer key: 4,180 entries whose fields are known independently of our parser (3,880
+catalogue, 201 print sample, 99 pilot), for the citation clean-up pass (decision of 31 Oct). They cannot clean the
+other 90 % of the entries themselves.
+
 ## 6. Site
 
 - A "DOI" link and, when OpenAlex reports one, an "Open copy" link on the record page and in the expanded row.

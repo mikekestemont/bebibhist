@@ -66,6 +66,12 @@ def _rows(path: Path):
         yield from csv.DictReader(handle)
 
 
+def normalise_doi(value: str | None) -> str | None:
+    """VABB writes DOIs in several ways: "doi:10.…", "http://dx.doi.org/10.…", with a trailing full stop."""
+    doi = re.sub(r"^(https?://(dx\.)?doi\.org/|doi:\s*)", "", (value or "").strip().lower()).rstrip(".")
+    return doi if doi.startswith("10.") else None
+
+
 def _family(name: str) -> str:
     """"Gerwen, Van, Jef [1952 - 2002] [a::…]" → "Van Gerwen"; "VERELST, KARIN" → "Verelst"."""
     name = re.sub(r"\[[^\]]*\]", "", name).strip()
@@ -98,7 +104,7 @@ def load(root: Path) -> dict[str, Publication]:
                 type=TYPES.get(row["vabb_publications_publicationtype"].replace("VABB-", ""), "other"),
                 pages=f"{start}-{end}" if start else None,
                 container=row.get("vabb_publications_booktitle") or row.get("vabb_publications_proceedings_title") or "",
-                doi=(row.get("vabb_publications_doi") or "").lower() or None,
+                doi=normalise_doi(row.get("vabb_publications_doi")),
             )
             if not pubs[pid].container and pubs[pid].type == "article":
                 pubs[pid].container = row.get("vabb_publications_pubjour") or ""
@@ -109,7 +115,7 @@ def load(root: Path) -> dict[str, Publication]:
         for row in _rows(folder / "vabb_additionalid.csv"):
             pub = pubs.get(row["vabb_publications_id"])
             if pub and row["vabb_additionalid_type"] == "DOI" and not pub.doi:
-                pub.doi = row["vabb_additionalid_value"].lower()
+                pub.doi = normalise_doi(row["vabb_additionalid_value"])
         for row in _rows(folder / "vabb_publications_standardnumbers.csv"):
             pub = pubs.get(row["vabb_publications_id"])
             if not pub:

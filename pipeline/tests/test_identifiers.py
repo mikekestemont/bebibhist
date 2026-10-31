@@ -1,7 +1,7 @@
 """Scoring of Crossref candidates, without the network."""
 
 from bhb.identifiers import accept, best_match, query_params, same_name, score, title_language
-from bhb.model import Host, Person, Record
+from bhb.model import Host, Person, Publisher, Record
 
 
 def _record(title="Criminaliteit in Gent in de vorige eeuw", subtitle=None, family="Rys", pages="191-197", year=2017):
@@ -91,3 +91,21 @@ def test_a_short_title_without_a_known_author_is_refused():
     item["container-title"] = ["Pierre Giot, un capitaine marin arlésien « dans la tourmente »"]
     record.host.title = "Mons dans la tourmente"
     assert not accept(score(record, item), len("Conclusion"))
+
+
+def test_a_book_is_not_matched_to_a_review_of_it():
+    record = _record(title="Medieval Merchant Venturers. Collected studies", family="Carus-Wilson", year=1954)
+    record.host = None
+    record.publisher = Publisher(place="Londres", name="Methuen")
+    item = _item(title="Medieval Merchant Venturers: Collected Studies.", family="Carus-Wilson", year=1955, page="374")
+    item["type"] = "journal-article"
+    item["container-title"] = ["Economica"]
+    assert not accept(score(record, item), 60)
+
+
+def test_vabb_dois_are_normalised():
+    from bhb.vabb import normalise_doi
+
+    assert normalise_doi("doi:10.1093/jsh/shs092.") == "10.1093/jsh/shs092"
+    assert normalise_doi("http://dx.doi.org/10.1080/14664208.2016.1243883") == "10.1080/14664208.2016.1243883"
+    assert normalise_doi("n/a") is None
