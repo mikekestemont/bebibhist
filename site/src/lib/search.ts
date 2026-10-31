@@ -141,7 +141,7 @@ function yearIn(text: string, year: string): boolean {
 /** Journal and monograph titles are italic; an article or chapter title stays roman. A subtitle is italic in the citation line. */
 export function citationHtml(
   citation: string,
-  meta: { title?: string; subtitle?: string; host?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string },
+  meta: { title?: string; subtitle?: string; host?: string; hostSubtitle?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string },
   yearNote = "",
   volumeNote = "",
 ): string {
@@ -152,10 +152,15 @@ export function citationHtml(
     const note = escapeHtml(yearNote);
     html = html.replace(meta.pubyear, `<span class="derived" title="${note}">${meta.pubyear}</span>`);
   }
-  const host = meta.host?.trim();
-  if (host) {
-    const safe = escapeHtml(host);
-    html = html.replace(new RegExp(`(In:\\s*)(${escapeRegExp(safe)})`), "$1<em>$2</em>");
+  // The book's title and subtitle are italic wherever they stand after "In:", also after its editors
+  // ("In: Deploige (Jeroen), Deneckere (Gita). Mystifying the Monarch").
+  const after = html.search(/In:/);
+  if (after >= 0 && !meta.inVolume) {
+    for (const part of [meta.host, meta.hostSubtitle]) {
+      const safe = escapeHtml(part?.trim() || "");
+      const at = safe ? html.indexOf(safe, after) : -1;
+      if (at >= 0) html = `${html.slice(0, at)}<em>${safe}</em>${html.slice(at + safe.length)}`;
+    }
   }
   if (meta.kind === "book" || meta.kind === "journal-issue") {
     const title = meta.title?.trim();
