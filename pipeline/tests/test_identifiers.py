@@ -138,3 +138,15 @@ def test_apply_writes_crossref_first_and_recovers_a_missing_journal(tmp_path, mo
     assert first.issn == ["0772-4764"]
     assert sibling.host.title == "Ghendtsche Tydinghen" and "host-title-matched" in sibling.provenance.flags
     assert sibling.doi is None
+
+
+def test_a_printed_article_is_looked_for_in_its_journal_first():
+    record = _record()
+    record.source, record.journal_id = "print-straive", "issn:0772-4764"
+    assert query_params(record, in_journal=True)["filter"].endswith(",issn:0772-4764")
+    assert "issn" not in query_params(record)["filter"]
+    item = _item()
+    item["container-title"] = ["Ghendtsche Tydinghen. Tijdschrift"]
+    item["ISSN"] = ["0772-4764"]
+    record.host.title = "Ghendtsche Tyd."
+    assert score(record, item)["container"] == 100.0

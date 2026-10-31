@@ -448,7 +448,7 @@ def _citations_pilot(model: str, size: int, seed: int) -> None:
     from collections import Counter
 
     from bhb.citations import ask, fields_of_answer, fields_of_record, key_from_crossref, score
-    from bhb.identifiers import fetch, query_params
+    from bhb.identifiers import candidates
 
     records = {record.id: record for record in read_jsonl(build_dir() / "records.jsonl")}
     cache = build_dir() / "cache" / "crossref"
@@ -461,7 +461,9 @@ def _citations_pilot(model: str, size: int, seed: int) -> None:
             record = records.get(row["id"])
             if row["accepted"] != "1" or record is None or not record.printed or any(entry[0].id == record.id for entry in keyed):
                 continue
-            item = next(i for i in fetch(query_params(record), cache)["message"]["items"] if i.get("DOI") == row["doi"])
+            item = next((i for i in candidates(record, cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+            if item is None:
+                continue
             keyed.append((record, key_from_crossref(item)))
     # The OCR years first: that is where the pass is meant to help.
     rng = random.Random(seed)

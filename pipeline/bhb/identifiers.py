@@ -91,17 +91,25 @@ def same_name(ours: str, theirs: str) -> bool:
     return min(len(left), len(right)) >= 5 and fuzz.ratio(left, right) >= 80
 
 
-def query_params(record) -> dict[str, str] | None:
-    """The Crossref query for one entry, or None when it has no title or year."""
+def _journal_issn(record) -> str | None:
+    """The ISSN of an article's journal, when ``bhb journals apply`` found one."""
+    journal = getattr(record, "journal_id", None) or ""
+    return journal[5:] if journal.startswith("issn:") else None
+
+
+def query_params(record, in_journal: bool = False) -> dict[str, str] | None:
+    """The Crossref query for one entry, or None when it has no title or year. With ``in_journal``, an article whose
+    journal has an ISSN is looked for in that journal only."""
     title = _full_title(record.title, record.subtitle)
     if not title or not record.year:
         return None
     first = _first_author(record)
     host = record.host.title if record.host and record.host.title else ""
     words = " ".join(part for part in (title, first or "", host) if part)
+    issn = _journal_issn(record) if in_journal else None
     return {
         "query.bibliographic": words[:400],
-        "filter": f"from-pub-date:{record.year - 1},until-pub-date:{record.year + 1}",
+        "filter": f"from-pub-date:{record.year - 1},until-pub-date:{record.year + 1}" + (f",issn:{issn}" if issn else ""),
         "rows": "5",
         "select": FIELDS,
     }
@@ -144,6 +152,17 @@ def _pace(headers) -> None:
     limit, interval = headers.get("x-rate-limit-limit"), headers.get("x-rate-limit-interval", "1s")
     if limit and limit.isdigit() and int(limit) > 0 and interval.endswith("s") and interval[:-1].isdigit():
         INTERVAL = int(interval[:-1]) / int(limit) * 1.05
+
+
+def candidates(record, cache: Path) -> dict:
+    """Crossref's answer for an entry. A printed article in a journal with an ISSN is looked for in that journal
+    first, and only when that finds nothing in all of Crossref; the catalogue years keep their plain query (and their
+    cache)."""
+    if record.source.startswith("print") and _journal_issn(record):
+        data = fetch(query_params(record, in_journal=True), cache)
+        if (data.get("message") or {}).get("items"):
+            return data
+    return fetch(query_params(record), cache)
 
 
 def _year(item: dict) -> int | None:
@@ -203,7 +222,9 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
         "kind": False if not (record.host and record.host.title) and record.publisher and item.get("type") == "journal-article" else None,
         "author": author,
         "year": abs(year - record.year) <= 1 if year and record.year else None,
-        "container": round(fuzz.partial_ratio(host, container), 1) if host and container else None,
+        # A candidate with the ISSN of the article's journal is in that journal, however either side spells it.
+        "container": 100.0 if _journal_issn(record) and _journal_issn(record) in (item.get("ISSN") or [])
+        else round(fuzz.partial_ratio(host, container), 1) if host and container else None,
         "page": page == their_page if page and their_page else None,
     }
 
@@ -260,7 +281,7 @@ def run(records, cache: Path, progress=None) -> list[Match]:
     def one(record) -> Match:
         nonlocal done
         params = query_params(record)
-        match = best_match(record, fetch(params, cache)) if params else Match(record.id, None, {}, False, record.title or "", "", "")
+        match = best_match(record, candidates(record, cache)) if params else Match(record.id, None, {}, False, record.title or "", "", "")
         with _lock:
             done += 1
             if progress and done % 100 == 0:
@@ -316,7 +337,7 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             record = by_id.get(row["id"])
             if row["accepted"] != "1" or record is None or record.doi:
                 continue
-            item = next((i for i in fetch(query_params(record), cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
+            item = next((i for i in candidates(record, cache)["message"]["items"] if i.get("DOI") == row["doi"]), None)
             if item is None:
                 continue
             record.doi = item["DOI"].lower()
