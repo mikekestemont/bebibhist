@@ -27,8 +27,10 @@ from bhb.textutil import fold
 API = "https://api.crossref.org/works"
 # Crossref asks clients to identify themselves; the project page is the contact, no personal address is sent.
 USER_AGENT = "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"
-# The public pool allows a few requests per second, one at a time.
-PAUSE = 0.35
+# The public pool allows one request per second, one at a time (its x-rate-limit headers, October 2026); requests
+# start at least this many seconds apart.
+INTERVAL = 1.05
+_last_start = 0.0
 FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-print,published-online,volume,issue,page,type,ISSN,ISBN"
 
 # A title this similar to a candidate's counts as the same title; below it, the OCR has to explain the difference.
@@ -84,8 +86,11 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
     path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
+    global _last_start
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(5):
+        time.sleep(max(0.0, _last_start + INTERVAL - time.monotonic()))
+        _last_start = time.monotonic()
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
@@ -93,12 +98,12 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
         except urllib.error.HTTPError as error:
             if error.code not in (429, 500, 502, 503, 504) or attempt == 4:
                 raise
-            time.sleep(5 * (attempt + 1))
+            wait = error.headers.get("Retry-After") if error.headers else None
+            time.sleep(float(wait) if wait and wait.isdigit() else 2 * (attempt + 1))
         except (urllib.error.URLError, TimeoutError):
             if attempt == 4:
                 raise
             time.sleep(5 * (attempt + 1))
-    time.sleep(PAUSE)
     cache.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data), encoding="utf-8")
     return data
