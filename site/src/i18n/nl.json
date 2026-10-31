@@ -161,8 +161,7 @@
     }
   ],
   "periods": {
-    "aux": "Hulpwetenschappen",
-    "general": "Algemeen",
+    "general": "Periodeoverschrijdend",
     "ancient": "Oudheid",
     "medieval": "Middeleeuwen",
     "burgundian": "Bourgondische tijd",
@@ -193,5 +192,6 @@
   "browseDecades": "Per decennium van verschijnen",
   "bhbCode": "BHB-code",
   "narrowerSample": "onderwerp",
-  "narrowerLegend": "= een nauwer onderwerp binnen het onderwerp ervoor"
+  "narrowerLegend": "= een nauwer onderwerp binnen het onderwerp ervoor",
+  "didYouMean": "Bedoelde u"
 }

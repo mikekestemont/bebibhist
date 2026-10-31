@@ -302,6 +302,7 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     host_editors: list[Person] = []
     collecting_authors = False
     title_seen = False
+    source_tail = ""
 
     for child in citation:
         text = squash(_plain(child))
@@ -335,6 +336,8 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
                 note_parts.append(text)
             else:
                 sources.append(text)
+                if len(sources) == 1:
+                    source_tail = tail
             collecting_authors = False
         elif child.tag == "volume":
             volume = text or volume
@@ -375,6 +378,13 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     has_volume = bool(volume or issue or fpage)
     has_publisher = bool(publisher)
     in_chapter = bool(chapter_title) or bool(re.search(r"\bIn\s*:", printed))
+    # Some journal entries tag the article title as <source> and leave the journal untagged after it:
+    # "<source>Schilde</source>. Antwerpiensia, <volume>24</volume>". The untagged words are the journal.
+    untagged_journal = _untagged_journal(source_tail)
+    if not (article_title or chapter_title or in_chapter) and len(sources) == 1 and has_volume and untagged_journal:
+        article_title = [sources[0]]
+        sources = [untagged_journal]
+        record.provenance.flags.append("journal-from-untagged-text")
     if in_chapter:
         record.type = "chapter"
     elif article_title and sources and has_volume and not has_publisher:
@@ -440,6 +450,14 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         record.is_cross_listing = True
     record.provenance.confidence = _confidence(record)
     return record, raw
+
+
+def _untagged_journal(tail: str) -> str | None:
+    """The journal title in the untagged text after a <source> that holds the article title, or None."""
+    text = squash(tail).strip(" .,;:")
+    if not text or re.search(r"\d", text) or len(re.findall(r"[A-Za-zÀ-ÿ]", text)) < 3 or len(text) > 150:
+        return None
+    return text
 
 
 def _persons(group: etree._Element) -> list[Person]:

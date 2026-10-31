@@ -66,6 +66,16 @@ jobs:
             exit 1
           fi
 
+      - name: Check search before deploying
+        working-directory: site
+        # "shell: bash" runs with pipefail, so a failing check is not hidden by tee.
+        shell: bash
+        run: |
+          npx playwright install --with-deps chromium
+          npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
+          npm run check -- http://localhost:4173/ | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

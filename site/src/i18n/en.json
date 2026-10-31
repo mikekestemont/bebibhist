@@ -161,8 +161,7 @@
     }
   ],
   "periods": {
-    "aux": "Auxiliary sciences",
-    "general": "General",
+    "general": "Across periods",
     "ancient": "Antiquity",
     "medieval": "Middle Ages",
     "burgundian": "Burgundian period",
@@ -193,5 +192,6 @@
   "browseDecades": "By decade of publication",
   "bhbCode": "BHB code",
   "narrowerSample": "topic",
-  "narrowerLegend": "= a narrower subject within the subject area before it"
+  "narrowerLegend": "= a narrower subject within the subject area before it",
+  "didYouMean": "Did you mean"
 }

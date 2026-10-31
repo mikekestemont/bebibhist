@@ -48,10 +48,11 @@ def periods_from_path(section_path: list[str]) -> list[str]:
     if not section_path:
         return []
     kind = part_kind(section_path[0])
-    # Bibliography and general-works parts are one period. History-by-period
-    # takes its period from the headings underneath, not from the part title.
+    # The bibliography part (auxiliary sciences) has no period: it is a subject area, not a time. General works
+    # span all periods ("general", shown as "Across periods"). History-by-period takes its period from the
+    # headings underneath, not from the part title.
     if kind == "aux":
-        return ["aux"]
+        return []
     if kind == "general":
         return ["general"]
     blob = " ".join(section_path)
@@ -72,8 +73,8 @@ def periods_from_codes(codes: list[str]) -> list[str]:
     found: list[str] = []
     for code in codes:
         if code.startswith("I."):
-            found.append("aux")
-        elif code.startswith("II."):
+            continue
+        if code.startswith("II."):
             found.append("general")
         elif code.startswith("III.A"):
             found.append("ancient")

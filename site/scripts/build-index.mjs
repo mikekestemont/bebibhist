@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
@@ -15,6 +15,9 @@ const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathnam
 const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
 // Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
 const browse = {};
+const wordsPath = new URL("../public/words", import.meta.url).pathname;
+// Every indexed word with its number of entries and its most common spelling, for "Did you mean …?".
+const words = new Map();
 
 /**
  * Wordings that only name one of the broad subject areas (or say "general"): the subject tags already say this, so
@@ -65,6 +68,7 @@ for await (const line of lines) {
     (record.section_path || []).join(" "),
     record.note,
   ].filter(Boolean).join("\n"), synonyms);
+  countWords(content);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
     content: `${record.id}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}`,
@@ -137,6 +141,7 @@ if (wasm.size < 1000) {
 }
 await ensureEntry(outputPath, indexed);
 await writeFile(browsePath, JSON.stringify(browse));
+await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
 
 /** Pagefind 1.4 sometimes leaves pagefind-entry.json empty, and search then never starts. */
@@ -264,6 +269,38 @@ function countBrowse(values) {
     }
   }
   return values;
+}
+
+function countWords(text) {
+  const seen = new Set();
+  for (const [surface] of stripMarks(text).matchAll(/[\p{L}][\p{L}'’]*[\p{L}]/gu)) {
+    const key = surface.toLowerCase().replace(/['’]/g, "");
+    if (key.length < 4 || seen.has(key)) continue;
+    seen.add(key);
+    const entry = words.get(key) || { n: 0, forms: new Map() };
+    entry.n += 1;
+    entry.forms.set(surface, (entry.forms.get(surface) || 0) + 1);
+    words.set(key, entry);
+  }
+}
+
+/**
+ * Words in files by their first two letters ("va.json"), so the site fetches only the few kilobytes it needs, and
+ * only after a search. A word in a single entry is left out: most are typing or OCR errors, the very words a
+ * suggestion should not offer.
+ */
+async function writeWords(dir, all) {
+  const shards = new Map();
+  for (const [key, entry] of all) {
+    if (entry.n < 2) continue;
+    const form = [...entry.forms].sort((left, right) => right[1] - left[1])[0][0];
+    const shard = /^[a-z]{2}/.test(key) ? key.slice(0, 2) : "_";
+    if (!shards.has(shard)) shards.set(shard, {});
+    shards.get(shard)[key] = form === key ? [entry.n] : [entry.n, form];
+  }
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+  for (const [shard, entries] of shards) await writeFile(`${dir}/${shard}.json`, JSON.stringify(entries));
 }
 
 function similarLine(record) {

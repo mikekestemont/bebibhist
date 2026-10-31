@@ -370,3 +370,16 @@ def test_tagged_book_reads_its_series_from_the_imprint(tmp_path: Path):
     )
     record = load_jats(path, "print-straive")[0]
     assert (record.type, record.series.title, record.series.number) == ("book", "Studia et documenta Mechliniensia", "4")
+
+
+def test_article_title_tagged_as_source_with_the_journal_untagged(tmp_path: Path):
+    path = tmp_path / "BGB_1954.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="ref776"><label>6062</label><mixed-citation publication-type="journal"><person-group person-group-type="author"><string-name><surname>Prims</surname> (<given-names>Floris</given-names>)</string-name></person-group>. <source>Schilde</source>. Antwerpiensia, <volume>24</volume>, <issue>53</issue>, p. <fpage>141</fpage>–<lpage>91</lpage>.</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert (record.type, record.title, record.host.title, record.host.volume) == ("article", "Schilde", "Antwerpiensia", "24")
+    assert "journal-from-untagged-text" in record.provenance.flags

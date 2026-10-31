@@ -72,7 +72,8 @@ def test_brabant_is_a_letter_not_a_part():
 
 
 def test_part_one_is_auxiliary_and_part_three_uses_keywords():
-    assert periods_from_path(["I. Bibliographies et sciences auxiliaires"]) == ["aux"]
+    # The auxiliary-sciences part is a subject area, not a period.
+    assert periods_from_path(["I. Bibliographies et sciences auxiliaires"]) == []
     assert periods_from_path(["II. Ouvrages généraux"]) == ["general"]
     assert periods_from_path(["I. Généralités — Algemeenheden"]) == ["general"]
     assert periods_from_path(
@@ -90,7 +91,7 @@ def test_part_one_is_auxiliary_and_part_three_uses_keywords():
 
 
 def test_vsmart_codes_map_onto_the_same_periods():
-    assert periods_from_codes(["I.A.", "III.D.2.b.5."]) == ["aux", "contemporary"]
+    assert periods_from_codes(["I.A.", "III.D.2.b.5."]) == ["contemporary"]
     assert periods_from_codes(["III.B.1.a.", "III.B.3."]) == ["medieval", "burgundian"]
     assert periods_from_codes(["III.C.1."]) == ["early-modern"]
     assert assign_period(["III. Histoire"], ["III.A.1."]) == ["ancient"]

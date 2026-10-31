@@ -748,7 +748,7 @@ def _resolved(row: dict) -> tuple[str, float, bool] | None:
 
 def _masks(classes: list[str]) -> dict[str, list[int]]:
     masks: dict[str, list[int]] = {}
-    periods = ("aux", "general", "ancient", "medieval", "burgundian", "early-modern", "contemporary")
+    periods = ("general", "ancient", "medieval", "burgundian", "early-modern", "contemporary")
     for period in periods:
         masks[period] = [1 if period in periods_from_codes([code]) else 0 for code in classes]
     return masks

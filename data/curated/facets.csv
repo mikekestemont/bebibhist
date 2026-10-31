@@ -1,6 +1,5 @@
 facet,value,label_fr,label_nl,label_en,note
-period,aux,Sciences auxiliaires,Hulpwetenschappen,Auxiliary sciences,"not a period: the bibliography part on auxiliary sciences, kept for the site filter"
-period,general,Généralités,Algemeen,General,"not a period: works across periods, kept for the site filter"
+period,general,Toutes périodes,Periodeoverschrijdend,Across periods,"works across all periods (the scheme's ""Tijdvakoverschrijdende werken"")"
 period,ancient,Antiquité,Oudheid,Antiquity,
 period,medieval,Moyen Âge,Middeleeuwen,Middle Ages,
 period,burgundian,Époque bourguignonne,Bourgondische tijd,Burgundian period,

@@ -4,14 +4,14 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
   type Lang = "fr" | "nl" | "en";
   const catalogs = { fr, nl, en };
   const groups = {
-    period: ["aux", "general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
+    period: ["general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
     theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
   } as const;
@@ -40,6 +40,8 @@
   let dragTo = $state<number | null>(null);
   let openId = $state("");
   let withinBox = $state("");
+  let filtersOpen = $state(false);
+  let spelling = $state<{ word: string; suggestion: string; count: number }[]>([]);
   type BrowseNode = { n: number; periods: Record<string, { n: number; decades: Record<string, number> }> };
   let browseTree = $state<Record<string, BrowseNode>>({});
   let openTheme = $state("");
@@ -84,6 +86,33 @@
     return value;
   }
 
+  function activeFilterCount(): number {
+    return Object.keys(groups).reduce((total, group) => total + params.getAll(group).length, 0) + (params.get("from") || params.get("to") ? 1 : 0);
+  }
+
+  function correctedQuery(): string {
+    let corrected = query;
+    for (const { word, suggestion } of spelling) {
+      corrected = corrected.replace(new RegExp(`(?<![\\p{L}])${word}(?![\\p{L}])`, "iu"), suggestion);
+      if (corrected === query) corrected = foldOnce(corrected, word, suggestion);
+    }
+    return corrected;
+  }
+
+  /** A query word may carry accents the folded word lacks; replace it by position in the folded text. */
+  function foldOnce(text: string, word: string, suggestion: string): string {
+    const folded = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    const at = folded.indexOf(word);
+    return at < 0 ? text : `${text.slice(0, at)}${suggestion}${text.slice(at + word.length)}`;
+  }
+
+  function correctedHref(): string {
+    const next = new URLSearchParams(params);
+    next.set("q", correctedQuery());
+    next.delete("page");
+    return `#/search?${next.toString()}`;
+  }
+
   function selected(group: string, value: string): boolean {
     return params.getAll(group).includes(value);
   }
@@ -121,15 +150,8 @@
       const values = params.getAll(group);
       if (values.length) filters[group] = values;
     }
-    const from = Number(params.get("from"));
-    const to = Number(params.get("to"));
-    if (from || to) {
-      const start = Math.min(from || 1945, to || new Date().getFullYear());
-      const end = Math.max(from || 1945, to || new Date().getFullYear());
-      const years: string[] = [];
-      for (let year = start; year <= end; year += 1) years.push(String(year));
-      filters.pubyear = { any: years };
-    }
+    const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
+    if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
   }
 
@@ -211,6 +233,12 @@
     }
     const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
     hits = await Promise.all(slice.map((item) => item.data()));
+    // Checked after the results are shown, so it never delays them.
+    const spellingFor = askedText;
+    spelling = [];
+    if (askedText) spellingSuggestions(askedText).then((found) => {
+      if (spellingFor === [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ")) spelling = found;
+    });
     remember(hits);
     loading = false;
   }
@@ -800,7 +828,12 @@
   </main>
 {:else if filtering}
   <main class="wrap layout">
-    <aside class="filters">
+    <aside class="filters" class:open={filtersOpen}>
+      <!-- On a phone the column stacks above the results, so it starts closed behind this button. -->
+      <button type="button" class="filters-button" aria-expanded={filtersOpen} onclick={() => { filtersOpen = !filtersOpen; }}>
+        {text.filters}{activeFilterCount() ? ` (${activeFilterCount()})` : ""}
+        <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+      </button>
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
@@ -888,6 +921,9 @@
             <li><button type="button" onclick={() => removeMore(index)}>{chip} <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
           {/each}
         </ul>
+      {/if}
+      {#if spelling.length}
+        <p class="did-you-mean">{text.didYouMean} <a href={correctedHref()}>{correctedQuery()}</a>?</p>
       {/if}
       {#if loading && hits.length === 0}
         <p>{text.loading}</p>

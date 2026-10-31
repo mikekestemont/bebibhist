@@ -138,7 +138,7 @@ function yearIn(text: string, year: string): boolean {
   return new RegExp(`(?<!\\d)${year}(?!\\d)`).test(text);
 }
 
-/** Journal and monograph titles are italic; an article or chapter title stays roman. A subtitle is italic in the citation line. */
+/** Journal and monograph titles (and their subtitles) are italic; an article or chapter title and subtitle stay roman. */
 export function citationHtml(
   citation: string,
   meta: { title?: string; subtitle?: string; host?: string; hostSubtitle?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string },
@@ -154,7 +154,9 @@ export function citationHtml(
   }
   // The book's title and subtitle are italic wherever they stand after "In:", also after its editors
   // ("In: Deploige (Jeroen), Deneckere (Gita). Mystifying the Monarch").
-  const after = html.search(/In:/);
+  // A journal title stands after the article's title, without "In:".
+  const titleAt = meta.title ? html.indexOf(escapeHtml(meta.title.trim())) : -1;
+  const after = html.search(/In:/) >= 0 ? html.search(/In:/) : meta.kind === "article" && titleAt >= 0 ? titleAt + escapeHtml(meta.title!.trim()).length : -1;
   if (after >= 0 && !meta.inVolume) {
     for (const part of [meta.host, meta.hostSubtitle]) {
       const safe = escapeHtml(part?.trim() || "");
@@ -162,12 +164,13 @@ export function citationHtml(
       if (at >= 0) html = `${html.slice(0, at)}<em>${safe}</em>${html.slice(at + safe.length)}`;
     }
   }
+  // A book's or journal issue's title and subtitle are italic; an article's or chapter's stay roman.
   if (meta.kind === "book" || meta.kind === "journal-issue") {
-    const title = meta.title?.trim();
-    if (title) html = emphasize(html, title);
+    for (const part of [meta.title, meta.subtitle]) {
+      const text = part?.trim();
+      if (text) html = emphasize(html, text);
+    }
   }
-  const subtitle = meta.subtitle?.trim();
-  if (subtitle) html = emphasize(html, subtitle);
   return html;
 }
 
@@ -202,6 +205,16 @@ export interface SearchResponse {
 
 /** A list of values means "all of them" in Pagefind; `{ any: [...] }` means "one of them", as for a range of years. */
 export type Filters = Record<string, string[] | { any: string[] }>;
+
+/** The publication years from ``from`` to ``to`` (either may be missing), as a filter that matches any of them. */
+export function yearFilter(from: number, to: number, now = new Date().getFullYear()): { any: string[] } | null {
+  if (!from && !to) return null;
+  const start = Math.min(from || 1945, to || now);
+  const end = Math.max(from || 1945, to || now);
+  const years: string[] = [];
+  for (let year = start; year <= end; year += 1) years.push(String(year));
+  return { any: years };
+}
 
 interface Pagefind {
   init: () => Promise<void>;
@@ -305,6 +318,72 @@ export function relaxedQuery(query: string, field: SearchField = "all"): string 
   const kept = words.filter((word) => !FUNCTION_WORDS.has(word));
   if (kept.length === 0 || kept.length === words.length) return null;
   return searchQuery(kept.join(" "), field);
+}
+
+type WordFile = { counts: Record<string, [number, string?]>; keys: string[] };
+const wordFiles = new Map<string, Promise<WordFile>>();
+
+/** Words of the bibliography whose first two letters are ``shard``, with their number of entries. */
+function wordFile(shard: string): Promise<WordFile> {
+  if (!wordFiles.has(shard)) {
+    const url = new URL(`${import.meta.env.BASE_URL}words/${shard}.json`, document.baseURI).href;
+    wordFiles.set(
+      shard,
+      fetch(url)
+        .then((response) => (response.ok ? response.json() : {}))
+        .catch(() => ({}))
+        .then((counts: Record<string, [number, string?]>) => ({ counts, keys: Object.keys(counts) })),
+    );
+  }
+  return wordFiles.get(shard)!;
+}
+
+/** Edits between two words (insert, delete, replace, swap two neighbours), or ``limit + 1`` once it is exceeded. */
+export function editDistance(left: string, right: string, limit: number): number {
+  if (Math.abs(left.length - right.length) > limit) return limit + 1;
+  let before: number[] = [];
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= left.length; row += 1) {
+    const current = [row];
+    let best = row;
+    for (let column = 1; column <= right.length; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      let value = Math.min(previous[column] + 1, current[column - 1] + 1, previous[column - 1] + cost);
+      if (row > 1 && column > 1 && left[row - 1] === right[column - 2] && left[row - 2] === right[column - 1]) {
+        value = Math.min(value, before[column - 2] + 1);
+      }
+      current.push(value);
+      best = Math.min(best, value);
+    }
+    if (best > limit) return limit + 1;
+    before = previous;
+    previous = current;
+  }
+  return previous[right.length];
+}
+
+/**
+ * "Did you mean …?": for each query word that occurs nowhere in the bibliography, the closest word that does
+ * (one edit for short words, two from eight letters), the most frequent first. Only the small file for the
+ * word's first two letters is fetched, after the results are shown.
+ */
+export async function spellingSuggestions(query: string): Promise<{ word: string; suggestion: string; count: number }[]> {
+  const found: { word: string; suggestion: string; count: number }[] = [];
+  for (const word of contentWords(query).map((item) => item.replace(/['’]/g, ""))) {
+    if (word.length < 4 || /\d/.test(word)) continue;
+    const file = await wordFile(/^[a-z]{2}/.test(word) ? word.slice(0, 2) : "_");
+    if (file.counts[word] || file.keys.some((key) => key.startsWith(word))) continue;
+    const limit = word.length >= 8 ? 2 : 1;
+    let best: { key: string; distance: number; count: number } | null = null;
+    for (const key of file.keys) {
+      const distance = editDistance(word, key, limit);
+      if (distance > limit) continue;
+      const count = file.counts[key][0];
+      if (!best || distance < best.distance || (distance === best.distance && count > best.count)) best = { key, distance, count };
+    }
+    if (best) found.push({ word, suggestion: file.counts[best.key][1] || best.key, count: best.count });
+  }
+  return found;
 }
 
 /** The words of a query that carry meaning: folded, lower case, without function words. */

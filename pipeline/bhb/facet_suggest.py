@@ -24,7 +24,7 @@ FLOOR = 0.60
 THRESHOLDS = [round(0.30 + 0.05 * step, 2) for step in range(14)]
 # A value needs this many held-out suggestions at a threshold before its precision there is trusted.
 MIN_SUGGESTIONS = 50
-# "aux" and "general" are parts of the bibliography, not periods.
+# "general" (works across all periods) is a value of its own, not one to guess from neighbours.
 REAL_PERIODS = ("ancient", "medieval", "burgundian", "early-modern", "contemporary")
 
 

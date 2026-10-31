@@ -161,8 +161,7 @@
     }
   ],
   "periods": {
-    "aux": "Sciences auxiliaires",
-    "general": "Généralités",
+    "general": "Toutes périodes",
     "ancient": "Antiquité",
     "medieval": "Moyen Âge",
     "burgundian": "Époque bourguignonne",
@@ -193,5 +192,6 @@
   "browseDecades": "Par décennie de parution",
   "bhbCode": "Code BHB",
   "narrowerSample": "sujet",
-  "narrowerLegend": "= un sujet plus précis au sein du domaine qui le précède"
+  "narrowerLegend": "= un sujet plus précis au sein du domaine qui le précède",
+  "didYouMean": "Vouliez-vous dire"
 }

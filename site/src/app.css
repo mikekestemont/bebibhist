@@ -163,7 +163,7 @@ main .search { margin: 1.6rem 0; }
 
 .layout {
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-columns: 17.5rem minmax(0, 1fr);
   gap: 1.75rem;
   align-items: start;
 }
@@ -171,6 +171,8 @@ main .search { margin: 1.6rem 0; }
 .filters { position: sticky; top: 0.75rem; align-self: start; }
 
 .filters h2 { font-size: 1.1rem; margin: 0 0 0.9rem; }
+
+.filters-button { display: none; }
 
 .filters fieldset { border: 0; margin: 0 0 1.25rem; padding: 0; }
 
@@ -688,6 +690,25 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .layout { grid-template-columns: 1fr; }
   .tools { flex-wrap: wrap; justify-content: flex-end; }
   .filters { position: static; }
+  .filters-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font: inherit;
+    font-size: 15px;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #b9bbbe;
+    border-radius: 3px;
+    background: #ebf6ee;
+    color: #303133;
+    cursor: pointer;
+  }
+  .filters-button .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .filters-button[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+  .filters h2 { display: none; }
+  .filters:not(.open) > :not(.filters-button) { display: none; }
+  .filters.open > fieldset:first-of-type { margin-top: 0.9rem; }
+  .filters { position: static; }
   .brand strong { display: none; }
   h1 { font-size: 1.78rem; }
   .footer { grid-template-columns: 1fr; padding: 1.75rem 1.25rem; }
@@ -709,6 +730,9 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 }
 /* The finer subject sits after the broad ones, marked as narrower. */
 .tag-narrow { background: #fff; margin-left: 0.3rem; }
+/* Tags wrap onto a second line under a long label; keep the lines apart. */
+.category-line .tag { margin-top: 0.2rem; margin-bottom: 0.2rem; }
+.category-line .tags { row-gap: 0.4rem; }
 .tag-narrow::before { content: "› "; color: #7d977e; }
 .tag-suggested {
   border-style: dashed;
@@ -740,3 +764,5 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
 .tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 .tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }
+
+.did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
