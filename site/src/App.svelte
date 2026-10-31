@@ -41,6 +41,9 @@
   let openId = $state("");
   let withinBox = $state("");
   let filtersOpen = $state(false);
+  let menuOpen = $state(false);
+  let menuButton: HTMLButtonElement;
+  let menuPanel: HTMLDivElement;
   // Places of the printed indexes (1993–2007), with names and coordinates from the gazetteer: places.json.
   type PlaceInfo = { fr: string; nl: string; de: string; en: string; level: string; lon: number | null; lat: number | null; n: number };
   type MapPlace = PlaceInfo & { key: string };
@@ -698,6 +701,18 @@
     go("/search", next);
   }
 
+  // The header menu (phones and tablets) closes on Escape (focus goes back to its button) and on a click anywhere outside it.
+  function closeMenu(event: KeyboardEvent | MouseEvent) {
+    if (!menuOpen) return;
+    if (event instanceof KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      menuOpen = false;
+      menuButton.focus();
+    } else if (!menuPanel.contains(event.target as Node) && !menuButton.contains(event.target as Node)) {
+      menuOpen = false;
+    }
+  }
+
   function choose(next: Lang) {
     lang = next;
     localStorage.setItem("bhb-lang", next);
@@ -710,6 +725,7 @@
 
   onMount(() => {
     const onHash = () => {
+      menuOpen = false;
       readRoute();
       void refresh();
     };
@@ -920,6 +936,8 @@
   </div>
 {/snippet}
 
+<svelte:window onkeydown={closeMenu} onclick={closeMenu} />
+
 <header class="bar">
   <a class="brand" href="#/">
     <img src={asset("crh-logo.svg")} alt="" />
@@ -932,13 +950,19 @@
       <button type="submit">{text.search}</button>
     </form>
   {/if}
-  <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined}>{text.browse}</a>
-  <a class="browse-link" href="#/map" aria-current={path === "/map" ? "true" : undefined}>{text.map}</a>
-  <nav class="langs">
-    {#each ["fr", "nl", "en"] as code}
-      <button type="button" aria-current={lang === code ? "true" : undefined} onclick={() => choose(code as Lang)}>{code.toUpperCase()}</button>
-    {/each}
-  </nav>
+  <!-- On phones and tablets the links and languages fold into a menu; on wide screens the button is hidden and they sit in the bar. -->
+  <button type="button" class="menu-button" aria-expanded={menuOpen} aria-controls="site-menu" aria-label={text.menu} bind:this={menuButton} onclick={() => { menuOpen = !menuOpen; }}>
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><path d="M0 1h20M0 7h20M0 13h20" /></svg>
+  </button>
+  <div class="menu" class:open={menuOpen} id="site-menu" bind:this={menuPanel}>
+    <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.browse}</a>
+    <a class="browse-link" href="#/map" aria-current={path === "/map" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.map}</a>
+    <nav class="langs">
+      {#each ["fr", "nl", "en"] as code}
+        <button type="button" aria-current={lang === code ? "true" : undefined} onclick={() => choose(code as Lang)}>{code.toUpperCase()}</button>
+      {/each}
+    </nav>
+  </div>
 </header>
 <p class="banner">{text.beta}</p>
 
