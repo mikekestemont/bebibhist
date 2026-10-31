@@ -97,6 +97,7 @@ def record_from_dict(data: dict) -> Record:
         isbn=list(data.get("isbn") or []),
         issn=list(data.get("issn") or []),
         identifiers_from=dict(data.get("identifiers_from") or {}),
+        free_to_read=data.get("free_to_read"),
         journal_id=data.get("journal_id"),
         cross_refs=list(data.get("cross_refs") or []),
         links=list(data.get("links") or []),

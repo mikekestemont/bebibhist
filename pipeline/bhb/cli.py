@@ -140,6 +140,9 @@ def main(argv: list[str] | None = None) -> None:
         path = build_dir() / "records.jsonl"
         records = read_jsonl(path)
         counts = apply_identifiers(records, build_dir() / "identifiers", build_dir() / "cache" / "crossref")
+        from bhb.identifiers import open_access
+
+        counts.update(open_access(records, build_dir() / "cache" / "openalex"))
         write_jsonl(path, records)
         print(f"identifiers: {counts} → {path}")
         return

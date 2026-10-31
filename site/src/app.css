@@ -826,3 +826,12 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 .tag-link { text-decoration: none; }
 .tag-link:hover { background: #e2eee4; text-decoration: underline; }
+
+/* "Free to read" beside a DOI: the status only; the link is the DOI's. */
+.tag-free {
+  margin-left: 0.45rem;
+  font-size: 13px;
+  padding: 0 0.4rem;
+  vertical-align: 1px;
+  cursor: help;
+}

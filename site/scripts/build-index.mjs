@@ -14,6 +14,7 @@ const outputPath = new URL("../public/pagefind", import.meta.url).pathname;
 const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathname;
 const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
 const gazetteerPath = new URL("../../data/curated/gazetteer.csv", import.meta.url);
+const journalsPath = new URL("../../data/curated/journals.csv", import.meta.url);
 const placesPath = new URL("../public/places.json", import.meta.url).pathname;
 // Entries per place, for the map and the place names on the site.
 const placeCounts = new Map();
@@ -38,6 +39,7 @@ const BROAD_WORDINGS = new Set([
 
 const synonyms = await loadSynonyms(synonymsPath);
 const scheme = await loadScheme(schemePath);
+const journals = await loadJournals(journalsPath);
 const language = "und";
 const { index, errors } = await createIndex({ forceLanguage: language });
 if (!index) {
@@ -103,7 +105,10 @@ for await (const line of lines) {
       publisher: record.publisher?.name || record.host?.publisher?.name || "",
       hostMatched: (record.provenance?.flags || []).includes("host-title-matched") ? "1" : "",
       hostFromIbid: (record.provenance?.flags || []).includes("host-from-ibid") ? "1" : "",
+      journalId: record.journal_id || "",
+      journalTitle: (record.journal_id && journals.get(record.journal_id)) || "",
       doi: record.doi || "",
+      free: record.free_to_read ? record.identifiers_from?.free || "1" : "",
       isbn: (record.isbn || []).join("|"),
       issn: (record.issn || []).join("|"),
       identifiersFrom: Object.entries(record.identifiers_from || {}).map(([kind, source]) => `${kind}:${source}`).join("|"),
@@ -196,6 +201,7 @@ function filters(record) {
   };
   if (record.period?.length) values.period = record.period;
   if (record.place_ids?.length) values.place = record.place_ids;
+  if (record.journal_id) values.journal = [record.journal_id];
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
   const when = chronology(record);
   if (when.pubyear) values.pubyear = [when.pubyear];
@@ -271,6 +277,13 @@ function containerOf(record, counts) {
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
 /** Subject area → period → decade of publication, with counts; the same values as the Pagefind filters. */
+/** Journal id → its full title, from the machine-built journal list (`bhb journals apply`). */
+async function loadJournals(path) {
+  const rows = parseCsv(await readFile(path, "utf8"));
+  const column = Object.fromEntries(rows[0].map((name, index) => [name, index]));
+  return new Map(rows.slice(1).map((row) => [row[column.id], row[column.title]]));
+}
+
 /** Every place the entries mention, with its names, its level and coordinates from the gazetteer, and its count. */
 async function writePlaces(path, counts) {
   const rows = parseCsv(await readFile(gazetteerPath, "utf8"));

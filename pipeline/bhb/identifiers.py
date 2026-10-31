@@ -455,3 +455,51 @@ def ocr_proposals(records, folder: Path, cache: Path) -> list[dict]:
                         rows.append({"id": record.id, "field": "author", "ours": person.family, "theirs": family, "source": source})
     unique = {(row["id"], row["field"], row["ours"], row["theirs"]): row for row in rows}
     return list(unique.values())
+
+
+# --- free to read: open access status by DOI ------------------------------------------------------------------------
+
+OPENALEX = "https://api.openalex.org/works"
+# Persée gives free access to everything it holds, though OpenAlex lists much of it as closed.
+FREE_PREFIXES = {"10.3406": "persee"}
+
+
+def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
+    """Mark entries whose DOI leads to a free copy (``free_to_read``, with ``identifiers_from["free"]``): OpenAlex's
+    open-access status, or a DOI of Persée. Only the status is kept: the link stays the DOI, so the publisher keeps
+    the address up to date. Answers are cached in ``cache`` (one file per batch of DOIs)."""
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    with_doi = [record for record in records if record.doi]
+    for record in with_doi:
+        record.free_to_read = None
+        record.identifiers_from.pop("free", None)
+    status: dict[str, bool] = {}
+    dois = sorted({record.doi for record in with_doi})
+    cache.mkdir(parents=True, exist_ok=True)
+    for start in range(0, len(dois), batch):
+        chunk = dois[start:start + batch]
+        params = {"filter": "doi:" + "|".join(chunk), "select": "doi,open_access", "per-page": str(batch)}
+        url = f"{OPENALEX}?{urllib.parse.urlencode(params)}"
+        path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            request = urllib.request.Request(url, headers={"User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
+            with urllib.request.urlopen(request, timeout=60) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            path.write_text(json.dumps(data), encoding="utf-8")
+            time.sleep(1.0)
+        for work in data.get("results") or []:
+            doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
+            status[doi] = bool((work.get("open_access") or {}).get("is_oa"))
+    for record in with_doi:
+        prefix = FREE_PREFIXES.get(record.doi.split("/")[0])
+        if prefix:
+            record.free_to_read, record.identifiers_from["free"] = True, prefix
+        elif status.get(record.doi):
+            record.free_to_read, record.identifiers_from["free"] = True, "openalex"
+        counts["free to read" if record.free_to_read else "not known to be free"] += 1
+    counts["known to openalex"] = len(status)
+    return dict(counts)

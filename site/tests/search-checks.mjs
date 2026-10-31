@@ -21,6 +21,8 @@ const checks = [
   { name: "place filter (Gent, indexed and from titles)", hash: "#/search?place=nis%3A44021", count: [2400, 3400] },
   { name: "a place suggested from the title", hash: "#/record/bhb%3A1995-11621", selector: ".tag-link.tag-suggested", contains: /Gh?ent|Gand/ },
   { name: "map of places", hash: "#/map", selector: ".map .place", atLeast: 1000 },
+  { name: "journal filter (Biekorf, all spellings)", hash: "#/search?journal=t%3Abiekorf&journalTitle=Biekorf", count: [1500, 2200] },
+  { name: "a matched DOI on a record page", hash: "#/record/bhb%3Avs-1180580", selector: "a.derived[href^='https://doi.org/']", contains: /10\.1484/ },
   { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/ },
 ];
 

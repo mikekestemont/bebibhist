@@ -213,5 +213,10 @@
   "fromCrossref": "Found automatically in Crossref, by title, author and year. Not checked by hand.",
   "fromVabb": "Found automatically in the VABB-SHW (Flemish Academic Bibliography, ECOOM), by title, author and year. Not checked by hand.",
   "hostMatched": "The catalogue's record of this journal was not exported; the name was found automatically in Crossref or the VABB-SHW, through this article or another one in the same journal. Not checked by hand.",
-  "hostFromIbid": "Printed as “Ibid.”: taken from the entry printed just before this one."
+  "hostFromIbid": "Printed as “Ibid.”: taken from the entry printed just before this one.",
+  "journalChip": "Journal:",
+  "journalGrouped": "Opens every article in this journal, whatever the spelling. The spellings were grouped automatically and have not been checked by hand.",
+  "freeToRead": "free to read",
+  "freeOpenAlex": "According to OpenAlex, this publication can be read free of charge; the DOI link leads to it. Checked automatically, not by hand.",
+  "freePersee": "Published on Persée, where it can be read free of charge; the DOI link leads to it."
 }

@@ -213,5 +213,10 @@
   "fromCrossref": "Automatisch gevonden in Crossref, op titel, auteur en jaar. Niet met de hand gecontroleerd.",
   "fromVabb": "Automatisch gevonden in het VABB-SHW (Vlaams Academisch Bibliografisch Bestand, ECOOM), op titel, auteur en jaar. Niet met de hand gecontroleerd.",
   "hostMatched": "De catalogusbeschrijving van dit tijdschrift werd niet geëxporteerd; de naam werd automatisch gevonden in Crossref of het VABB-SHW, via dit artikel of een ander artikel in hetzelfde tijdschrift. Niet met de hand gecontroleerd.",
-  "hostFromIbid": "Gedrukt als „Ibid.”: overgenomen van de beschrijving die er net voor gedrukt staat."
+  "hostFromIbid": "Gedrukt als „Ibid.”: overgenomen van de beschrijving die er net voor gedrukt staat.",
+  "journalChip": "Tijdschrift:",
+  "journalGrouped": "Toont alle artikels in dit tijdschrift, hoe de naam ook gespeld is. De spellingen werden automatisch gegroepeerd en niet met de hand gecontroleerd.",
+  "freeToRead": "gratis te lezen",
+  "freeOpenAlex": "Volgens OpenAlex is deze publicatie gratis te lezen; de DOI-link leidt ernaartoe. Automatisch nagegaan, niet met de hand.",
+  "freePersee": "Gepubliceerd op Persée, waar ze gratis te lezen is; de DOI-link leidt ernaartoe."
 }

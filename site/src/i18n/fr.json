@@ -213,5 +213,10 @@
   "fromCrossref": "Trouvé automatiquement dans Crossref, d’après le titre, l’auteur et l’année. Non vérifié à la main.",
   "fromVabb": "Trouvé automatiquement dans le VABB-SHW (bibliographie académique flamande, ECOOM), d’après le titre, l’auteur et l’année. Non vérifié à la main.",
   "hostMatched": "La notice de cette revue n’a pas été exportée du catalogue ; le nom a été trouvé automatiquement dans Crossref ou le VABB-SHW, par cet article ou un autre article de la même revue. Non vérifié à la main.",
-  "hostFromIbid": "Imprimé « Ibid. » : repris de la notice imprimée juste avant celle-ci."
+  "hostFromIbid": "Imprimé « Ibid. » : repris de la notice imprimée juste avant celle-ci.",
+  "journalChip": "Revue :",
+  "journalGrouped": "Affiche tous les articles de cette revue, quelle que soit la graphie de son titre. Les graphies ont été regroupées automatiquement et n’ont pas été vérifiées à la main.",
+  "freeToRead": "en libre accès",
+  "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",
+  "freePersee": "Publiée sur Persée, où elle est en libre accès ; le lien DOI y mène."
 }

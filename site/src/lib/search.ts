@@ -35,9 +35,14 @@ export interface Hit {
     hostMatched?: string;
     /** "1" when the journal or volume is printed as "Ibid." and was taken from the entry printed before. */
     hostFromIbid?: string;
+    /** The journal, grouped by `bhb journals apply` across spellings, and its full title. */
+    journalId?: string;
+    journalTitle?: string;
     /** "1" when the places were found in the title, not in the printed index. */
     placesSuggested?: string;
     doi?: string;
+    /** Set when the DOI leads to a free copy: "openalex" or "persee", the source of that status. */
+    free?: string;
     isbn?: string;
     issn?: string;
     /** Per identifier its source, as "doi:crossref|issn:vabb". */

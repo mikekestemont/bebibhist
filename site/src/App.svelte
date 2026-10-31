@@ -273,6 +273,8 @@
     }
     const places = params.getAll("place");
     if (places.length) filters.place = places;
+    const journal = params.get("journal");
+    if (journal) filters.journal = [journal];
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
@@ -409,7 +411,7 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; href?: string }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -446,8 +448,10 @@
             italic,
             authors: label === text.author || label === text.hostEditors,
             derived: derivedNote(label, meta),
-            container: containerLink(label, meta),
+            container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined),
+            containerTitle: label === text.journal && meta.journalId ? text.journalGrouped : undefined,
             href: identifierLink(label, value),
+            free: label === text.doi && meta.free ? (meta.free === "persee" ? text.freePersee : text.freeOpenAlex) : undefined,
           }]
         : [],
     );
@@ -463,6 +467,20 @@
     const title = meta.kind === "book" ? meta.title : meta.host;
     if (!(meta.kind === "chapter" && label === text.host) && label !== text.contents) return undefined;
     return `#/search?in=${meta.container}&inTitle=${encodeURIComponent(title || "")}`;
+  }
+
+  function removeJournal() {
+    const next = new URLSearchParams(params);
+    next.delete("journal");
+    next.delete("journalTitle");
+    next.delete("page");
+    go("/search", next);
+  }
+
+  /** All articles of the journal, whatever the spelling, newest first. */
+  function journalLink(meta: Hit["meta"]): string | undefined {
+    if (!meta.journalId) return undefined;
+    return `#/search?journal=${encodeURIComponent(meta.journalId)}&journalTitle=${encodeURIComponent(meta.journalTitle || meta.host || "")}&sort=pubyear-desc`;
   }
 
   function removeInside() {
@@ -794,11 +812,12 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; href?: string })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
-    <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>
+    <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
+      <span class="tag tag-free" title={row.free}>{text.freeToRead}</span>{/if}
   {:else if row.container}
-    <a class="container-link" href={row.container} title={text.containerWhy}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>
+    <a class={row.derived ? "container-link derived" : "container-link"} href={row.container} title={[row.derived, row.containerTitle || text.containerWhy].filter(Boolean).join(" ")}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>
   {:else if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
@@ -1109,6 +1128,11 @@
           {#each params.getAll("place") as key (key)}
             <li><button type="button" onclick={() => removePlace(key)}>{text.placeChip} <em>{placeLabel(key)}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
           {/each}
+        </ul>
+      {/if}
+      {#if params.get("journal")}
+        <ul class="chips refine">
+          <li><button type="button" onclick={removeJournal} title={text.journalGrouped}>{text.journalChip} <em>{params.get("journalTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
         </ul>
       {/if}
       {#if params.get("in")}
