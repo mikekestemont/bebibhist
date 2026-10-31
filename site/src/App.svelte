@@ -974,7 +974,6 @@
     {#if similarSource}
       <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry)}</a></p>
     {/if}
-    <p class="similar-note">{text.similarNote}</p>
     {#if loading && similarHits.length === 0}
       <p>{text.loading}</p>
     {:else if similarHits.length === 0}

@@ -95,7 +95,6 @@
   "similar": "Gelijkaardige publicaties",
   "similarWhy": "Publicaties waarvan de titel qua betekenis het dichtst bij deze ligt, over de talen heen",
   "similarFor": "Qua betekenis het dichtst bij:",
-  "similarNote": "Proefversie, ter beoordeling. De lijst steunt alleen op titels en ondertitels en werd vooraf berekend met een open meertalig taalmodel, met een kleine bonus voor zeldzame woorden die twee titels delen, zoals namen. De meest verwante publicatie staat bovenaan. Auteurs en tijdschriften tellen niet mee.",
   "similarNone": "Voor deze titel werden geen gelijkaardige publicaties gevonden.",
   "related": "Verwant in betekenis (proef)",
   "relatedNote": "Publicaties die inhoudelijk dicht bij de eerste 20 resultaten liggen maar niet al uw zoekwoorden bevatten, bijvoorbeeld titels in een andere taal. Ze komen uit de gelijkaardige publicaties van die resultaten; de meest verwante staan bovenaan.",
