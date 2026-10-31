@@ -700,6 +700,9 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   color: #2f4430;
   background: #f3f6f2;
 }
+/* The finer subject sits after the broad ones, marked as narrower. */
+.tag-narrow { background: #fff; margin-left: 0.3rem; }
+.tag-narrow::before { content: "› "; color: #7d977e; }
 .tag-suggested {
   border-style: dashed;
   border-color: #7d977e;

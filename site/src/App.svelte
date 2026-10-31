@@ -84,14 +84,6 @@
     return value;
   }
 
-  function categoryOf(hit: Hit): string {
-    const meta = hit.meta;
-    const byLang = lang === "nl" ? meta.categoryNl : lang === "en" ? meta.categoryEn : meta.categoryFr;
-    if (byLang) return byLang;
-    if (meta.categoryTheme) return text.themes[meta.categoryTheme as keyof typeof text.themes] || meta.categoryTheme;
-    return meta.categoryFr || meta.categoryNl || meta.categoryEn || "";
-  }
-
   function selected(group: string, value: string): boolean {
     return params.getAll(group).includes(value);
   }
@@ -640,27 +632,24 @@
 {/snippet}
 
 {#snippet categoryBlock(hit: Hit)}
-  {@const category = categoryOf(hit)}
-  {#if hit.meta.themes}
-    <p class="category-line"><span class="theme">{text.subjects}</span> {@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}</p>
+  {@const specific = (lang === "nl" ? hit.meta.specificNl : lang === "en" ? hit.meta.specificEn : hit.meta.specificFr) || hit.meta.specificFr || ""}
+  {#if hit.meta.themes || specific}
+    <p class="category-line">
+      <span class="theme">{text.subjects}</span>
+      {#if hit.meta.themes}{@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}{/if}
+      <!-- The finest subject: the last part of the BHB code's label, or of the printed heading before 1993. -->
+      {#if specific}
+        <span
+          class={hit.meta.specificMachine === "1" ? "tag tag-narrow tag-suggested" : "tag tag-narrow"}
+          title={hit.meta.specificMachine === "1"
+            ? text.suggestedValue
+            : hit.meta.specificFrom === "printed" ? text.asPrinted : `${text.bhbCode} ${hit.meta.specificFrom}`}
+        >{specific}</span>
+      {/if}
+    </p>
   {/if}
   {#if hit.meta.periods}
     <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
-  {/if}
-  <!-- One classification line: the BHB code's label when there is one, else the printed heading (before 1993 the
-       only classification a person made); for 1993–2008 the code was derived from that heading. -->
-  {#if hit.meta.categoryFr || hit.meta.categoryNl || hit.meta.categoryEn}
-    <p class="category-line">
-      <span class="theme">{text.category}</span>
-      {#if hit.meta.categoryMachine === "1"}
-        <span class="text-suggested" title={text.suggestedWhy[hit.meta.categorySource as keyof typeof text.suggestedWhy] || text.suggestedWhy.classifier}>{category}</span>
-      {:else}
-        {category}
-      {/if}
-      {#if hit.meta.categoryDraft === "1" && lang === "en"} <span class="source-note">({text.draftLabel})</span>{/if}
-    </p>
-  {:else if hit.meta.section}
-    <p class="category-line"><span class="theme">{text.category}</span> {hit.meta.section} <span class="source-note">({text.asPrinted})</span></p>
   {/if}
 {/snippet}
 

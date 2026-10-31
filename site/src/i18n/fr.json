@@ -189,6 +189,7 @@
   "browse": "Parcourir par domaine",
   "browseIntro": "Toutes les publications par domaine et par période ; chaque période s’ouvre ensuite par décennie de parution. Les grandes listes se chargent en quelques secondes. Les nombres comprennent les valeurs suggérées automatiquement.",
   "browseDecade": "Parues dans les années {d}",
-  "asPrinted": "rubrique du volume imprimé",
-  "browseDecades": "Par décennie de parution"
+  "asPrinted": "D’après la rubrique du volume imprimé",
+  "browseDecades": "Par décennie de parution",
+  "bhbCode": "Code BHB"
 }

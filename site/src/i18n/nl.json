@@ -189,6 +189,7 @@
   "browse": "Bladeren per onderwerp",
   "browseIntro": "Alle publicaties per onderwerp en periode; elke periode opent verder per decennium van verschijnen. Grote lijsten laden in enkele seconden. De aantallen omvatten ook automatisch voorgestelde waarden.",
   "browseDecade": "Verschenen in de jaren {d}",
-  "asPrinted": "rubriek in de gedrukte bibliografie",
-  "browseDecades": "Per decennium van verschijnen"
+  "asPrinted": "Uit de rubriek in de gedrukte bibliografie",
+  "browseDecades": "Per decennium van verschijnen",
+  "bhbCode": "BHB-code"
 }

@@ -37,6 +37,11 @@ export interface Hit {
     seriesNumber?: string;
     kind?: string;
     themes?: string;
+    specificFr?: string;
+    specificNl?: string;
+    specificEn?: string;
+    specificFrom?: string;
+    specificMachine?: string;
     themesSuggested?: string;
     periods?: string;
     periodsSuggested?: string;

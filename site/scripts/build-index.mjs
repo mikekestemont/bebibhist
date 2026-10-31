@@ -16,6 +16,19 @@ const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
 // Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
 const browse = {};
 
+/**
+ * Wordings that only name one of the broad subject areas (or say "general"): the subject tags already say this, so
+ * they are not shown as a finer subject. Everything else in a code's label or a printed heading is finer
+ * information: a topic (Le protestantisme, Toponymie), a region (Brabant; Limbourg …) or a time (L'occupation).
+ */
+const BROAD_WORDINGS = new Set([
+  "generalites", "algemeenheden", "travaux generaux", "algemene werken", "etudes generales", "par secteurs fonctionnels",
+  "histoire par secteurs fonctionnels", "la vie politique", "la vie economique", "la vie economique et sociale",
+  "la vie religieuse", "la vie culturelle", "la vie culturelle l enseignement les sciences les arts",
+  "histoire sociale", "histoire culturelle", "histoire des institutions et histoire politique",
+  "les institutions et la vie politique droit", "histoire de la vie religieuse et de la laicite",
+].map(wording));
+
 const synonyms = await loadSynonyms(synonymsPath);
 const scheme = await loadScheme(schemePath);
 const language = "und";
@@ -65,6 +78,7 @@ for await (const line of lines) {
       section: (record.section_path || []).slice(-1)[0] || "",
       source: record.source || "",
       ...categoryMeta(record, scheme),
+      ...specificMeta(record, scheme),
       authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
       editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
       subtitle: (record.subtitle || "").slice(0, 300),
@@ -351,6 +365,42 @@ function labelled(labels, code) {
     current = row.parent;
   }
   return { fr: "", nl: "", en: "" };
+}
+
+function wording(text) {
+  return fold(text || "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/**
+ * The finest subject an entry has, in each language: the last part of its BHB code's label, or else of the printed
+ * heading it stands under. Empty when that only repeats a broad subject area.
+ */
+function specificMeta(record, labels) {
+  const coded = (record.categories || []).filter((item) => item.code && labels[item.code]);
+  const primary = coded.find((item) => item.primary) || coded.sort((left, right) => right.code.length - left.code.length)[0];
+  if (primary) {
+    const names = labelled(labels, primary.code);
+    const parts = { fr: lastPart(names.fr), nl: lastPart(names.nl), en: lastPart(names.en) };
+    if (parts.fr && !BROAD_WORDINGS.has(wording(parts.fr))) {
+      return { specificFr: parts.fr, specificNl: parts.nl, specificEn: parts.en, specificFrom: primary.code, specificMachine: primary.machine ? "1" : "" };
+    }
+    // A code with a broad wording says nothing finer; one without any wording (II.B.) leaves the printed heading.
+    if (parts.fr) return {};
+  }
+  const heading = (record.section_path || []).slice(-1)[0] || "";
+  const [fr, nl] = halves(heading.replace(/^[\s(]*(?:[0-9]+|[a-zA-Z]|[IVXLC]+)[.)]\s*/, "").replace(/\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)/g, "").trim());
+  if (!fr || BROAD_WORDINGS.has(wording(fr)) || BROAD_WORDINGS.has(wording(nl))) return {};
+  return { specificFr: fr, specificNl: nl || fr, specificEn: fr, specificFrom: "printed", specificMachine: "" };
+}
+
+function lastPart(label) {
+  return (label || "").split(" / ").slice(-1)[0].trim();
+}
+
+/** A printed heading gives French and Dutch, joined by a dash: "Les arts — De kunsten". */
+function halves(heading) {
+  const split = heading.split(/\s+[—–-]\s+/);
+  return split.length === 2 ? [split[0].trim().replace(/[.;,]$/, ""), split[1].trim().replace(/[.;,]$/, "")] : [heading.replace(/[.;,]$/, ""), ""];
 }
 
 function categoryMeta(record, labels) {
