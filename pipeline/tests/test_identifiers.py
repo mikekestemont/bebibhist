@@ -82,3 +82,12 @@ def test_the_same_book_in_another_language_is_not_a_match():
     record = _record(title="Hieronymus Cock: De renaissance in prent van de Lage Landen", pages=None)
     item = _item(title="Hieronymus Cock. The Renaissance in Print of the Low Countries", page=None)
     assert score(record, item)["language"] is False and not accept(score(record, item), 60, 90, 85)
+
+
+def test_a_short_title_without_a_known_author_is_refused():
+    record = _record(title="Conclusion", family="Maerten", pages="221-226")
+    item = _item(title="Conclusion", page="301-310")
+    item["author"] = []
+    item["container-title"] = ["Pierre Giot, un capitaine marin arlésien « dans la tourmente »"]
+    record.host.title = "Mons dans la tourmente"
+    assert not accept(score(record, item), len("Conclusion"))

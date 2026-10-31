@@ -206,7 +206,7 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
     }
 
 
-# A title this short ("Belgium", "Introduction") needs the journal or the first page to agree as well.
+# A title this short ("Belgium", "Introduction") needs the author and the journal or first page to agree as well.
 SHORT_TITLE = 30
 
 
@@ -221,7 +221,8 @@ def accept(features: dict[str, float | bool | None], title_length: int = SHORT_T
     if features["page"] is False and not container:
         return False
     support = sum(check is True for check in (features["author"], features["year"], container, features["page"]))
-    if title_length < SHORT_TITLE and not (container or features["page"]):
+    # A short title ("Conclusion", "Belgium") is shared by many texts: the author must agree, and the journal or page.
+    if title_length < SHORT_TITLE and not (features["author"] is True and (container or features["page"])):
         return False
     return support >= 2 if features["title"] >= same else support >= 3
 
