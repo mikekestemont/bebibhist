@@ -333,7 +333,8 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             if row["accepted"] != "1" or record is None:
                 continue
             doi = normalise_doi(row["doi"])
-            if doi and not record.doi:
+            # Only for articles: for a book VABB can carry the DOI of a review, for a chapter the book's DOI.
+            if doi and not record.doi and record.type == "article":
                 record.doi = doi
                 record.identifiers_from["doi"] = "vabb"
                 counts["doi from vabb"] += 1
