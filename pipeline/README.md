@@ -25,7 +25,7 @@ Raw inputs are not in this repository. Set `BHB_RAW` to the folder that holds th
 .venv/bin/bhb release             # build/release/records.jsonl.gz and NOTES.md
 ```
 
-A release is made from a full run: `bhb build`, then `bhb similar` (a build drops the neighbours), then `bhb facets apply` (suggested periods and subject areas, marked as suggested), then `bhb release`. `bhb release` does not publish anything. After it has run, this command creates the data release (replace `YYYY-MM-DD` with the build date printed in `NOTES.md`):
+A release is made from a full run: `bhb build`, then `bhb similar` (a build drops the neighbours), then `bhb facets apply` (suggested periods and subject areas, marked as suggested), then `bhb places apply` (the places of the printed indexes, 1993–2007, and for the other entries the Belgian places their title names, marked as suggested), then `bhb release`. `bhb release` does not publish anything. After it has run, this command creates the data release (replace `YYYY-MM-DD` with the build date printed in `NOTES.md`):
 
 ```bash
 gh release create data-YYYY-MM-DD build/release/records.jsonl.gz build/release/NOTES.md --title "BHB-BGB data YYYY-MM-DD" --notes-file build/release/NOTES.md

@@ -192,5 +192,17 @@
   "bhbCode": "BHB code",
   "narrowerSample": "topic",
   "narrowerLegend": "= a narrower subject within the subject area before it",
-  "didYouMean": "Did you mean"
+  "didYouMean": "Did you mean",
+  "map": "Search on the map",
+  "mapIntro": "Places the editors indexed in the volumes 1993–2007 and, suggested, Belgian places named in the titles of the other entries. Larger circles: more publications. Scroll or use + and − to zoom, drag to move, click a place to see its publications.",
+  "mapHint": "Point at a circle to see the place.",
+  "mapTop": "Most indexed places",
+  "mapElsewhere": "Regions, provinces and places abroad",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "zoomReset": "Whole map",
+  "placesLabel": "Places",
+  "placeChip": "Place:",
+  "placeIndexed": "From the place index of the printed volume. Click to see every publication about this place.",
+  "placeFromTitle": "Suggested automatically: a Belgian place named in the title. Not checked by hand. Click to see every publication about this place."
 }

@@ -41,6 +41,124 @@
   let openId = $state("");
   let withinBox = $state("");
   let filtersOpen = $state(false);
+  // Places of the printed indexes (1993–2007), with names and coordinates from the gazetteer: places.json.
+  type PlaceInfo = { fr: string; nl: string; de: string; en: string; level: string; lon: number | null; lat: number | null; n: number };
+  type MapPlace = PlaceInfo & { key: string };
+  let placeInfo = $state<Record<string, PlaceInfo>>({});
+  let placesLoading: Promise<void> | null = null;
+  let mapPlaces = $derived(
+    Object.entries(placeInfo)
+      .filter(([, place]) => place.lon !== null && place.lat !== null && place.level !== "area")
+      .map(([key, place]) => ({ ...place, key }))
+      .sort((a, b) => b.n - a.n),
+  );
+  let mapElsewhere = $derived(
+    Object.entries(placeInfo)
+      .filter(([, place]) => place.lon === null || place.level === "area")
+      .map(([key, place]) => ({ ...place, key }))
+      .sort((a, b) => b.n - a.n),
+  );
+  let mapHover = $state<MapPlace | null>(null);
+  let mapBase = $state<{ country: string; regions: string[]; arrondissements: string[]; credit: string } | null>(null);
+  const MAP_W = 800;
+  const MAP_H = 669;
+  // The visible part of the map, as an SVG viewBox; zooming shrinks it, dragging moves it.
+  let view = $state({ x: 0, y: 0, w: MAP_W, h: MAP_H });
+  let mapZoom = $derived(MAP_W / view.w);
+  let dragStart: { x: number; y: number; view: { x: number; y: number; w: number; h: number }; moved: boolean } | null = null;
+
+  /** The place names and coordinates, fetched once, when a page first needs them. */
+  function loadPlaces(): Promise<void> {
+    placesLoading ??= fetch(new URL(`${import.meta.env.BASE_URL}places.json`, document.baseURI).href)
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((places: Record<string, PlaceInfo>) => {
+        placeInfo = places;
+      })
+      .catch(() => {});
+    return placesLoading;
+  }
+
+  async function loadMap() {
+    if (mapBase) return;
+    try {
+      const [base] = await Promise.all([
+        fetch(new URL(`${import.meta.env.BASE_URL}map-base.json`, document.baseURI).href).then((response) => response.json()),
+        loadPlaces(),
+      ]);
+      mapBase = base;
+    } catch {
+      mapBase = null;
+    }
+  }
+
+  function placeLabel(key: string, fallback = ""): string {
+    const place = placeInfo[key];
+    return (place ? place[lang] || place.nl || place.fr : "") || fallback || key.replace(/^(nis|name):/, "");
+  }
+
+  /** Zoom by ``factor`` around a point of the map (in map units), keeping that point under the cursor. */
+  function zoomAt(factor: number, cx = view.x + view.w / 2, cy = view.y + view.h / 2) {
+    const w = Math.min(MAP_W, Math.max(MAP_W / 24, view.w / factor));
+    const h = (w * MAP_H) / MAP_W;
+    const x = cx - ((cx - view.x) * w) / view.w;
+    const y = cy - ((cy - view.y) * h) / view.h;
+    view = clampView({ x, y, w, h });
+  }
+
+  function clampView(next: { x: number; y: number; w: number; h: number }) {
+    return { ...next, x: Math.min(Math.max(next.x, 0), MAP_W - next.w), y: Math.min(Math.max(next.y, 0), MAP_H - next.h) };
+  }
+
+  function mapPoint(event: MouseEvent, svg: SVGSVGElement) {
+    const box = svg.getBoundingClientRect();
+    return { x: view.x + ((event.clientX - box.left) / box.width) * view.w, y: view.y + ((event.clientY - box.top) / box.height) * view.h };
+  }
+
+  function onMapWheel(event: WheelEvent) {
+    event.preventDefault();
+    const point = mapPoint(event, event.currentTarget as SVGSVGElement);
+    zoomAt(event.deltaY < 0 ? 1.25 : 0.8, point.x, point.y);
+  }
+
+  function onMapDown(event: PointerEvent) {
+    dragStart = { x: event.clientX, y: event.clientY, view: { ...view }, moved: false };
+  }
+
+  function onMapMove(event: PointerEvent) {
+    if (!dragStart) return;
+    const box = (event.currentTarget as SVGSVGElement).getBoundingClientRect();
+    const dx = ((event.clientX - dragStart.x) / box.width) * dragStart.view.w;
+    const dy = ((event.clientY - dragStart.y) / box.height) * dragStart.view.h;
+    if (Math.abs(event.clientX - dragStart.x) + Math.abs(event.clientY - dragStart.y) > 4) dragStart.moved = true;
+    if (dragStart.moved) view = clampView({ ...dragStart.view, x: dragStart.view.x - dx, y: dragStart.view.y - dy });
+  }
+
+  function onMapUp() {
+    // A drag ends without following the link under the pointer.
+    if (dragStart?.moved) addEventListener("click", (event) => event.preventDefault(), { capture: true, once: true });
+    dragStart = null;
+  }
+
+  function mapX(lon: number): number {
+    return ((lon - 2.5) / 3.95) * MAP_W;
+  }
+
+  function mapY(lat: number): number {
+    return ((51.55 - lat) / 2.1) * MAP_H;
+  }
+
+  function placeName(place: MapPlace): string {
+    return place[lang] || place.nl || place.fr;
+  }
+
+  function removePlace(key: string) {
+    const next = new URLSearchParams(params);
+    const kept = next.getAll("place").filter((value) => value !== key);
+    next.delete("place");
+    for (const value of kept) next.append("place", value);
+    next.delete("page");
+    go("/search", next);
+  }
   let spelling = $state<{ word: string; suggestion: string; count: number }[]>([]);
   type BrowseNode = { n: number; periods: Record<string, { n: number; decades: Record<string, number> }> };
   let browseTree = $state<Record<string, BrowseNode>>({});
@@ -150,6 +268,8 @@
       const values = params.getAll(group);
       if (values.length) filters[group] = values;
     }
+    const places = params.getAll("place");
+    if (places.length) filters.place = places;
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
@@ -157,6 +277,8 @@
 
   async function refresh() {
     if (!engine) return;
+    // Place names in the page language; until they arrive the names stored with each record are shown.
+    if (path !== "/" && path !== "/about") void loadPlaces();
     if (path.startsWith("/record/")) {
       const id = decodeURIComponent(path.slice("/record/".length));
       const known = recall(id);
@@ -180,6 +302,11 @@
       const found = await Promise.all(wanted.map(async (item) => ({ hit: recall(item.id) || (await findRecord(engine!, item.id)), score: item.score })));
       similarHits = found.filter((item): item is { hit: Hit; score: number } => item.hit !== null);
       remember(similarHits.map((item) => item.hit));
+      loading = false;
+      return;
+    }
+    if (path === "/map") {
+      await loadMap();
       loading = false;
       return;
     }
@@ -679,6 +806,21 @@
   {#if hit.meta.periods}
     <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
   {/if}
+  {#if hit.meta.placeIds}
+    {@const names = (hit.meta.places || "").split("|")}
+    <p class="category-line">
+      <span class="theme">{text.placesLabel}</span>
+      <span class="tags">
+        {#each hit.meta.placeIds.split("|") as key, index (key)}
+          <a
+            class={hit.meta.placesSuggested ? "tag tag-link tag-suggested" : "tag tag-link"}
+            href={`#/search?place=${encodeURIComponent(key)}`}
+            title={hit.meta.placesSuggested ? text.placeFromTitle : text.placeIndexed}>{placeLabel(key, names[index])}</a
+          >
+        {/each}
+      </span>
+    </p>
+  {/if}
 {/snippet}
 
 {#snippet fieldSelect()}
@@ -791,6 +933,7 @@
     </form>
   {/if}
   <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined}>{text.browse}</a>
+  <a class="browse-link" href="#/map" aria-current={path === "/map" ? "true" : undefined}>{text.map}</a>
   <nav class="langs">
     {#each ["fr", "nl", "en"] as code}
       <button type="button" aria-current={lang === code ? "true" : undefined} onclick={() => choose(code as Lang)}>{code.toUpperCase()}</button>
@@ -910,6 +1053,13 @@
       <form class="within" onsubmit={addWithin}>
         <input bind:value={withinBox} type="search" aria-label={text.within} placeholder={text.within} />
       </form>
+      {#if params.getAll("place").length}
+        <ul class="chips refine">
+          {#each params.getAll("place") as key (key)}
+            <li><button type="button" onclick={() => removePlace(key)}>{text.placeChip} <em>{placeLabel(key)}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+          {/each}
+        </ul>
+      {/if}
       {#if params.get("in")}
         <ul class="chips refine">
           <li><button type="button" onclick={removeInside}>{text.inVolume} <em>{params.get("inTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
@@ -983,6 +1133,71 @@
         {@render resultRow(item.hit)}
       {/each}
     {/if}
+  </main>
+{:else if path === "/map"}
+  <main class="wrap map-page">
+    <h1>{text.map}</h1>
+    <p class="similar-note">{text.mapIntro}</p>
+    <div class="map-layout">
+      <div class="map-frame">
+      <svg
+        class="map"
+        viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+        role="img"
+        aria-label={text.map}
+        onwheel={onMapWheel}
+        onpointerdown={onMapDown}
+        onpointermove={onMapMove}
+        onpointerup={onMapUp}
+        onpointerleave={onMapUp}
+      >
+        {#if mapBase}
+          <path class="base-country" d={mapBase.country} />
+          {#each mapBase.arrondissements as d}<path class="base-arrondissement" d={d} />{/each}
+          {#each mapBase.regions as d}<path class="base-region" d={d} />{/each}
+        {/if}
+        {#each mapPlaces as place (place.key)}
+          <a href={`#/search?place=${encodeURIComponent(place.key)}`} aria-label={`${placeName(place)}: ${place.n}`}>
+            <circle
+              class="place"
+              class:active={mapHover?.key === place.key}
+              cx={mapX(place.lon!)}
+              cy={mapY(place.lat!)}
+              r={(2 + Math.sqrt(place.n) * 0.9) / Math.sqrt(mapZoom)}
+              role="presentation"
+              onmouseenter={() => { mapHover = place; }}
+              onmouseleave={() => { if (mapHover?.key === place.key) mapHover = null; }}
+            ><title>{placeName(place)} — {place.n}</title></circle>
+          </a>
+        {/each}
+      </svg>
+      <div class="map-zoom">
+        <button type="button" aria-label={text.zoomIn} title={text.zoomIn} onclick={() => zoomAt(1.6)}>+</button>
+        <button type="button" aria-label={text.zoomOut} title={text.zoomOut} onclick={() => zoomAt(1 / 1.6)}>−</button>
+        <button type="button" aria-label={text.zoomReset} title={text.zoomReset} onclick={() => { view = { x: 0, y: 0, w: MAP_W, h: MAP_H }; }}>⟲</button>
+      </div>
+      {#if mapBase}<p class="map-credit">{mapBase.credit}</p>{/if}
+      </div>
+      <aside class="map-side">
+        {#if mapHover}
+          <p class="map-hover"><strong>{placeName(mapHover)}</strong><br />{mapHover.n.toLocaleString(lang)} {text.results}</p>
+        {:else}
+          <p class="map-hover">{text.mapHint}</p>
+        {/if}
+        <h2>{text.mapTop}</h2>
+        <ol class="map-list">
+          {#each mapPlaces.slice(0, 12) as place (place.key)}
+            <li><a href={`#/search?place=${encodeURIComponent(place.key)}`}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
+          {/each}
+        </ol>
+        <h2>{text.mapElsewhere}</h2>
+        <ul class="map-list">
+          {#each mapElsewhere.slice(0, 20) as place (place.key)}
+            <li><a href={`#/search?place=${encodeURIComponent(place.key)}`}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
+          {/each}
+        </ul>
+      </aside>
+    </div>
   </main>
 {:else if path === "/browse"}
   <main class="wrap browse">

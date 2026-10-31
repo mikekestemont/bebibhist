@@ -753,6 +753,8 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .legal .legend .tag-narrow { color: #2f4430; }
 
 .browse-link { color: inherit; font-size: 15px; margin-left: auto; margin-right: 1rem; white-space: nowrap; }
+/* The header links sit together on the right, before the languages. */
+.browse-link + .browse-link { margin-left: 0; }
 .browse-link[aria-current="true"] { text-decoration: underline; }
 
 .tree, .tree ul { list-style: none; padding-left: 0; margin: 0; }
@@ -766,3 +768,26 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }
 
 .did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
+
+/* Map prototype */
+.map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1.5rem; align-items: start; }
+.map-frame { position: relative; }
+.map { width: 100%; height: auto; display: block; background: #eef3f6; border: 1px solid #e3e4e6; cursor: grab; touch-action: none; }
+.map:active { cursor: grabbing; }
+/* A minimalist base: the country, its regions and (faintly) its arrondissements; lines keep their width when zooming. */
+.map path { vector-effect: non-scaling-stroke; }
+.map .base-country { fill: #fbfbf8; stroke: #8e9a8f; stroke-width: 1.2; }
+.map .base-arrondissement { fill: none; stroke: #d6dad4; stroke-width: 0.6; }
+.map .base-region { fill: none; stroke: #a7b3a8; stroke-width: 1; }
+.map .place { fill: rgba(72, 98, 73, 0.45); stroke: #486249; stroke-width: 0.6; vector-effect: non-scaling-stroke; cursor: pointer; }
+.map-zoom { position: absolute; top: 0.6rem; right: 0.6rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.map-zoom button { width: 2rem; height: 2rem; font: inherit; font-size: 18px; line-height: 1; background: #fff; border: 1px solid #b9bbbe; border-radius: 3px; cursor: pointer; color: #303133; }
+.map-credit { font-size: 12px; color: #6b6e73; margin: 0.3rem 0 0; }
+.map .place:hover, .map .place.active { fill: rgba(196, 98, 45, 0.75); stroke: #8b3d14; }
+.map-side h2 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+.map-list { margin: 0; padding-left: 1.2rem; font-size: 15px; }
+.map-hover { min-height: 2.8rem; font-size: 15px; }
+@media (max-width: 720px) { .map-layout { grid-template-columns: 1fr; } }
+
+.tag-link { text-decoration: none; }
+.tag-link:hover { background: #e2eee4; text-decoration: underline; }

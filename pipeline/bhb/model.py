@@ -104,6 +104,10 @@ class Record:
     theme: list[str] = field(default_factory=list)
     period: list[str] = field(default_factory=list)
     places: list[str] = field(default_factory=list)
+    # Per place: ``nis:<code>`` from ``data/curated/gazetteer.csv``, or ``name:<printed name>`` when it is not there.
+    place_ids: list[str] = field(default_factory=list)
+    # Places in ``place_ids`` that a machine found in the title, not the printed index.
+    place_suggested: list[str] = field(default_factory=list)
     cross_refs: list[str] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
     is_cross_listing: bool = False

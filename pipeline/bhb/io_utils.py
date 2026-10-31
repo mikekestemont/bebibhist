@@ -91,6 +91,8 @@ def record_from_dict(data: dict) -> Record:
         theme=list(data.get("theme") or []),
         period=list(data.get("period") or []),
         places=list(data.get("places") or []),
+        place_ids=list(data.get("place_ids") or []),
+        place_suggested=list(data.get("place_suggested") or []),
         cross_refs=list(data.get("cross_refs") or []),
         links=list(data.get("links") or []),
         is_cross_listing=bool(data.get("is_cross_listing")),

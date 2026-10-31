@@ -15,6 +15,8 @@ site/public/pagefind/
 site/public/pagefind-build/
 site/public/pagefind-previous/
 site/public/browse.json
+site/public/places.json
+site/public/places-prototype.json
 site/public/words/
 site/dist/
 

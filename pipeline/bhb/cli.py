@@ -78,6 +78,10 @@ def main(argv: list[str] | None = None) -> None:
     facets_sub.add_parser("suggest", help="measure on held-out years; write build/facet_report.md and a review file")
     facets_sub.add_parser("apply", help="add suggested periods and subject areas to build/records.jsonl, marked as suggested")
 
+    places = sub.add_parser("places", help="places of the printed place indexes (1993–2007)")
+    places_sub = places.add_subparsers(dest="places_command", required=True)
+    places_sub.add_parser("apply", help="write the indexed places into build/records.jsonl")
+
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -88,6 +92,15 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
+        return
+    if args.command == "places" and args.places_command == "apply":
+        from bhb.places import apply_places
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        counts = apply_places(records, raw_root())
+        write_jsonl(path, records)
+        print(f"places: {counts} → {path}")
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions

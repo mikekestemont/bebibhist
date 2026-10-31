@@ -36,6 +36,8 @@ export interface Hit {
     seriesTitle?: string;
     seriesNumber?: string;
     kind?: string;
+    places?: string;
+    placeIds?: string;
     themes?: string;
     specificFr?: string;
     specificNl?: string;

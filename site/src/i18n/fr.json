@@ -192,5 +192,17 @@
   "bhbCode": "Code BHB",
   "narrowerSample": "sujet",
   "narrowerLegend": "= un sujet plus précis au sein du domaine qui le précède",
-  "didYouMean": "Vouliez-vous dire"
+  "didYouMean": "Vouliez-vous dire",
+  "map": "Chercher sur la carte",
+  "mapIntro": "Lieux indexés par la rédaction dans les volumes 1993–2007 et, à titre de suggestion, lieux belges nommés dans les titres des autres notices. Plus le cercle est grand, plus il y a de publications. Faites défiler ou utilisez + et − pour zoomer, glissez pour déplacer, cliquez sur un lieu pour voir ses publications.",
+  "mapHint": "Survolez un cercle pour voir le lieu.",
+  "mapTop": "Lieux les plus indexés",
+  "mapElsewhere": "Régions, provinces et lieux à l’étranger",
+  "zoomIn": "Zoom avant",
+  "zoomOut": "Zoom arrière",
+  "zoomReset": "Toute la carte",
+  "placesLabel": "Lieux",
+  "placeChip": "Lieu :",
+  "placeIndexed": "D’après l’index des noms de lieux du volume imprimé. Cliquez pour voir toutes les publications sur ce lieu.",
+  "placeFromTitle": "Suggéré automatiquement : un lieu belge nommé dans le titre. Non vérifié à la main. Cliquez pour voir toutes les publications sur ce lieu."
 }

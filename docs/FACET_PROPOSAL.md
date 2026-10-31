@@ -145,7 +145,7 @@ reaches every code and every entry under it. Nothing has to be labelled again.
 | F4 finer periods (about 17, with dates) and subject wordings (137) as narrower concepts | 1 day + the editor's review of dates | editor's review |
 | F5 links to PeriodO, Wikidata, FAST (VOCABULARY_PROPOSAL V2–V4) | 2–3 days + checking | sample check |
 | F6 serve `bhb.ttl` and a page per concept on the site; URIs in MODS | 1 day | deploy |
-| F7 place facet, from the printed place indexes | 3–5 days + review | outside this phase |
+| F7 place facet, from the printed place indexes — **first version 31 Oct**: indexed places, and suggested places from titles | 3–5 days + review | sample check of the title places |
 
 ## 7. Questions for the Commission (9 November)
 

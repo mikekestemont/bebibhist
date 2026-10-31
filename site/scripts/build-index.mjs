@@ -13,6 +13,10 @@ const schemePath = new URL("../../data/curated/scheme.csv", import.meta.url);
 const outputPath = new URL("../public/pagefind", import.meta.url).pathname;
 const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathname;
 const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
+const gazetteerPath = new URL("../../data/curated/gazetteer.csv", import.meta.url);
+const placesPath = new URL("../public/places.json", import.meta.url).pathname;
+// Entries per place, for the map and the place names on the site.
+const placeCounts = new Map();
 // Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
 const browse = {};
 const wordsPath = new URL("../public/words", import.meta.url).pathname;
@@ -103,6 +107,9 @@ for await (const line of lines) {
       seriesTitle: record.series?.title || "",
       seriesNumber: record.series?.number || "",
       kind: record.type || "",
+      places: (record.places || []).join("|"),
+      placeIds: (record.place_ids || []).join("|"),
+      placesSuggested: record.place_suggested?.length ? "1" : "",
       themes: (record.theme || []).join("|"),
       themesSuggested: (record.theme_suggested || []).join("|"),
       periods: (record.period || []).join("|"),
@@ -141,6 +148,7 @@ if (wasm.size < 1000) {
 }
 await ensureEntry(outputPath, indexed);
 await writeFile(browsePath, JSON.stringify(browse));
+await writePlaces(placesPath, placeCounts);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
 
@@ -181,6 +189,7 @@ function filters(record) {
     type: [record.type || "other"],
   };
   if (record.period?.length) values.period = record.period;
+  if (record.place_ids?.length) values.place = record.place_ids;
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
   const when = chronology(record);
   if (when.pubyear) values.pubyear = [when.pubyear];
@@ -256,7 +265,29 @@ function containerOf(record, counts) {
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
 /** Subject area → period → decade of publication, with counts; the same values as the Pagefind filters. */
+/** Every place the entries mention, with its names, its level and coordinates from the gazetteer, and its count. */
+async function writePlaces(path, counts) {
+  const rows = parseCsv(await readFile(gazetteerPath, "utf8"));
+  const column = Object.fromEntries(rows[0].map((name, index) => [name, index]));
+  const gazetteer = new Map(rows.slice(1).map((row) => [`nis:${row[column.nis]}`, row]));
+  const places = {};
+  for (const [key, n] of counts) {
+    const row = gazetteer.get(key);
+    if (row) {
+      places[key] = {
+        fr: row[column.label_fr], nl: row[column.label_nl], de: row[column.label_de], en: row[column.label_en],
+        level: row[column.level], lon: Number(row[column.lon]) || null, lat: Number(row[column.lat]) || null, n,
+      };
+    } else {
+      const name = key.replace(/^name:/, "");
+      places[key] = { fr: name, nl: name, de: name, en: name, level: "printed", lon: null, lat: null, n };
+    }
+  }
+  await writeFile(path, JSON.stringify(places));
+}
+
 function countBrowse(values) {
+  for (const place of values.place || []) placeCounts.set(place, (placeCounts.get(place) || 0) + 1);
   const year = Number(values.pubyear?.[0]);
   const decade = year ? String(Math.floor(year / 10) * 10) : "";
   for (const theme of values.theme || []) {
