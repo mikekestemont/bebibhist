@@ -356,6 +356,22 @@ Method: a local, open language identifier on title and subtitle (no API), checke
 hand sample per period; V-Smart may carry a language code in the raw export, to be checked first. Values are machine
 values and shown as suggested; a title in two languages gets both.
 
+## 5c. The citation clean-up pass: collected volumes printed with their contents (Mike, 1 Nov 2026)
+
+Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
+and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards
+sur Léopold Ier & Léopold II …", 1997). The rules (`split_contents`) split only part of them: in that entry three
+contributions are found, the second edition is not seen, and every contributor ends up among the volume's editors.
+About 440 entries print three page ranges or more in more than 500 characters, mostly in 1980–2007; 81 of them list
+eight persons or more.
+
+The LLM pass should parse such an entry into **one host entry per edition** (editors, title, place, publisher, year,
+extent) and **one contribution entry per item** (authors, title, pages), each contribution tied to its host and the
+two editions tied to each other as translations. The schema needs a `contents` list and an `editions` list for this;
+the printed paragraph stays the citation of the host entry, and each contribution keeps its slice of it, as the rule-
+based split already does. These entries go to the pass whatever their DOI status, since a matched DOI says nothing
+about their contents.
+
 ## 6. Not in this phase
 
 Places (first version done 31 Oct), language detection (see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for

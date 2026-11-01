@@ -104,6 +104,7 @@
   "printed": "Zoals gedrukt",
   "notFound": "Dit lemma staat niet in de index.",
   "beta": "Bèta — gedrukte delen 1952–2008; gedeeltelijke export 2009–2017.",
+  "team": "Projectmedewerker: Sofie Onghena (Algemeen Rijksarchief) · Digitaal architect: Mike Kestemont (Universiteit Antwerpen) · Wetenschappelijke stuurgroep: Luc François (UGent), Michèle Galand (ULB, † 2026), Guy Vanthemsche (VUB) en Karel Velle (UGent).",
   "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Koninklijke Commissie voor Geschiedenis. CC BY-NC 4.0.",
   "commission": "Koninklijke Commissie voor Geschiedenis",
   "address": [
@@ -151,6 +152,14 @@
       "paragraphs": [
         "Dit is een proefversie, en we bieden ze aan zoals ze nu is. De gegevens zijn onvolledig, een deel van de tekst komt uit de herkenning van de gedrukte bladzijde, en niet elk veld is al nagekeken. Gebruik de site met dat voorbehoud.",
         "De thema’s van de delen van vóór 1993 worden nog gekoppeld, zodat veel van die beschrijvingen voorlopig « Niet geclassificeerd » tonen."
+      ]
+    },
+    {
+      "title": "Medewerkers",
+      "paragraphs": [
+        "Projectmedewerker: Sofie Onghena (Algemeen Rijksarchief). Digitaal architect: prof. dr. Mike Kestemont (Universiteit Antwerpen).",
+        "De wetenschappelijke stuurgroep bestaat uit prof. dr. Luc François (UGent), prof. dr. Michèle Galand (ULB, † 2026), prof. dr. Guy Vanthemsche (VUB) en prof. em. dr. Karel Velle (UGent).",
+        "De wetenschappelijke adviescommissie bestaat uit prof. dr. Paul Bertrand (UCL), prof. dr. Eric Bousmar (FUSL), Bart Cosyns (UGent), prof. dr. Georges Declercq (VUB), prof. dr. Michel de Waha (ULB), prof. dr. Sébastien Dubois (ARA - AGR), prof. dr. Catherine Lanneau (ULg), prof. dr. Isabelle Parmentier (UNamur), prof. dr. Philippe Raxhon (ULg), prof. dr. Peter Stabel (UA), prof. dr. Erik Thoen (UGent), Marie Van Eeckenrode (UCL – ARA), prof. dr. Dries Vanysacker (KULeuven)."
       ]
     },
     {

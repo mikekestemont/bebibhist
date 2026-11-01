@@ -104,6 +104,7 @@
   "printed": "Tel qu’imprimé",
   "notFound": "Cette notice est introuvable dans l’index.",
   "beta": "Bêta — volumes imprimés 1952–2008 ; export partiel 2009–2017.",
+  "team": "Collaboratrice de projet : Sofie Onghena (Archives générales du Royaume) · Architecte numérique : Mike Kestemont (Universiteit Antwerpen) · Comité scientifique de pilotage : Luc François (UGent), Michèle Galand (ULB, † 2026), Guy Vanthemsche (VUB) et Karel Velle (UGent).",
   "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Commission royale d’Histoire. CC BY-NC 4.0.",
   "commission": "Commission Royale d'Histoire",
   "address": [
@@ -151,6 +152,14 @@
       "paragraphs": [
         "Il s’agit d’une version d’essai, et nous la proposons telle quelle. Les données sont incomplètes, une partie du texte provient de la reconnaissance des pages imprimées, et tous les champs n’ont pas encore été revus. Utilisez le site avec cette réserve.",
         "Les thèmes des volumes antérieurs à 1993 sont encore en cours de rattachement, de sorte que beaucoup de ces notices affichent « Non classé » pour l’instant."
+      ]
+    },
+    {
+      "title": "Collaborateurs",
+      "paragraphs": [
+        "Collaboratrice de projet : Sofie Onghena (Archives générales du Royaume). Architecte numérique : prof. dr. Mike Kestemont (Universiteit Antwerpen).",
+        "Le comité scientifique de pilotage se compose de prof. dr. Luc François (UGent), prof. dr. Michèle Galand (ULB, † 2026), prof. dr. Guy Vanthemsche (VUB) et prof. ém. dr. Karel Velle (UGent).",
+        "La commission scientifique consultative se compose de prof. dr. Paul Bertrand (UCL), prof. dr. Eric Bousmar (FUSL), Bart Cosyns (UGent), prof. dr. Georges Declercq (VUB), prof. dr. Michel de Waha (ULB), prof. dr. Sébastien Dubois (ARA - AGR), prof. dr. Catherine Lanneau (ULg), prof. dr. Isabelle Parmentier (UNamur), prof. dr. Philippe Raxhon (ULg), prof. dr. Peter Stabel (UA), prof. dr. Erik Thoen (UGent), Marie Van Eeckenrode (UCL – ARA), prof. dr. Dries Vanysacker (KULeuven)."
       ]
     },
     {

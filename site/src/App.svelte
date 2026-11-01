@@ -1366,6 +1366,7 @@
       {/each}
       <p><a href="tel:+3225502206">{text.phone}</a></p>
       <p><a href="mailto:jeanluc.depaepe@gmail.com">{text.email}</a></p>
+      <p class="credit">{text.team}</p>
       <p class="credit">{text.attribution}</p>
     </div>
     <div>
