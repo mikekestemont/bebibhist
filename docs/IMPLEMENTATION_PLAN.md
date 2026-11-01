@@ -419,6 +419,13 @@ one name. The same entry (`De Lage Landen van Prehistorie tot 1500`, 1978)
 shows another error the pass must correct: the place and publisher ("Sint-Stevens-Woluwe, Elsevier") read as a host,
 so a book is typed "other".
 
+**Rules and the pass together (Mike, 1 Nov 2026).** The pass reads every field of the entries it is sent, not only
+the problems listed here, and every field where it disagrees with the parser is a proposed correction (the extent
+"xv–293 p.", stored as "293 p.", is one). A fault with a fixed pattern is still also fixed by rule: that is certain
+and free, reaches the entries the pass is not sent (those with a DOI or VABB match), and leaves fewer differences to
+sift, so the real disagreements stand out. Rules where the pattern is fixed, the model where reading is needed
+(Ibid., abbreviations, publishers, odd entries), and their comparison as the check.
+
 **Context: batches in printed order, not single entries (Mike, 1 Nov 2026).** Many printed entries only make sense
 with their neighbours: "Ibid." and "Id." point to the journal or author of the entry before, "In: id." to the same
 person, a volume's contributions follow the volume, cross-references point to other numbers, and the section heading
