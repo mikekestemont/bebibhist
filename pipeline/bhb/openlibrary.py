@@ -104,3 +104,27 @@ def match(record, cache: Path) -> BookMatch | None:
 def books(records) -> list:
     return [record for record in records if record.role == "entry" and record.type == "book" and record.title
             and (record.year or 0) >= 1970 and (not record.isbn or record.identifiers_from.get("isbn") == "openlibrary")]
+
+
+def hosts(records) -> dict[str, tuple[object, list[str]]]:
+    """The collected volumes of chapters from 1970 on whose volume has no ISBN in the bibliography, once each: by
+    volume key (the host record's id, or the volume's title and year), a stand-in record for the volume (title,
+    editors, year, publisher) and the ids of its chapters."""
+    from types import SimpleNamespace
+
+    by_id = {record.id: record for record in records}
+    volumes: dict[str, tuple[object, list[str]]] = {}
+    for record in records:
+        host = record.host
+        if record.role != "entry" or record.type != "chapter" or not host or not host.title or record.isbn or (record.year or 0) < 1970:
+            continue
+        if host.title.startswith("[host") or (by_id.get(host.id or "") and by_id[host.id].isbn):
+            continue
+        key = host.id if host.id in by_id else f"{fold(host.title)}|{record.year}"
+        if key not in volumes:
+            editors = list(host.editors or []) or [person for person in record.persons if person.role == "editor"]
+            volume = SimpleNamespace(id=key, title=host.title, subtitle=host.subtitle, year=record.year, publisher=record.publisher,
+                                     persons=[SimpleNamespace(family=p.family, given=p.given, role="editor") for p in editors])
+            volumes[key] = (volume, [])
+        volumes[key][1].append(record.id)
+    return volumes

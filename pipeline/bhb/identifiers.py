@@ -435,6 +435,23 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             if row["accepted"] == "1" and record is not None and not record.isbn:
                 add(record, "isbn", [value for value in row["isbn"].split(";") if value], "openlibrary")
                 counts["isbn from openlibrary"] += 1
+    # A chapter takes the ISBN of its collected volume: the volume's own record in the bibliography, or the volume
+    # found in Open Library ("openlibrary-hosts.csv").
+    hosts_found = folder / "openlibrary-hosts.csv"
+    if hosts_found.exists():
+        for row in csv.DictReader(hosts_found.open(encoding="utf-8")):
+            if row["accepted"] != "1":
+                continue
+            for chapter_id in row["chapters"].split(";"):
+                record = by_id.get(chapter_id)
+                if record is not None and not record.isbn:
+                    add(record, "isbn", [value for value in row["isbn"].split(";") if value], "openlibrary-volume")
+                    counts["isbn of the volume from openlibrary"] += 1
+    for record in records:
+        volume = by_id.get(record.host.id or "") if record.type == "chapter" and record.host else None
+        if volume is not None and volume.isbn and not record.isbn:
+            add(record, "isbn", list(volume.isbn), "volume")
+            counts["isbn of the volume's record"] += 1
     # A journal name for the articles of a missing journal record, when the matches agree on it.
     for record in records:
         names = host_names.get((record.host.id or record.id) if record.host else "")
@@ -533,6 +550,27 @@ OPEN_STATUSES = {"gold", "diamond", "hybrid"}
 OPEN_PLATFORMS = {"10.21825", "10.4000", "10.3917"}
 
 
+def _openalex(params: dict[str, str], cache: Path) -> dict:
+    """One OpenAlex query, from the cache when it was asked before; a timeout or a server error is retried."""
+    url = f"{OPENALEX}?{urllib.parse.urlencode(params)}"
+    path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    request = urllib.request.Request(url, headers={"User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            break
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            if attempt == 4:
+                raise
+            time.sleep(5 * (attempt + 1))
+    path.write_text(json.dumps(data), encoding="utf-8")
+    time.sleep(1.0)
+    return data
+
+
 def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
     """Mark entries whose DOI leads to a free copy (``free_to_read``, with ``identifiers_from["free"]``): OpenAlex's
     open-access status, or a DOI of Persée. Only the status is kept: the link stays the DOI, so the publisher keeps
@@ -550,16 +588,7 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
     for start in range(0, len(dois), batch):
         chunk = dois[start:start + batch]
         params = {"filter": "doi:" + "|".join(chunk), "select": "doi,open_access", "per-page": str(batch)}
-        url = f"{OPENALEX}?{urllib.parse.urlencode(params)}"
-        path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-        else:
-            request = urllib.request.Request(url, headers={"User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
-            with urllib.request.urlopen(request, timeout=60) as response:
-                data = json.loads(response.read().decode("utf-8"))
-            path.write_text(json.dumps(data), encoding="utf-8")
-            time.sleep(1.0)
+        data = _openalex(params, cache)
         for work in data.get("results") or []:
             doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
             status[doi] = (work.get("open_access") or {}).get("oa_status") or "closed"
@@ -572,3 +601,121 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
         counts["free to read" if record.free_to_read else "not known to be free"] += 1
     counts["known to openalex"] = len(status)
     return dict(counts)
+
+
+# --- ORCID iDs for authors, through OpenAlex ------------------------------------------------------------------------
+
+ORCID_FROM_YEAR = 2000  # ORCID began in 2012; before about 2000 an iD is rarely attached to a publication.
+
+
+def _full_given(given: str | None) -> str:
+    """A given name written out ("Jeroen", "Marie-Christine"), folded; empty for initials only ("J.", "M.-C.")."""
+    words = [word for word in re.split(r"[\s.-]+", fold(given or "")) if word]
+    return " ".join(words) if words and all(len(word) >= 2 for word in words) and "." not in (given or "") else ""
+
+
+def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
+    """Give authors of entries from ``ORCID_FROM_YEAR`` on their ORCID iD. OpenAlex lists the iDs of a DOI's
+    authors; an author of ours takes the iD of the OpenAlex author with the same family name (and, when both are
+    given, the same first initial). Then a person with a written-out given name takes the iD on their other entries
+    from that year on, as long as that name meets no other iD. Every iD records where it came from."""
+    from collections import Counter, defaultdict
+
+    counts: Counter[str] = Counter()
+    recent = [record for record in records if (record.year or record.bgb_year or 0) >= ORCID_FROM_YEAR]
+    for record in records:
+        for person in record.persons:
+            person.orcid = person.orcid_from = None
+    dois = sorted({record.doi for record in recent if record.doi})
+    authorships: dict[str, list[tuple[str, str]]] = {}
+    cache.mkdir(parents=True, exist_ok=True)
+    for start in range(0, len(dois), batch):
+        chunk = dois[start:start + batch]
+        params = {"filter": "doi:" + "|".join(chunk), "select": "doi,authorships", "per-page": str(batch)}
+        data = _openalex(params, cache)
+        for work in data.get("results") or []:
+            doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
+            authorships[doi] = [(authorship.get("raw_author_name") or (authorship.get("author") or {}).get("display_name") or "",
+                                 (authorship.get("author") or {}).get("orcid") or "")
+                                for authorship in work.get("authorships") or []]
+    for record in recent:
+        for person in record.persons:
+            for name, orcid in authorships.get(record.doi or "", []):
+                words = name.split()
+                if not orcid or not words or not same_name(person.family, words[-1]) and not fold(name).endswith(fold(person.family)):
+                    continue
+                if person.given and fold(person.given)[:1] != fold(words[0])[:1]:
+                    continue
+                person.orcid, person.orcid_from = orcid.replace("https://orcid.org/", ""), "openalex"
+                counts["orcid from openalex"] += 1
+                break
+    # The same written-out name on other recent entries, when it meets one iD only.
+    seen: dict[str, set[str]] = defaultdict(set)
+    for record in recent:
+        for person in record.persons:
+            if person.orcid and _full_given(person.given):
+                seen[f"{fold(person.family)}|{_full_given(person.given)}"].add(person.orcid)
+    # A name with no iD through any DOI is looked up in the ORCID registry itself, when it occurs on two recent
+    # entries or more: one person of exactly that name, at a Belgian institution.
+    names: Counter[str] = Counter()
+    shown_as: dict[str, tuple[str, str]] = {}
+    for record in recent:
+        for person in record.persons:
+            key = f"{fold(person.family)}|{_full_given(person.given)}"
+            if _full_given(person.given) and key not in seen:
+                names[key] += 1
+                shown_as.setdefault(key, (person.family, person.given or ""))
+    registry: dict[str, str] = {}
+    for key, n in names.items():
+        if n >= 2 and (found := registry_orcid(*shown_as[key], cache=cache.parent / "orcid")):
+            registry[key] = found
+    counts["names found in the orcid registry"] = len(registry)
+    for record in recent:
+        for person in record.persons:
+            key = f"{fold(person.family)}|{_full_given(person.given)}"
+            if person.orcid or not _full_given(person.given):
+                continue
+            if len(seen.get(key, ())) == 1:
+                person.orcid, person.orcid_from = next(iter(seen[key])), "name"
+                counts["orcid from the same name"] += 1
+            elif key in registry:
+                person.orcid, person.orcid_from = registry[key], "registry"
+                counts["orcid from the registry"] += 1
+    counts["names with an orcid"] = sum(1 for ids in seen.values() if len(ids) == 1)
+    counts["names with several orcids (left out)"] = sum(1 for ids in seen.values() if len(ids) > 1)
+    return dict(counts)
+
+
+ORCID_SEARCH = "https://pub.orcid.org/v3.0/expanded-search/"
+_BELGIAN = re.compile(r"\b(?:gent|ghent|gand|leuven|louvain|antwerp|antwerpen|anvers|brussel|bruxelles|brussels|liege|luik|namur|"
+                      r"mons|hasselt|kortrijk|kulak|vub|ulb|ugent|uclouvain|saint louis|kbr|rijksarchief|archives de l etat|"
+                      r"state archives|belgi|vlaams|flemish|flanders|wallon|vlaanderen)", re.IGNORECASE)
+
+
+def registry_orcid(family: str, given: str, cache: Path) -> str | None:
+    """The iD of the one person in the ORCID registry with exactly this family and given name and a Belgian
+    institution, or None. Answers are cached in ``cache``."""
+    query = f'family-name:"{family}" AND given-names:"{given}"'
+    url = f"{ORCID_SEARCH}?{urllib.parse.urlencode({'q': query, 'rows': '10'})}"
+    path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
+        for attempt in range(5):
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                break
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+                if attempt == 4:
+                    return None
+                time.sleep(5 * (attempt + 1))
+        cache.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data), encoding="utf-8")
+        time.sleep(0.5)
+    exact = [row for row in data.get("expanded-result") or []
+             if fold(row.get("family-names") or "") == fold(family) and fold(row.get("given-names") or "") == fold(given)]
+    if len(exact) != 1 or not any(_BELGIAN.search(fold(name)) for name in exact[0].get("institution-name") or []):
+        return None
+    return exact[0]["orcid-id"]

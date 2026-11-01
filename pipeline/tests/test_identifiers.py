@@ -266,3 +266,48 @@ def test_vabb_finds_an_article_whose_subtitle_it_joins_to_the_title():
                      family="Hogenbirk", pages="246-273", year=2013)
     found, _ = match(record, Index(pubs))
     assert found.accepted and found.their_title.startswith("Het werk van een klerk")
+
+
+def test_an_orcid_comes_from_openalex_and_goes_to_the_same_full_name(tmp_path, monkeypatch):
+    import io
+    import json as json_
+    import urllib.request
+
+    from bhb.identifiers import orcids
+
+    matched = _record(title="Een artikel", family="Deploige", year=2010)
+    matched.persons[0].given, matched.doi = "Jeroen", "10.1484/j.rhe.3.232"
+    other = _record(title="Een ander artikel", family="Deploige", year=2012)
+    other.persons[0].given = "Jeroen"
+    older = _record(title="Een oud artikel", family="Deploige", year=1995)
+    older.persons[0].given = "Jeroen"
+    initials = _record(title="Nog een artikel", family="Deploige", year=2011)
+    initials.persons[0].given = "J."
+    answer = {"results": [{"doi": "https://doi.org/10.1484/j.rhe.3.232", "authorships": [
+        {"raw_author_name": "Bas Diemel", "author": {"orcid": None}},
+        {"raw_author_name": "Jeroen Deploige", "author": {"orcid": "https://orcid.org/0000-0001-2345-6789"}}]}]}
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=60: io.BytesIO(json_.dumps(answer).encode()))
+    monkeypatch.setattr("time.sleep", lambda seconds: None)
+    orcids([matched, other, older, initials], tmp_path)
+    assert (matched.persons[0].orcid, matched.persons[0].orcid_from) == ("0000-0001-2345-6789", "openalex")
+    assert (other.persons[0].orcid, other.persons[0].orcid_from) == ("0000-0001-2345-6789", "name")
+    assert older.persons[0].orcid is None and initials.persons[0].orcid is None
+
+
+def test_the_registry_gives_an_orcid_only_for_one_belgian_namesake(tmp_path, monkeypatch):
+    import io
+    import json as json_
+    import urllib.request
+
+    from bhb.identifiers import registry_orcid
+
+    rows = [{"orcid-id": "0000-0002-0143-7138", "given-names": "Jeroen", "family-names": "Deploige", "institution-name": ["Ghent University"]},
+            {"orcid-id": "0009-0004-4876-2730", "given-names": "Jakob", "family-names": "Deploige", "institution-name": ["Ghent University"]}]
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=60: io.BytesIO(json_.dumps({"expanded-result": rows}).encode()))
+    monkeypatch.setattr("time.sleep", lambda seconds: None)
+    assert registry_orcid("Deploige", "Jeroen", tmp_path / "a") == "0000-0002-0143-7138"
+    rows[1].update({"given-names": "Jeroen"})
+    assert registry_orcid("Deploige", "Jeroen", tmp_path / "b") is None
+    rows[1].update({"given-names": "Jakob"})
+    rows[0].update({"institution-name": ["Utrecht University"]})
+    assert registry_orcid("Deploige", "Jeroen", tmp_path / "c") is None

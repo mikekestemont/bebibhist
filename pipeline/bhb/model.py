@@ -19,6 +19,9 @@ class Person:
     family: str
     given: str | None = None
     role: str = "author"
+    # An ORCID iD, machine-derived: "openalex" (from the entry's DOI) or "name" (from another entry by this name).
+    orcid: str | None = None
+    orcid_from: str | None = None
 
 
 @dataclass

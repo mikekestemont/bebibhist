@@ -91,6 +91,9 @@ for await (const line of lines) {
       ...specificMeta(record, scheme),
       authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
       editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
+      // ORCID iDs (machine-derived), per name as the name line shows it: "Name (Given)\tiD\tsource|…".
+      orcids: (record.persons || []).filter((person) => person.orcid)
+        .map((person) => `${person.given ? `${person.family} (${person.given})` : person.family}\t${person.orcid}\t${person.orcid_from || ""}`).join("|"),
       subtitle: (record.subtitle || "").slice(0, 300),
       host: (record.host?.title || "").slice(0, 300),
       hostSubtitle: (record.host?.subtitle || "").slice(0, 300),

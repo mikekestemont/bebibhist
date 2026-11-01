@@ -38,6 +38,7 @@ export interface Hit {
     /** The journal, grouped by `bhb journals apply` across spellings, and its full title. */
     journalId?: string;
     journalTitle?: string;
+    orcids?: string;
     /** "1" when the places were found in the title, not in the printed index. */
     placesSuggested?: string;
     doi?: string;

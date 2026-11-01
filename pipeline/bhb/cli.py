@@ -94,11 +94,17 @@ def main(argv: list[str] | None = None) -> None:
     identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
     openlib = identifiers_sub.add_parser("openlibrary", help="ISBNs for books from 1970 on from Open Library; write build/identifiers/openlibrary.csv")
     openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
+    openlib.add_argument("--hosts", action="store_true", help="the collected volumes of chapters instead: build/identifiers/openlibrary-hosts.csv")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
     sample.add_argument("--size", type=int, default=3000)
     sample.add_argument("--seed", type=int, default=2)
+
+    cands = sub.add_parser("candidates", help="publications the bibliography may lack, from other sources")
+    cands_sub = cands.add_subparsers(dest="candidates_command", required=True)
+    cvabb = cands_sub.add_parser("vabb", help="VABB-SHW candidates for 2018–2023: build/candidates/vabb.csv and vabb-pilot.md")
+    cvabb.add_argument("--threshold", type=float, default=0.8)
 
     journals = sub.add_parser("journals", help="one name per journal (docs/JOURNAL_PROPOSAL.md)")
     journals_sub = journals.add_subparsers(dest="journals_command", required=True)
@@ -146,6 +152,9 @@ def main(argv: list[str] | None = None) -> None:
         from bhb.identifiers import open_access
 
         counts.update(open_access(records, build_dir() / "cache" / "openalex"))
+        from bhb.identifiers import orcids
+
+        counts.update(orcids(records, build_dir() / "cache" / "openalex-authors"))
         write_jsonl(path, records)
         print(f"identifiers: {counts} → {path}")
         return
@@ -162,8 +171,11 @@ def main(argv: list[str] | None = None) -> None:
             writer.writerows(rows)
         print(f"{len(rows)} proposals ({sum(row['field'] == 'author' for row in rows)} author names) → {out}")
         return
+    if args.command == "candidates" and args.candidates_command == "vabb":
+        _candidates_vabb(args.threshold)
+        return
     if args.command == "identifiers" and args.identifiers_command == "openlibrary":
-        _identifiers_openlibrary(args.limit)
+        _identifiers_openlibrary_hosts() if args.hosts else _identifiers_openlibrary(args.limit)
         return
     if args.command == "identifiers" and args.identifiers_command == "vabb":
         _identifiers_vabb(args.limit)
@@ -446,6 +458,66 @@ def _identifiers_vabb(limit: int | None) -> None:
     for (part, kind, accepted), n in sorted(counts.items()):
         print(f"{part:10} {kind:14} {'match' if accepted else 'none':5} {n}")
     print(f"vabb → {out}")
+
+
+def _candidates_vabb(threshold: float) -> None:
+    import csv
+    from collections import Counter
+
+    from bhb.vabb import load
+    from bhb.vabb_candidates import CANDIDATE_YEARS, TEST_YEARS, TRAIN_YEARS, candidates, labels, train_and_measure
+
+    pubs = load(build_dir() / "external")
+    evaluation, model, _ = train_and_measure(pubs, labels(build_dir() / "identifiers" / "vabb.csv"))
+    found = candidates(pubs, model, threshold)
+    out = build_dir() / "candidates"
+    out.mkdir(parents=True, exist_ok=True)
+    with (out / "vabb.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["vabb_id", "score", "year", "type", "authors", "title", "container", "disciplines", "language", "doi", "isbn", "issn"])
+        for pub, score in found:
+            writer.writerow([pub.id, f"{score:.3f}", pub.year, pub.type, "; ".join(pub.families or pub.editors), pub.title, pub.container,
+                             "; ".join(pub.disciplines), pub.language, pub.doi or "", ";".join(pub.isbn), ";".join(pub.issn)])
+    per_year = Counter(pub.year for pub, _ in found)
+    lines = [
+        "# VABB-SHW candidates: pilot", "",
+        f"Trained on {TRAIN_YEARS.start}–{TRAIN_YEARS.stop - 1} ({evaluation.train} VABB publications, {evaluation.train_positive} in the "
+        f"bibliography), measured on {TEST_YEARS.start}–{TEST_YEARS.stop - 1} ({evaluation.test}, {evaluation.test_positive} in the bibliography).",
+        f"Average precision {evaluation.average_precision:.2f}. Precision is a lower bound: a publication the matcher missed, or one the",
+        "bibliography should have taken, counts as a false positive.", "",
+        "| Threshold | Precision | Recall | Proposed |", "|---|---:|---:|---:|",
+        *[f"| {t:.2f} | {p:.2f} | {r:.2f} | {n} |" for t, p, r, n in evaluation.rows], "",
+        f"Candidates for {CANDIDATE_YEARS.start}–{CANDIDATE_YEARS.stop - 1} at {threshold:.2f}: {len(found)} "
+        f"({', '.join(f'{year}: {per_year[year]}' for year in sorted(per_year))}), in `vabb.csv`.",
+    ]
+    (out / "vabb-pilot.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
+
+
+def _identifiers_openlibrary_hosts() -> None:
+    import csv
+    from collections import Counter
+
+    from bhb.openlibrary import hosts, match
+
+    volumes = hosts(read_jsonl(build_dir() / "records.jsonl"))
+    print(f"{len(volumes)} collected volumes of chapters from 1970 on without an ISBN", flush=True)
+    out = build_dir() / "identifiers" / "openlibrary-hosts.csv"
+    counts: Counter[str] = Counter()
+    with out.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["volume", "chapters", "accepted", "isbn", "work", "title", "author", "year", "editions", "ours", "theirs"])
+        for number, (key, (volume, chapters)) in enumerate(sorted(volumes.items()), 1):
+            found = match(volume, build_dir() / "cache" / "openlibrary")
+            if found is None:
+                counts["no candidate"] += 1
+                continue
+            counts["isbn" if found.accepted else "none"] += 1
+            writer.writerow([key, ";".join(chapters), int(found.accepted), ";".join(found.isbn), found.work, found.title, found.author,
+                             found.year, found.editions, found.ours, found.theirs])
+            if number % 250 == 0:
+                print(f"  {number}", flush=True)
+    print(dict(counts), f"→ {out}")
 
 
 def _identifiers_openlibrary(limit: int | None) -> None:

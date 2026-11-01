@@ -162,6 +162,10 @@ main .search { margin: 1.6rem 0; }
 /* Its width is fixed, not taken from the results, so the filter column stays put when a search finds nothing. */
 .wrap.layout { max-width: 84rem; width: 100%; box-sizing: border-box; }
 
+/* The ORCID iD icon after an author's name, linking to the person's ORCID record. */
+.orcid { display: inline-block; margin-left: 0.25rem; vertical-align: -0.12em; line-height: 0; }
+.orcid svg { display: block; }
+
 .layout {
   display: grid;
   grid-template-columns: 17.5rem minmax(0, 1fr);

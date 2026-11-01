@@ -411,7 +411,16 @@
     return value.split(/\s*(?:,|&)\s*/).map((name) => name.trim()).filter(Boolean);
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string }[] {
+  /** The ORCID iDs of an entry's persons, by the name as the author row shows it. */
+  function orcidsOf(meta: Hit["meta"]): Map<string, { id: string; note: string }> {
+    const notes: Record<string, string> = { openalex: text.orcidFromDoi, name: text.orcidFromName, registry: text.orcidFromRegistry };
+    return new Map((meta.orcids || "").split("|").filter(Boolean).map((line) => {
+      const [name, id, from] = line.split("\t");
+      return [name, { id, note: notes[from] || text.orcidFromDoi }];
+    }));
+  }
+
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -448,6 +457,7 @@
             value,
             italic,
             authors: label === text.author || label === text.hostEditors,
+            orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
             derived: derivedNote(label, meta),
             container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined),
             containerTitle: label === text.journal && meta.journalId ? journalNote(meta) : undefined,
@@ -510,7 +520,9 @@
 
   function identifierSource(kind: string, meta: Hit["meta"]): string | undefined {
     const source = (meta.identifiersFrom || "").split("|").find((entry: string) => entry.startsWith(`${kind}:`))?.split(":")[1];
-    return source === "crossref" ? text.fromCrossref : source === "vabb" ? text.fromVabb : source === "openlibrary" ? text.fromOpenLibrary : undefined;
+    const notes: Record<string, string> = { crossref: text.fromCrossref, vabb: text.fromVabb, openlibrary: text.fromOpenLibrary,
+      volume: text.fromVolume, "openlibrary-volume": text.fromOpenLibraryVolume };
+    return source ? notes[source] : undefined;
   }
 
   function derivedNote(label: string, meta: Hit["meta"]): string | undefined {
@@ -820,7 +832,7 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
       <span class="tag tag-free" title={row.free}>{text.freeToRead}</span>{/if}
@@ -829,7 +841,8 @@
   {:else if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
-      {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>
+      {@const orcid = row.orcids?.get(name)}
+      {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>{#if orcid}<a class="orcid" href={"https://orcid.org/" + orcid.id} title={`ORCID ${orcid.id}. ${orcid.note}`} target="_blank" rel="noopener"><span class="sr-only">ORCID {orcid.id}</span><svg viewBox="0 0 256 256" width="15" height="15" aria-hidden="true"><path fill="#A6CE39" d="M256 128c0 70.7-57.3 128-128 128S0 198.7 0 128 57.3 0 128 0s128 57.3 128 128z"/><path fill="#fff" d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1 4.5-10.1 10.1-10.1 10.1 4.6 10.1 10.1z"/></svg></a>{/if}
     {/each}
   {:else if row.italic && row.derived}
     <em class="derived" title={row.derived}>{row.value}</em>
