@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
+    match.add_argument("--offline", action="store_true", help="use only the answers already in the cache")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
     identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
     openlib = identifiers_sub.add_parser("openlibrary", help="ISBNs for books from 1970 on from Open Library; write build/identifiers/openlibrary.csv")
@@ -134,7 +135,7 @@ def main(argv: list[str] | None = None) -> None:
         _identifiers_pilot(args.size, args.seed)
         return
     if args.command == "identifiers" and args.identifiers_command == "match":
-        _identifiers_match(args.source)
+        _identifiers_match(args.source, args.offline)
         return
     if args.command == "identifiers" and args.identifiers_command == "apply":
         from bhb.identifiers import apply_identifiers
@@ -408,11 +409,11 @@ def _identifiers_pilot(size: int, seed: int) -> None:
     _identifiers_write(pilot_sample(records, size, seed), build_dir() / "identifiers" / "pilot.csv")
 
 
-def _identifiers_match(source: str) -> None:
+def _identifiers_match(source: str, offline: bool = False) -> None:
     records = read_jsonl(build_dir() / "records.jsonl")
     chosen = [record for record in records if record.source == source and record.role == "entry" and record.type in ("article", "chapter") and record.title]
     print(f"{len(chosen)} articles and chapters from {source}", flush=True)
-    _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv")
+    _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv", offline)
 
 
 def _identifiers_vabb(limit: int | None) -> None:
@@ -558,14 +559,14 @@ def _citations_pilot(model: str, size: int, seed: int) -> None:
     print(f"report → {report}; disagreements → {out / f'pilot-{slug}.csv'}")
 
 
-def _identifiers_write(sample, out: Path) -> None:
+def _identifiers_write(sample, out: Path, offline: bool = False) -> None:
     import csv
     from collections import Counter
 
     from bhb.identifiers import run
 
     by_id = {record.id: record for record in sample}
-    matches = run(sample, build_dir() / "cache" / "crossref", progress=lambda n: print(f"  {n}", flush=True))
+    matches = run(sample, build_dir() / "cache" / "crossref", progress=lambda n: print(f"  {n}", flush=True), offline=offline)
     out.parent.mkdir(parents=True, exist_ok=True)
     counts: Counter[tuple[str, str, bool]] = Counter()
     with out.open("w", encoding="utf-8", newline="") as handle:

@@ -154,13 +154,17 @@ class Index:
             for word in set(_words(pub.title)):
                 self.postings[word].append(pub.id)
 
-    def candidates(self, title: str, year: int | None, limit: int = 5) -> list[Publication]:
-        words = sorted((word for word in set(_words(title)) if 0 < len(self.postings.get(word, ())) <= COMMON), key=lambda word: len(self.postings[word]))[:3]
-        found = {pid for word in words for pid in self.postings[word]}
+    def candidates(self, title: str, year: int | None, limit: int = 5, subtitle: str | None = None) -> list[Publication]:
+        """The publications sharing the rarest words of the title (and of the subtitle, which VABB may join to it),
+        closest first, compared with the title alone and with title and subtitle, as VABB may give either."""
+        found = {pid for text, n in ((title, 3), (subtitle or "", 2)) for word in self._rare(text)[:n] for pid in self.postings[word]}
         pubs = [self.pubs[pid] for pid in found if year is None or self.pubs[pid].year is None or abs(self.pubs[pid].year - year) <= 1]
-        target = fold(title)
-        pubs.sort(key=lambda pub: fuzz.ratio(target, fold(pub.title)), reverse=True)
+        targets = [fold(title)] + ([fold(f"{title} {subtitle}")] if subtitle else [])
+        pubs.sort(key=lambda pub: max(fuzz.ratio(target, fold(pub.title)) for target in targets), reverse=True)
         return pubs[:limit]
+
+    def _rare(self, text: str) -> list[str]:
+        return sorted((word for word in set(_words(text)) if 0 < len(self.postings.get(word, ())) <= COMMON), key=lambda word: len(self.postings[word]))
 
 
 def _words(title: str) -> list[str]:
@@ -170,7 +174,7 @@ def _words(title: str) -> list[str]:
 def match(record, index: Index) -> tuple[Match, Publication | None]:
     ours = _full_title(record.title, record.subtitle)
     best: tuple[tuple, dict, Publication] | None = None
-    for pub in index.candidates(record.title or "", record.year):
+    for pub in index.candidates(record.title or "", record.year, subtitle=record.subtitle):
         features = score(record, pub.as_item())
         rank = (accept(features, len(ours), TITLE_SAME, TITLE_CLOSE), features["title"])
         if best is None or rank > best[0]:

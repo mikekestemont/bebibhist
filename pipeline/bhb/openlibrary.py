@@ -20,7 +20,7 @@ from pathlib import Path
 
 from rapidfuzz import fuzz
 
-from bhb.identifiers import USER_AGENT, _first_author, _first_editor, _full_title, same_name
+from bhb.identifiers import USER_AGENT, _first_author, _first_editor, _full_title, numbers_agree, same_name
 from bhb.textutil import fold
 
 API = "https://openlibrary.org/search.json"
@@ -85,7 +85,7 @@ def score(record, doc: dict) -> BookMatch:
     year = record.year in years if record.year and years else None
     editions = int(doc.get("edition_count") or 0)
     isbn = sorted(set(doc.get("isbn") or []))
-    accepted = (title >= TITLE_SAME and author is not False and year is True and editions == 1 and 1 <= len(isbn) <= 2
+    accepted = (title >= TITLE_SAME and author is not False and year is True and editions == 1 and 1 <= len(isbn) <= 2 and numbers_agree(ours, theirs) is not False
                 and (author is True or len(ours) >= 40))
     return BookMatch(record.id, accepted, isbn if accepted else [], doc.get("key", ""), round(title, 1), author, year, editions, ours, theirs)
 
@@ -103,4 +103,4 @@ def match(record, cache: Path) -> BookMatch | None:
 
 def books(records) -> list:
     return [record for record in records if record.role == "entry" and record.type == "book" and record.title
-            and (record.year or 0) >= 1970 and not record.isbn]
+            and (record.year or 0) >= 1970 and (not record.isbn or record.identifiers_from.get("isbn") == "openlibrary")]

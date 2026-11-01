@@ -97,16 +97,41 @@ def _journal_issn(record) -> str | None:
     return journal[5:] if journal.startswith("issn:") else None
 
 
-def query_params(record, in_journal: bool = False) -> dict[str, str] | None:
+def _journal_groups(path: Path) -> dict[str, list[str]]:
+    """Every ISSN of each journal in the journal list, by journal id."""
+    import csv
+
+    if path not in _groups:
+        rows = csv.DictReader(path.open(encoding="utf-8")) if path.exists() else []
+        _groups[path] = {row["id"]: [issn for issn in row["issn"].split("|") if issn] for row in rows}
+    return _groups[path]
+
+
+_groups: dict[Path, dict[str, list[str]]] = {}
+
+
+def journal_issns(record) -> list[str]:
+    """The ISSNs of an article's journal, the one that names it first: a journal's print and online numbers, any of
+    which Crossref may file it under."""
+    first = _journal_issn(record)
+    if not first:
+        return []
+    from bhb.paths import repo_root
+
+    groups = _journal_groups(repo_root() / "data" / "curated" / "journals.csv")
+    return [first] + [issn for issn in groups.get(f"issn:{first}", []) if issn != first]
+
+
+def query_params(record, in_journal: bool = False, issn: str | None = None) -> dict[str, str] | None:
     """The Crossref query for one entry, or None when it has no title or year. With ``in_journal``, an article whose
-    journal has an ISSN is looked for in that journal only."""
+    journal has an ISSN is looked for in that journal only (under ``issn``, or the number that names the journal)."""
     title = _full_title(record.title, record.subtitle)
     if not title or not record.year:
         return None
     first = _first_author(record)
     host = record.host.title if record.host and record.host.title else ""
     words = " ".join(part for part in (title, first or "", host) if part)
-    issn = _journal_issn(record) if in_journal else None
+    issn = (issn or _journal_issn(record)) if in_journal else None
     return {
         "query.bibliographic": words[:400],
         "filter": f"from-pub-date:{record.year - 1},until-pub-date:{record.year + 1}" + (f",issn:{issn}" if issn else ""),
@@ -162,17 +187,25 @@ def _cached(params: dict[str, str], cache: Path) -> dict | None:
 
 def candidates(record, cache: Path, offline: bool = False) -> dict:
     """Crossref's answer for an entry. A printed article in a journal with an ISSN is looked for in that journal
-    first, and only when that finds nothing in all of Crossref; the catalogue years keep their plain query (and their
-    cache). ``offline`` reads only the cache, for the steps that use answers already fetched."""
+    first, under each of its numbers that was asked before as well, and in all of Crossref when the journal holds no
+    acceptable match (Crossref may list the journal under another ISSN); the catalogue years keep their plain query
+    (and their cache). The items of all answers are returned together, the journal's first. ``offline`` reads only the cache, for the steps that use answers already
+    fetched."""
     queries = []
-    if record.source.startswith("print") and _journal_issn(record):
-        queries.append(query_params(record, in_journal=True))
-    queries.append(query_params(record))
-    for params in queries:
-        data = _cached(params, cache) if offline else fetch(params, cache)
-        if data and (data.get("message") or {}).get("items"):
-            return data
-    return {"message": {"items": []}}
+    if record.source.startswith("print"):
+        # The number that names the journal is asked for; its other numbers only when an earlier run asked them.
+        for n, issn in enumerate(journal_issns(record)):
+            params = query_params(record, in_journal=True, issn=issn)
+            queries.append((params, offline or n > 0))
+    queries.append((query_params(record), offline))
+    items: list[dict] = []
+    for params, cache_only in queries:
+        data = _cached(params, cache) if cache_only else fetch(params, cache)
+        seen = {item.get("DOI") for item in items}
+        items += [item for item in (data or {}).get("message", {}).get("items") or [] if item.get("DOI") not in seen]
+        if items and not offline and best_match(record, {"message": {"items": items}}).accepted:
+            break
+    return {"message": {"items": items}}
 
 
 def _year(item: dict) -> int | None:
@@ -205,6 +238,24 @@ def title_language(text: str) -> str | None:
     return language if best >= 2 and best >= 2 * second else None
 
 
+def numbers_agree(ours: str, theirs: str) -> bool | None:
+    """False when each title has a number the other lacks: the yearly survey of 1955 is not that of 1964. A number on
+    one side only (a period, a part) does not disagree; None when neither title has a number. A number counts as
+    present when the other title's digits contain it, since Open Library runs them together ("1566-1585", "15661585")."""
+    left, right = re.findall(r"\d+", ours or ""), re.findall(r"\d+", theirs or "")
+    if not left and not right:
+        return None
+    left_digits, right_digits = "".join(left), "".join(right)
+    return not (any(number not in right_digits for number in left) and any(number not in left_digits for number in right))
+
+
+def _title_with_number(record, ours: str) -> str:
+    """The folded title with the number the printed citation has right after it, which the parser may have read as
+    the year ("La philologie wallonne en 1953. B. Comm. ...")."""
+    found = re.search(re.escape(ours) + r"\s+(\d{3,4})\b", fold(record.printed or "")) if ours else None
+    return f"{ours} {found.group(1)}" if found else ours
+
+
 def score(record, item: dict) -> dict[str, float | bool | None]:
     """How well a Crossref item fits an entry. ``None`` means the field is missing on one side."""
     ours = fold(_full_title(record.title, record.subtitle))
@@ -228,6 +279,7 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
         "title": round(title, 1),
         # The same publication in another language (a catalogue in a Dutch and an English edition) has its own ISBN.
         "language": ours_language == their_language if ours_language and their_language else None,
+        "numbers": numbers_agree(_title_with_number(record, ours), their_full),
         # A book (no journal or volume, a publisher) is not a journal article of the same title: that is a review of it.
         "kind": False if not (record.host and record.host.title) and record.publisher and item.get("type") == "journal-article" else None,
         "author": author,
@@ -248,7 +300,9 @@ def accept(features: dict[str, float | bool | None], title_length: int = SHORT_T
     journal and first page agree. A different author or year rejects the candidate. A different journal name does
     not, since Crossref often names the series or an abbreviation (BMGN, WT) where the volume has the full title; a
     different first page rejects it unless the journal agrees."""
-    if features["title"] < close or features["author"] is False or features["year"] is False or features.get("language") is False or features.get("kind") is False:
+    if (features["title"] < close or features["author"] is False or features["year"] is False or features.get("language") is False or features.get("kind") is False
+            # Other numbers in the title: another year's instalment, unless the first page agrees (then a misprint).
+            or (features.get("numbers") is False and features["page"] is not True)):
         return False
     container = features["container"] >= 80 if features["container"] is not None else None
     if features["page"] is False and not container:
@@ -283,7 +337,7 @@ def pilot_sample(records, size: int, seed: int = 1) -> list:
     return rng.sample(printed, min(size // 2, len(printed))) + rng.sample(catalogue, min(size - size // 2, len(catalogue)))
 
 
-def run(records, cache: Path, progress=None) -> list[Match]:
+def run(records, cache: Path, progress=None, offline: bool = False) -> list[Match]:
     from concurrent.futures import ThreadPoolExecutor
 
     done = 0
@@ -291,7 +345,7 @@ def run(records, cache: Path, progress=None) -> list[Match]:
     def one(record) -> Match:
         nonlocal done
         params = query_params(record)
-        match = best_match(record, candidates(record, cache)) if params else Match(record.id, None, {}, False, record.title or "", "", "")
+        match = best_match(record, candidates(record, cache, offline)) if params else Match(record.id, None, {}, False, record.title or "", "", "")
         with _lock:
             done += 1
             if progress and done % 100 == 0:
@@ -304,7 +358,8 @@ def run(records, cache: Path, progress=None) -> list[Match]:
 
 # --- writing the matches into the records ---------------------------------------------------------------------------
 
-MATCH_FILES = ("vsmart.csv", "print-straive.csv", "print-pdf.csv", "print-sample.csv", "pilot.csv")
+# The pilot and the print sample were answer keys; the full runs cover the same entries under the current rules.
+MATCH_FILES = ("vsmart.csv", "print-straive.csv", "print-pdf.csv")
 MISSING_HOST = "[host record not exported"
 
 

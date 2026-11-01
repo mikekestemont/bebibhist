@@ -41,3 +41,9 @@ def test_spellings_join_by_issn_full_title_variant_and_abbreviation():
     assert "handelingen" not in mapping
     north = next(journal for journal in journals if journal["id"] == "issn:0035-2624")
     assert north["title"] == "Revue du Nord" and north["issn"] == "0035-2624|1166-486X" and north["articles"] == 5
+
+
+def test_a_journal_is_named_by_its_lowest_issn_whatever_the_order_found():
+    records = [_article(str(n), "Handelingen van het Genootschap voor Geschiedenis", ["0774-286X", "0770-0822"]) for n in range(3)]
+    _, mapping = build(records)
+    assert mapping["handelingen van het genootschap voor geschiedenis"] == ("issn:0770-0822", "issn")

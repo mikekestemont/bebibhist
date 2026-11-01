@@ -92,7 +92,8 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     shown: dict[str, Counter[str]] = defaultdict(Counter)
     for record in articles:
         shown[spelling_key(record.host.title)][record.host.title] += 1
-    # 1. ISSNs, the print and online numbers of one journal joined.
+    # 1. ISSNs, the print and online numbers of one journal joined. The lowest number names the group, so a journal
+    # keeps its id (and its page's address) when another of its numbers turns up.
     parent: dict[str, str] = {}
 
     def root(issn: str) -> str:
@@ -106,7 +107,8 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     for record in articles:
         if record.issn:
             for issn in record.issn[1:]:
-                parent[root(issn)] = root(record.issn[0])
+                first, other = root(record.issn[0]), root(issn)
+                parent[max(first, other)] = min(first, other)
             votes[spelling_key(record.host.title)][record.issn[0]] += 1
     mapping: dict[str, tuple[str, str]] = {}
     for spelling, counter in votes.items():

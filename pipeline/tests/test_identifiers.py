@@ -1,6 +1,6 @@
 """Scoring of Crossref candidates, without the network."""
 
-from bhb.identifiers import accept, best_match, query_params, same_name, score, title_language
+from bhb.identifiers import accept, best_match, numbers_agree, query_params, same_name, score, title_language
 from bhb.model import Host, Person, Publisher, Record
 
 
@@ -192,3 +192,73 @@ def test_open_library_takes_only_a_work_with_one_edition():
     assert not score(record, several).accepted
     other_year = dict(one, publish_year=[1977])
     assert not score(record, other_year).accepted
+
+
+def test_another_instalment_of_a_yearly_survey_is_not_a_match():
+    assert numbers_agree("la philologie wallonne en 1955", "la philologie wallonne en 1964") is False
+    assert numbers_agree("ernest mandel in resistance", "ernest mandel in resistance 1940 1945") is True
+    assert numbers_agree("pro en contra vesalius", "pro en contra vesalius") is None
+    assert numbers_agree("antwerp art after iconoclasm 1566-1585", "antwerp art after iconoclasm 15661585") is True
+    record = _record(title="La philologie wallonne en 1955", pages=None)
+    item = _item(title="La philologie wallonne en 1964", page=None)
+    assert not accept(score(record, item))
+    misprint = _record(title="Un Liégeois au siège de Rhodes de 1552")
+    assert accept(score(misprint, _item(title="Un Liégeois au siège de Rhodes de 1522")))
+
+
+def test_a_book_keeps_its_place_in_the_open_library_run_after_an_apply():
+    from bhb.openlibrary import books
+
+    looked_up = Record(id="bhb:1", source="print-straive", bgb_year=1980, type="book", title="Een boek", year=1980,
+                       isbn=["9789000000001"], identifiers_from={"isbn": "openlibrary"})
+    from_vabb = Record(id="bhb:2", source="vsmart", bgb_year=2010, type="book", title="Een ander boek", year=2010,
+                       isbn=["9789000000002"], identifiers_from={"isbn": "vabb"})
+    assert [record.id for record in books([looked_up, from_vabb])] == ["bhb:1"]
+
+
+def test_the_plain_answer_is_used_when_the_journal_holds_no_match(monkeypatch):
+    import bhb.identifiers as identifiers
+
+    record = _record()
+    record.source, record.journal_id = "print-straive", "issn:0772-4764"
+    wrong = _item(title="Een heel ander artikel over iets anders", doi="10.1/wrong")
+    right = _item()
+    answers = {True: {"message": {"items": [wrong]}}, False: {"message": {"items": [right, wrong]}}}
+    monkeypatch.setattr(identifiers, "fetch", lambda params, cache: answers["issn:" in params["filter"]])
+    found = identifiers.candidates(record, None)["message"]["items"]
+    assert [item["DOI"] for item in found] == ["10.1/wrong", right["DOI"]]
+    assert best_match(record, {"message": {"items": found}}).accepted
+
+
+def test_a_journal_is_looked_up_under_each_of_its_numbers(monkeypatch):
+    import bhb.identifiers as identifiers
+
+    record = _record()
+    record.source, record.journal_id = "print-straive", "issn:0770-0822"
+    monkeypatch.setattr(identifiers, "_journal_groups", lambda path: {"issn:0770-0822": ["0770-0822", "0774-286X"]})
+    asked = []
+    monkeypatch.setattr(identifiers, "_cached", lambda params, cache: asked.append(params["filter"]) or None)
+    identifiers.candidates(record, None, offline=True)
+    assert [f.rsplit(",", 1)[-1] for f in asked] == ["issn:0770-0822", "issn:0774-286X", "until-pub-date:2018"]
+
+
+def test_a_year_the_parser_took_from_the_title_still_counts():
+    record = _record(title="La philologie Wallonne en", pages=None)
+    record.printed = "Legros (E.). La philologie Wallonne en 1953. B. Comm. R. Toponymie et Dialectologie, XXVIII, 54."
+    assert not accept(score(record, _item(title="La Philologie wallonne en 1952", page=None)))
+    assert accept(score(record, _item(title="La Philologie wallonne en 1953", page=None)))
+
+
+def test_vabb_finds_an_article_whose_subtitle_it_joins_to_the_title():
+    from bhb.vabb import Index, Publication, match
+
+    def pub(pid, title):
+        return Publication(id=pid, type="article", title=title, year=2013, families=["Hogenbirk", "Kestemont"],
+                           container="Tijdschrift voor Nederlandsche taal- en letterkunde", pages="246-273")
+
+    pubs = {"c:1": pub("c:1", "Het werk van een klerk : een stylometrische verkenning van het auteurschap achter 'Der ystorien bloeme'")}
+    pubs.update({f"c:{n}": pub(f"c:{n}", f"Leven en werk {n}") for n in range(2, 9)})
+    record = _record(title="Het werk van een klerk", subtitle="Een stylometrische verkenning van het auteurschap achter Der ystorien bloeme",
+                     family="Hogenbirk", pages="246-273", year=2013)
+    found, _ = match(record, Index(pubs))
+    assert found.accepted and found.their_title.startswith("Het werk van een klerk")
