@@ -5,6 +5,12 @@ and lists suspected OCR errors separately, so nothing it proposes replaces the p
 OpenRouter, only to providers that neither train on nor retain the data, with the model version and prompt pinned;
 every answer is cached in ``build/cache/citations/``.
 
+TO DO before the pilot runs (Mike, 1 Nov 2026; `docs/IMPLEMENTATION_PLAN.md` §5c): this module still sends one
+entry a request. It must send batches of about ten consecutive entries of one section, with the entry before them and
+the section heading as context and the rules' hints (Ibid., split volumes, cross-references), check the answers per
+id, and redo a failed batch entry by entry; and the pilot must compare batches with single entries. The answer key
+should come from the full print runs, balanced by decade, with worked examples in the prompt.
+
 Before a full run, ``bhb citations pilot`` measures a model against an answer key: entries matched to a Crossref DOI,
 whose title, authors, journal, volume, issue, pages and year are known independently of our parser. The parser is
 scored on the same key, so the pilot shows per field whether the model is better, and at what cost.
