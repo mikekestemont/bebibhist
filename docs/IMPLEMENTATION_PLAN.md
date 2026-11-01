@@ -372,6 +372,25 @@ the printed paragraph stays the citation of the host entry, and each contributio
 based split already does. These entries go to the pass whatever their DOI status, since a matched DOI says nothing
 about their contents.
 
+**Series (Mike, 1 Nov 2026).** The pass should also return a book's series title and number apart (most are
+already split: 11,149 entries have a series, 8,181 with a separate number; about 265 still hold a number in the
+title), so the series row is a link to every entry in the series (done on the site through a series field in
+search). Abbreviated series names ("Elseviers histor. biblioth.") should be grouped under their full name, first by
+the rules that group journal spellings (`bhb/journals.py`: a full name, variants, abbreviations that fit one full
+name), then by the pass for what the rules leave. The same entry (`De Lage Landen van Prehistorie tot 1500`, 1978)
+shows another error the pass must correct: the place and publisher ("Sint-Stevens-Woluwe, Elsevier") read as a host,
+so a book is typed "other".
+
+**Themes and periods (Mike, 1 Nov 2026).** The same pass can propose the subject area (theme) and period where they
+are still missing or only suggested by the local classifier: before 1993 a theme is on 14–36 % of the entries, and
+the pre-1993 headings are not yet tied to the scheme. The model is given the title, subtitle, journal or volume, the
+printed section heading and, where one is known, the abstract; it has not read the publications, so it is not asked
+to remember them. Abstracts come through the DOI (Crossref, and OpenAlex's abstract index), for about 10,000 entries,
+so mostly the recent ones; following `docs/DECISIONS.md` they are used for classification and search, and shown only
+where the publisher has opened them (I4OA). Its proposals stay marked as machine-derived, like the classifier's, and
+are checked against the gold sample before they are shown. Odd narrower labels (such as "› l education the
+sciences") are fixed in the scheme, not by the pass.
+
 ## 6. Not in this phase
 
 Places (first version done 31 Oct), language detection (see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for

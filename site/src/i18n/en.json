@@ -21,7 +21,8 @@
     "all": "All text",
     "author": "Author",
     "title": "Title",
-    "host": "Journal / book"
+    "host": "Journal / book",
+    "series": "Series"
   },
   "theme": "Theme",
   "category": "Classification",
@@ -230,6 +231,7 @@
   "orcidFromRegistry": "Found by name in the ORCID registry: the only person of this name, at a Belgian institution. Not checked by hand.",
   "fromVolume": "The ISBN of the collected volume this contribution appeared in, taken from that volume's own entry.",
   "fromOpenLibraryVolume": "The ISBN of the collected volume this contribution appeared in, found automatically in Open Library. Not checked by hand.",
+  "seriesWhy": "Opens every publication in this series.",
   "journalGrouped": "Opens every article in this journal, whatever the spelling. The spellings were grouped automatically and have not been checked by hand.",
   "freeToRead": "open access",
   "freeOpenAlex": "According to OpenAlex, this publication can be read free of charge; the DOI link leads to it. Checked automatically, not by hand.",

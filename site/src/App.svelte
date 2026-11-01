@@ -459,8 +459,8 @@
             authors: label === text.author || label === text.hostEditors,
             orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
             derived: derivedNote(label, meta),
-            container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined),
-            containerTitle: label === text.journal && meta.journalId ? journalNote(meta) : undefined,
+            container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined) || (label === text.series ? seriesLink(meta) : undefined),
+            containerTitle: label === text.journal && meta.journalId ? journalNote(meta) : label === text.series && meta.seriesTitle ? text.seriesWhy : undefined,
             href: identifierLink(label, value),
             free: label === text.doi && meta.free ? (meta.free === "persee" ? text.freePersee : text.freeOpenAlex) : undefined,
           }]
@@ -473,6 +473,11 @@
     const printed = meta.host?.trim() || "";
     const differs = printed && meta.journalTitle && printed.toLowerCase() !== meta.journalTitle.toLowerCase();
     return differs ? `${text.journalPrinted.replace("{title}", printed)} ${text.journalGrouped}` : text.journalGrouped;
+  }
+
+  /** Every entry in the series: a search for its title's words in the series field, newest first. */
+  function seriesLink(meta: Hit["meta"]): string | undefined {
+    return meta.seriesTitle ? `#/search?q=${encodeURIComponent(meta.seriesTitle)}&field=series&sort=pubyear-desc` : undefined;
   }
 
   function seriesLine(meta: Hit["meta"]): string {
@@ -912,6 +917,7 @@
     <option value="author">{text.fields.author}</option>
     <option value="title">{text.fields.title}</option>
     <option value="host">{text.fields.host}</option>
+    <option value="series">{text.fields.series}</option>
   </select>
 {/snippet}
 

@@ -95,6 +95,7 @@ def main(argv: list[str] | None = None) -> None:
     openlib = identifiers_sub.add_parser("openlibrary", help="ISBNs for books from 1970 on from Open Library; write build/identifiers/openlibrary.csv")
     openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
     openlib.add_argument("--hosts", action="store_true", help="the collected volumes of chapters instead: build/identifiers/openlibrary-hosts.csv")
+    identifiers_sub.add_parser("kbr-harvest", help="harvest KBR's Belgian Bibliography (OAI-PMH) into build/external/kbr; resumable")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
@@ -173,6 +174,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "candidates" and args.candidates_command == "vabb":
         _candidates_vabb(args.threshold)
+        return
+    if args.command == "identifiers" and args.identifiers_command == "kbr-harvest":
+        from bhb.kbr import harvest
+
+        fetched = harvest(build_dir() / "external" / "kbr", progress=lambda n: print(f"  page {n}", flush=True))
+        print(f"kbr: {fetched} pages fetched now → {build_dir() / 'external' / 'kbr'}")
         return
     if args.command == "identifiers" and args.identifiers_command == "openlibrary":
         _identifiers_openlibrary_hosts() if args.hosts else _identifiers_openlibrary(args.limit)

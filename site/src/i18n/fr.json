@@ -21,7 +21,8 @@
     "all": "Tout le texte",
     "author": "Auteur",
     "title": "Titre",
-    "host": "Revue ou livre"
+    "host": "Revue ou livre",
+    "series": "Collection"
   },
   "theme": "Thème",
   "category": "Classement",
@@ -230,6 +231,7 @@
   "orcidFromRegistry": "Trouvé par le nom dans le registre ORCID : la seule personne de ce nom, dans une institution belge. Non vérifié à la main.",
   "fromVolume": "L’ISBN du volume collectif où paraît cette contribution, repris de la notice de ce volume.",
   "fromOpenLibraryVolume": "L’ISBN du volume collectif où paraît cette contribution, trouvé automatiquement dans Open Library. Non vérifié à la main.",
+  "seriesWhy": "Affiche toutes les publications de cette collection.",
   "journalGrouped": "Affiche tous les articles de cette revue, quelle que soit la graphie de son titre. Les graphies ont été regroupées automatiquement et n’ont pas été vérifiées à la main.",
   "freeToRead": "libre accès",
   "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",

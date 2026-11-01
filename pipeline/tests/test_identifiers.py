@@ -311,3 +311,15 @@ def test_the_registry_gives_an_orcid_only_for_one_belgian_namesake(tmp_path, mon
     rows[1].update({"given-names": "Jakob"})
     rows[0].update({"institution-name": ["Utrecht University"]})
     assert registry_orcid("Deploige", "Jeroen", tmp_path / "c") is None
+
+
+def test_the_online_issn_alone_places_a_candidate_in_the_journal(monkeypatch):
+    import bhb.identifiers as identifiers
+
+    record = _record()
+    record.source, record.journal_id = "print-straive", "issn:0035-2381"
+    record.host.title = "Rev. d'Hist. eccl."
+    monkeypatch.setattr(identifiers, "_journal_groups", lambda path: {"issn:0035-2381": ["0035-2381", "2294-1088"]})
+    item = _item()
+    item["container-title"], item["ISSN"] = ["Revue d'Histoire Ecclésiastique"], ["22941088"]
+    assert score(record, item)["container"] == 100.0

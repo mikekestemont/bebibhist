@@ -284,8 +284,9 @@ def score(record, item: dict) -> dict[str, float | bool | None]:
         "kind": False if not (record.host and record.host.title) and record.publisher and item.get("type") == "journal-article" else None,
         "author": author,
         "year": abs(year - record.year) <= 1 if year and record.year else None,
-        # A candidate with the ISSN of the article's journal is in that journal, however either side spells it.
-        "container": 100.0 if _journal_issn(record) and _journal_issn(record) in (item.get("ISSN") or [])
+        # A candidate with an ISSN of the article's journal (print or online: one shared number is enough) is in that
+        # journal, however either side spells it.
+        "container": 100.0 if set(journal_issns(record)) & {_normal_issn(number) for number in item.get("ISSN") or []}
         else round(fuzz.partial_ratio(host, container), 1) if host and container else None,
         "page": page == their_page if page and their_page else None,
     }
@@ -550,8 +551,13 @@ OPEN_STATUSES = {"gold", "diamond", "hybrid"}
 OPEN_PLATFORMS = {"10.21825", "10.4000", "10.3917"}
 
 
-def _openalex(params: dict[str, str], cache: Path) -> dict:
-    """One OpenAlex query, from the cache when it was asked before; a timeout or a server error is retried."""
+class OpenAlexLimit(Exception):
+    """OpenAlex's daily allowance (1,000 requests without a key) is spent; it resets after a day."""
+
+
+def _openalex(params: dict[str, str], cache: Path, asked: list[str] | None = None) -> dict:
+    """One OpenAlex query, from the cache when it was asked before; a timeout or a server error is retried. When the
+    daily allowance is spent, ``OpenAlexLimit`` is raised and the callers leave the uncached DOIs for a later run."""
     url = f"{OPENALEX}?{urllib.parse.urlencode(params)}"
     path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
     if path.exists():
@@ -562,13 +568,45 @@ def _openalex(params: dict[str, str], cache: Path) -> dict:
             with urllib.request.urlopen(request, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
             break
+        except urllib.error.HTTPError as error:
+            if error.code == 429:
+                raise OpenAlexLimit from error
+            if attempt == 4:
+                raise
+            time.sleep(5 * (attempt + 1))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
             if attempt == 4:
                 raise
             time.sleep(5 * (attempt + 1))
-    path.write_text(json.dumps(data), encoding="utf-8")
+    path.write_text(json.dumps({**data, "asked": asked or []}), encoding="utf-8")
     time.sleep(1.0)
     return data
+
+
+def _openalex_works(dois: list[str], select: str, cache: Path, counts, batch: int = 50) -> dict[str, dict]:
+    """OpenAlex's works for these DOIs, by DOI. Every answer stored in ``cache`` is read first, whatever batch it
+    came in, so a new DOI does not make the others look new; only DOIs not seen before are asked, 50 a request.
+    When the daily allowance is spent, the rest is left for a later run."""
+    works: dict[str, dict] = {}
+    asked: set[str] = set()
+    cache.mkdir(parents=True, exist_ok=True)
+    for path in cache.glob("*.json"):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        asked.update(data.get("asked") or [])
+        for work in data.get("results") or []:
+            works[(work.get("doi") or "").lower().replace("https://doi.org/", "")] = work
+    missing = [doi for doi in dois if doi not in works and doi not in asked]
+    for start in range(0, len(missing), batch):
+        chunk = missing[start:start + batch]
+        params = {"filter": "doi:" + "|".join(chunk), "select": select, "per-page": str(batch)}
+        try:
+            data = _openalex(params, cache, asked=chunk)
+        except OpenAlexLimit:
+            counts["dois left for a later run (openalex limit)"] += len(missing) - start
+            break
+        for work in data.get("results") or []:
+            works[(work.get("doi") or "").lower().replace("https://doi.org/", "")] = work
+    return {doi: works[doi] for doi in dois if doi in works}
 
 
 def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
@@ -585,13 +623,8 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
     status: dict[str, str] = {}
     dois = sorted({record.doi for record in with_doi})
     cache.mkdir(parents=True, exist_ok=True)
-    for start in range(0, len(dois), batch):
-        chunk = dois[start:start + batch]
-        params = {"filter": "doi:" + "|".join(chunk), "select": "doi,open_access", "per-page": str(batch)}
-        data = _openalex(params, cache)
-        for work in data.get("results") or []:
-            doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
-            status[doi] = (work.get("open_access") or {}).get("oa_status") or "closed"
+    for doi, work in _openalex_works(dois, "doi,open_access", cache, counts, batch).items():
+        status[doi] = (work.get("open_access") or {}).get("oa_status") or "closed"
     for record in with_doi:
         prefix = FREE_PREFIXES.get(record.doi.split("/")[0])
         if prefix:
@@ -629,15 +662,10 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
     dois = sorted({record.doi for record in recent if record.doi})
     authorships: dict[str, list[tuple[str, str]]] = {}
     cache.mkdir(parents=True, exist_ok=True)
-    for start in range(0, len(dois), batch):
-        chunk = dois[start:start + batch]
-        params = {"filter": "doi:" + "|".join(chunk), "select": "doi,authorships", "per-page": str(batch)}
-        data = _openalex(params, cache)
-        for work in data.get("results") or []:
-            doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
-            authorships[doi] = [(authorship.get("raw_author_name") or (authorship.get("author") or {}).get("display_name") or "",
-                                 (authorship.get("author") or {}).get("orcid") or "")
-                                for authorship in work.get("authorships") or []]
+    for doi, work in _openalex_works(dois, "doi,authorships", cache, counts, batch).items():
+        authorships[doi] = [(authorship.get("raw_author_name") or (authorship.get("author") or {}).get("display_name") or "",
+                             (authorship.get("author") or {}).get("orcid") or "")
+                            for authorship in work.get("authorships") or []]
     for record in recent:
         for person in record.persons:
             for name, orcid in authorships.get(record.doi or "", []):

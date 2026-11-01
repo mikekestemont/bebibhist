@@ -49,6 +49,7 @@ class Publication:
     issn: list[str] = field(default_factory=list)
     disciplines: list[str] = field(default_factory=list)
     language: str = ""
+    series: str = ""
 
     def as_item(self) -> dict:
         """The publication as a Crossref item, for ``bhb.identifiers.score``."""
@@ -108,6 +109,7 @@ def load(root: Path) -> dict[str, Publication]:
                 container=row.get("vabb_publications_booktitle") or row.get("vabb_publications_proceedings_title") or "",
                 doi=normalise_doi(row.get("vabb_publications_doi")),
                 language=row.get("vabb_publications_language") or "",
+                series=row.get("vabb_publications_bookseries") or "",
             )
             if not pubs[pid].container and pubs[pid].type == "article":
                 pubs[pid].container = row.get("vabb_publications_pubjour") or ""
@@ -119,6 +121,8 @@ def load(root: Path) -> dict[str, Publication]:
                 pub.disciplines.append(label)
         for row in _rows(folder / "vabb_containers.csv"):
             pub = pubs.get(row["vabb_publications_id"])
+            if pub and not pub.series and row["vabb_containers_type"] == "Book Series":
+                pub.series = row["vabb_containers_value"]
             if pub and not pub.container and row["vabb_containers_type"] in ("Book Title", "Proceedings Title"):
                 pub.container = row["vabb_containers_value"]
         for row in _rows(folder / "vabb_additionalid.csv"):

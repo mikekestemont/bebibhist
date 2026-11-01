@@ -228,7 +228,7 @@ function yearOf(value) {
 
 function fieldTokens(record) {
   const authors = (record.persons || []).map((person) => [person.family, person.given].filter(Boolean).join(" ")).join(" ");
-  return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title)].filter(Boolean).join(" ");
+  return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
 }
 
 function prefixed(tag, text) {

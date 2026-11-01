@@ -309,13 +309,13 @@ export function foldQuery(query: string): string {
   return query.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
-export type SearchField = "all" | "author" | "title" | "host";
+export type SearchField = "all" | "author" | "title" | "host" | "series";
 
 /** A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would drop every Laure. */
 export function searchQuery(query: string, field: SearchField = "all"): string {
   const words = foldQuery(query).replace(/-/g, " ").split(/\s+/).filter(Boolean);
   if (field === "all") return words.join(" ");
-  const tag = field === "author" ? "au" : field === "title" ? "ti" : "in";
+  const tag = field === "author" ? "au" : field === "title" ? "ti" : field === "series" ? "se" : "in";
   return words.map((word) => `${tag}_${word}`).join(" ");
 }
 
@@ -457,10 +457,15 @@ export async function relatedByMeaning(
     .slice(0, limit);
 }
 
+/** Above this many hits the strict search is skipped: it is the slow one, since a function word ("de", "la") is
+ * on most entries, and among thousands of hits its ordering adds little. */
+export const STRICT_LIMIT = 2000;
+
 /**
  * Every word must match in Pagefind, so a search runs twice, as an engine with optional terms would rank it: the
  * hits with all the words first, in their own order, then the hits that miss only function words. The looser
- * search holds both, so its filter counts are the counts of the merged list. A sorted list is the looser one.
+ * search holds both, so its filter counts are the counts of the merged list. A sorted list is the looser one; so is
+ * a list of more than ``STRICT_LIMIT`` hits.
  */
 export async function searchBoth(
   pagefind: Pagefind,
@@ -469,8 +474,9 @@ export async function searchBoth(
   options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
 ): Promise<SearchResponse> {
   if (!loose || loose === strict) return pagefind.search(strict, options);
-  const [all, more] = await Promise.all([pagefind.search(strict, options), pagefind.search(loose, options)]);
-  if (options.sort) return more;
+  const more = await pagefind.search(loose, options);
+  if (options.sort || more.results.length > STRICT_LIMIT) return more;
+  const all = await pagefind.search(strict, options);
   const first = new Set(all.results.map((result) => result.id));
   return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], filters: more.filters };
 }

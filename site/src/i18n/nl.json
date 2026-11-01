@@ -21,7 +21,8 @@
     "all": "Alle tekst",
     "author": "Auteur",
     "title": "Titel",
-    "host": "Tijdschrift of boek"
+    "host": "Tijdschrift of boek",
+    "series": "Reeks"
   },
   "theme": "Thema",
   "category": "Classificatie",
@@ -230,6 +231,7 @@
   "orcidFromRegistry": "Op naam gevonden in het ORCID-register: de enige persoon met deze naam, aan een Belgische instelling. Niet met de hand gecontroleerd.",
   "fromVolume": "Het ISBN van de bundel waarin deze bijdrage verscheen, overgenomen van de beschrijving van die bundel.",
   "fromOpenLibraryVolume": "Het ISBN van de bundel waarin deze bijdrage verscheen, automatisch gevonden in Open Library. Niet met de hand gecontroleerd.",
+  "seriesWhy": "Toont alle publicaties in deze reeks.",
   "journalGrouped": "Toont alle artikels in dit tijdschrift, hoe de naam ook gespeld is. De spellingen werden automatisch gegroepeerd en niet met de hand gecontroleerd.",
   "freeToRead": "open access",
   "freeOpenAlex": "Volgens OpenAlex is deze publicatie gratis te lezen; de DOI-link leidt ernaartoe. Automatisch nagegaan, niet met de hand.",
