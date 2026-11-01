@@ -272,7 +272,6 @@ handelingen van de koninklijke kring voor oudheidkunde letteren en kunst van mec
 jaarboek provinciale commissie voor geschiedenis en volkskunde antwerpen,t:jaarboek-provinciale-commissie-voor-geschiedenis-en-volkskun,full,71
 les cahiers de la fonderie,t:les-cahiers-de-la-fonderie,full,70
 bull soc r le vieux liege,t:bulletin-de-la-societe-royale-le-vieux-liege,abbreviation,70
-bruxelles,issn:0008-9664,issn,69
 wt wetenschappelijke tijdingen op het gebied van de geschiedenis van de vlaamse beweging voortgezet als continue par wetenschappelijke tijdingen,issn:0774-532X,issn,69
 rollariensia,t:rollariensia,full,69
 oud ruysselede ruiselede,t:oud-ruysselede,variant,69
@@ -302,6 +301,7 @@ bulletin de l institut archeologique liegeois,t:bulletin-de-l-institut-archeolog
 limes gatia,t:limes-gatia,full,63
 de spycker jaarboek essen,t:de-spycker,variant,63
 tijdschrift voor industriele cultuur gent,t:tijdschrift-voor-industriele-cultuur-gent,full,63
+bruxelles,issn:0008-9664,issn,62
 meer schoonheid,t:meer-schoonheid,full,62
 carnet de la fourragere,t:carnet-de-la-fourragere,full,62
 bijdragen tot de geschiedenis der stad deinze en van het land aan leie en schelde,t:bijdragen-tot-de-geschiedenis-der-stad-deinze-en-van-het-lan,full,62
@@ -513,7 +513,6 @@ ann du c d h et d archeol de saint ghislain et de la region,t:annales-du-cercle-
 cercle histor de fleron,t:cercle-historique-de-fleron-bulletin-trimestriel,abbreviation,36
 paedagogica historica,issn:0030-9230,issn,35
 archives vervietoises,t:archives-vervietoises,full,35
-brussel,t:brussel,full,35
 tablettes du hainaut,t:tablettes-du-hainaut,full,35
 annales du comite flamand de france,t:annales-du-comite-flamand-de-france,full,35
 folklore brabancon,t:folklore-brabancon,full,35
@@ -526,6 +525,7 @@ ts voor rechtsgesch,issn:0040-7585,issn,34
 noordbrabants historisch jaarboek,issn:0923-5817,issn,34
 dutch crossing,issn:0309-6564,issn,34
 cahiers marxistes,issn:0591-0633,issn,34
+brussel,t:brussel,full,34
 toerisme oost vlaanderen,t:toerisme-oost-vlaanderen,full,34
 maisons d hier et d aujourd hui,t:maisons-d-hier-et-d-aujourd-hui,full,34
 liber amicorum achiel de vos,t:liber-amicorum-achiel-de-vos,full,34
@@ -640,7 +640,6 @@ bull trim de l instit archeol du luxembourg,t:bulletin-trimestriel-de-l-institut
 rev b de musicologie,issn:0771-6788,issn,27
 quaerendo,issn:0014-9527,issn,27
 et sur le xviii s,issn:0035-1601,issn,27
-gent,issn:1370-7477,issn,27
 bulletin de la commission royale d histoire handelingen van de koninklijke commissie voor geschiedenis bruxelles brussel,issn:0001-415X,issn,27
 tijdschrift voor geschiedenis groningen,issn:0040-7518,issn,27
 nederlands kunsthistorisch jaarboek,issn:0169-6726,issn,27
@@ -676,6 +675,7 @@ bulletin d information du centre liegeois d histoire et d archeologie militaires
 les cahiers de la fonderie revue d histoire sociale et industrielle de la region bruxelloise,t:les-cahiers-de-la-fonderie-revue-d-histoire-sociale-et-indus,full,26
 h et archeologie spadoises,t:histoire-et-archeologie-spadoises,abbreviation,26
 rev d h du droit,issn:0040-7585,issn,25
+gent,issn:1370-7477,issn,25
 tijdschrift voor sociale geschiedenis amsterdam,issn:0303-9935,issn,25
 the burlington magazine,issn:0007-6287,issn,25
 revue belge d archeologie et d histoire de l art,issn:0035-077X,issn,25
@@ -817,7 +817,6 @@ medieval and modern matters,issn:2032-8192,issn,20
 publications du centre europeen d etudes bourguignonnes,issn:1016-4286,issn,20
 oost vlaamse zanten,t:oost-vlaamse-zanten,full,20
 bijdragen tot de geschiedenis,t:bijdragen-tot-de-geschiedenis,full,20
-brugge,t:brugge,full,20
 revue internationale d histoire militaire,t:revue-internationale-d-histoire-militaire,full,20
 haec olim,t:haec-olim,full,20
 etudes ardennaises,t:etudes-ardennaises,full,20
@@ -884,6 +883,7 @@ tydskrif vir nederlands en afrikaans,issn:1022-6966,issn,18
 c hiers du crhidi,issn:1370-2262,issn,18
 les cahiers lorrains,t:les-cahiers-lorrains,full,18
 la revue nationale,t:la-revue-nationale,full,18
+brugge,t:brugge,full,18
 la nouvelle revue wallonne,t:la-nouvelle-revue-wallonne,full,18
 zeitschrift des aachener geschichtsvereins,t:zeitschrift-des-aachener-geschichtsvereins,full,18
 le scalpel,t:le-scalpel,full,18
@@ -1045,8 +1045,8 @@ ann du cercle d h et d archeol de saint ghislain et de la region,t:annales-du-ce
 de spycker essen,t:de-spycker,abbreviation,14
 bull de la soc d h et d archeol du plateau de herve,t:bulletin-de-la-societe-d-histoire-et-d-archeologie-du-platea,abbreviation,14
 annuaire de l assoc luxembourgeoise de genealogie et d heraldique,t:annuaire-de-l-association-luxembourgeoise-de-genealogie-et-d,abbreviation,14
-rev d hist du droit,issn:0040-7585,issn,13
 rev du nord lille,issn:0035-2624,issn,13
+rev d hist du droit,issn:0040-7585,issn,13
 rev hist droit,issn:0040-7585,issn,13
 journal of contemporary history,issn:0022-0094,issn,13
 le mouvement social,issn:0027-2671,issn,13
@@ -1080,13 +1080,13 @@ bull de la comm r pour la publ des anciennes lois et ordonnances de b,issn:1378-
 heem en oudheidk kr wichelen,t:heem-en-oudheidkundige-kring-wichelen,abbreviation,12
 de franse nederlanden les pays bas francais,t:de-franse-nederlanden-jaarboek-les-pays-bas-francais-annales,abbreviation,12
 jb van de geschied en heemk kr houtland torhout,issn:0774-532X,abbreviation,12
+handel van het genootsch voor gesch te brugge,issn:0770-0822,issn,11
 rev belg de philol et d h,issn:0035-0818,issn,11
 revue theologique de louvain louvain la neuve,issn:0080-2654,issn,11
 lias amsterdam,issn:0304-0003,issn,11
 histoire urbaine,issn:1628-0482,issn,11
 trajecta tijdschrift voor de geschiedenis van het katholieke leven in de nederlanden,issn:0778-8304,issn,11
 journal of multilingual and multicultural development,issn:0143-4632,issn,11
-handel van het genootsch voor gesch te brugge,issn:0770-0822,abbreviation,11
 bull de la comm r des anciennes lois et ordonnances de belgique,issn:1378-2282,abbreviation,11
 gulden passer,issn:0777-5067,abbreviation,11
 annales du cercle hutois des sciences et beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,11
@@ -1129,6 +1129,7 @@ de negentiende eeuw documentatieblad werkgroep 19 eeuw leiden,issn:1381-8546,abb
 heemk vereniging de gonde,t:heemkundige-vereniging-de-gonde,abbreviation,10
 gedenkschriften oudheidk kr van het land van dendermonde 4de reeks,t:gedenkschriften-oudheidkundige-kring-van-het-land-van-dender,abbreviation,10
 limburg het oude land van loon,t:limburg-het-oude-land-van-loon-hasselt,abbreviation,10
+r du nord,issn:0035-2624,issn,9
 annales economies societes civilisations,issn:0395-2649,issn,9
 rev d h moderne et contemporaine,issn:0048-8003,issn,9
 ann de demographie histor,issn:0066-2062,issn,9
@@ -1150,7 +1151,6 @@ histoire monde et cultures religieuses,issn:1957-5246,issn,9
 history compass,issn:1478-0542,issn,9
 relations internationales,issn:0335-2013,issn,9
 acta chirurgica belgica,issn:0001-5458,issn,9
-r du nord,issn:0035-2624,abbreviation,9
 rev d hist eccles,issn:0035-2381,abbreviation,9
 annales c arch soignies,t:annales-du-cercle-archeologique-du-canton-de-soignies,abbreviation,9
 bull inst historique belge de rome,issn:2031-7190,abbreviation,9
@@ -1268,6 +1268,8 @@ bijdr tot de eigentijdse gesch,issn:1370-7876,abbreviation,7
 cahiers d h du temps present,t:cahiers-d-histoire-du-temps-present,abbreviation,7
 cahiers d histoire du temps present bijdragen tot de eigentijdse geschiedenis,issn:1370-7876,abbreviation,7
 septentrion arts lettres et culture de flandre et de pays bas,t:septentrion-arts-lettres-et-culture-de-flandre-et-de-pays-ba,abbreviation,7
+bull comm roy d hist,issn:0001-415X,issn,6
+hand soc d emulation brugge,issn:0770-0822,issn,6
 hand societe d emulation te brugge,issn:0770-0822,issn,6
 bull comm royale histoire,issn:0001-415X,issn,6
 cahiers de civilisation medievale poitiers,issn:0007-9731,issn,6
@@ -1303,10 +1305,8 @@ bulletin van de konijnklijke nederlandse oudheidkundige bond,issn:0166-0470,issn
 quaternary international,issn:1040-6182,issn,6
 signum,issn:2177-7306,issn,6
 bossche bijdr,t:bossche-bijdragen,abbreviation,6
-bull comm roy d hist,issn:0001-415X,abbreviation,6
 rev gen belge,t:revue-generale-belge,abbreviation,6
 nouvelle revue wallonne,t:la-nouvelle-revue-wallonne,abbreviation,6
-hand soc d emulation brugge,issn:0770-0822,abbreviation,6
 bijdragen tot de gesch der stad deinze en van het land aan leie en schelde,t:bijdragen-tot-de-geschiedenis-der-stad-deinze-en-van-het-lan,abbreviation,6
 anciens pays et assemblees d etat,issn:0013-0117,abbreviation,6
 bull inst hist belge de rome,issn:2031-7190,abbreviation,6
@@ -1331,16 +1331,16 @@ hand kon zuidnederlandse mij voor taal en l en gesch,issn:0774-3254,abbreviation
 hand van de geschied en oudh kr van oudenaarde van zijn kastelnij en van den lande tusschen maercke en ronne,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,6
 hand zottegems genootschap voor gesch en oudh,t:handelingen-van-het-zottegems-genootschap-voor-geschiedenis-,abbreviation,6
 lindeblad periodieke uitgave van heemkr de linde,t:lindeblad-periodieke-uitgave-van-heemkring-de-linde-olen,abbreviation,6
+revue belge de phil et d hist,issn:0035-0818,issn,5
+the economic history review,issn:0013-0117,issn,5
+population,issn:0032-4663,issn,5
 bulletin de la commission royale de toponymie et dialectologie,issn:0774-8396,issn,5
 rev belge philol et histoire,issn:0035-0818,issn,5
 bull comm r de toponymie et dialectologie,issn:0774-8396,issn,5
 handelingen societe d emulation te brugge,issn:0770-0822,issn,5
-revue belge de phil et d hist,issn:0035-0818,issn,5
-the economic history review,issn:0013-0117,issn,5
 bull comm r d h,issn:0001-415X,issn,5
 mitteilungen des instituts fur osterreichische geschichtsforschung,issn:0073-8484,issn,5
 ac r de belgique bull de la comm r d h,issn:0001-415X,issn,5
-population,issn:0032-4663,issn,5
 bull de la cl des l et sc mor et pol ac r de belgique,issn:0001-4133,issn,5
 nederlands arch voor kerkgesch leiden,issn:0028-2030,issn,5
 ts voor sociologie,issn:0777-883X,issn,5
@@ -1404,14 +1404,14 @@ bijdr tot de eigent gesch,issn:1370-7876,abbreviation,5
 archiefleven nieuwsbrief van het stadsarchief van brugge,t:archiefleven-nieuwsbrief-van-het-stadsarchief-van-brugge-bru,abbreviation,5
 westhoek tijdschrift voor geschiedenis en familiekunde in de vlaamse en de franse westhoek,t:westhoek-tijdschrift-voor-geschiedenis-en-familiekunde-in-de,abbreviation,5
 1 et 2 l antiquite classique,issn:0770-2817,issn,4
+handel soc d emul te brugge,issn:0770-0822,issn,4
+bibliotheque de l ecole des chartes,issn:0373-6237,issn,4
 bull de la comm royale de toponymie et dialectologie,issn:0774-8396,issn,4
 the journal of modern history,issn:0022-2801,issn,4
 revue belge de philologie et d hist,issn:0035-0818,issn,4
 hand mij gesch en oudheidk gent nieuwe reeks,issn:0770-0822,issn,4
-bibliotheque de l ecole des chartes,issn:0373-6237,issn,4
 handelingen van het genootsch voor gesch soc d emul te brugge,issn:0770-0822,issn,4
 utrecht antwerpen het spectrum,issn:0013-0117,issn,4
-s gravenhage,issn:0013-0117,issn,4
 rev belge de phil et d hist,issn:0035-0818,issn,4
 revue historique de l armee,issn:0035-3299,issn,4
 bull commission royale d histoire,issn:0001-415X,issn,4
@@ -1502,7 +1502,6 @@ b trim inst arch du luxembourg,t:bulletin-trimestriel-de-l-institut-archeologiqu
 hand oudh kring oudenaarde,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,4
 arch bibl et musees de belg,t:archives-bibliotheques-et-musees-de-belgique,abbreviation,4
 bijdragen voor de gesch der nederlanden,issn:0165-0505,abbreviation,4
-handel soc d emul te brugge,issn:0770-0822,abbreviation,4
 ann de l inst archeol du luxembourg,t:annales-de-l-institut-archeologique-du-luxembourg-arlon,abbreviation,4
 revue d hist eccles,issn:0035-2381,abbreviation,4
 bull inst histor belge de rome,issn:2031-7190,abbreviation,4
@@ -1550,17 +1549,23 @@ le souvenir perwezien bulletin du cercle historique et archeologique de perwez e
 bulletin d information du centre liegeois d histoire et d archeologie militaires clham,t:bulletin-d-information-du-centre-liegeois-d-histoire-et-d-ar,abbreviation,4
 hogt haachts oudheid en geschiedkundig tijdschrift,t:hogt-haachts-oudheid-en-geschiedkundig-tijdschrift-hogt,abbreviation,4
 hemecht zeitschrift fur luxemburger geschichte revue d histoire luxembourgeoise,t:hemecht-zeitschrift-fur-luxemburger-geschichte-revue-d-histo,abbreviation,4
+antiquite classique,issn:0770-2817,issn,3
+b comm r hist belgique,issn:0001-415X,issn,3
+hand van de kon comm voor toponymie en dialectologie,issn:0774-8396,issn,3
+handel v d soc d emul te brugge,issn:0770-0822,issn,3
+hand mij voor gesch en oudheidk te gent,issn:0770-0822,issn,3
+ts voor rechtsgeschiedenis,issn:0040-7585,issn,3
 r belge phil et histoire,issn:0035-0818,issn,3
 bull comm r hist,issn:0001-415X,issn,3
 romania,issn:0035-8029,issn,3
 bull comm r toponymie et dialectologie,issn:0774-8396,issn,3
 the american historical review,issn:0002-8762,issn,3
 handelingen maatschappij geschiedenis oudheidkunde gent,issn:0770-0822,issn,3
-hand mij voor gesch en oudheidk te gent,issn:0770-0822,issn,3
 traditio,issn:0362-1529,issn,3
 handelingen der mij voor gesch en oudheidk te gent nieuwe reeks,issn:0770-0822,issn,3
 handelingen zuidned mij voor taal en letterk en gesch,issn:0774-3254,issn,3
 hand maatsch gesch oudh gent n s,issn:0770-0822,issn,3
+s gravenhage,issn:0013-0117,issn,3
 fabula,issn:0014-6242,issn,3
 hand soc emulation te brugge,issn:0770-0822,issn,3
 rev belge phil histoire,issn:0035-0818,issn,3
@@ -1595,9 +1600,7 @@ archiv fur diplomatik schriftgeschichte siegel und wappenkunde,issn:0066-6297,is
 handelingen van het genootschap voor geschiedenis,issn:0770-0822,issn,3
 fruhmittelalterliche studien,issn:0071-9706,issn,3
 annales de demographie histor,issn:0066-2062,issn,3
-ts voor rechtsgeschiedenis,issn:0040-7585,issn,3
 simiolus netherlandish quarterly for the h of art,issn:0037-5411,issn,3
-hand van de kon comm voor toponymie en dialectologie,issn:0774-8396,issn,3
 bijdragen en mededelingen betreffende de geschiedenis der nederlanden den haag,issn:0165-0505,issn,3
 journal of medieval history amsterdam,issn:0304-4181,issn,3
 nederlands archief voor kerkgeschiedenis dutch review of church history leiden,issn:0028-2030,issn,3
@@ -1631,7 +1634,7 @@ bijdragen tot de eigentijdse geschiedenis,issn:1370-7876,issn,3
 explorations in economic history,issn:0014-4983,issn,3
 revue d histoire de la shoah,issn:2111-885X,issn,3
 academie royale de belgique bulletin de la classe des sciences serie 6 bruxelles,issn:0001-4133,issn,3
-revue d histoire de l enfance,issn:1962-9419,issn,3
+revue d histoire de l enfance,issn:1287-2431,issn,3
 millennium tijdschrift voor middeleeuwse studies,issn:0922-0887,issn,3
 bulletin de la commission royale d histoire handelingen van de koninklijke commissie voor geschiedenis,issn:0001-415X,issn,3
 international journal of maritime history,issn:0843-8714,issn,3
@@ -1676,12 +1679,9 @@ revista de estudios historicos de la masoneria latinoamericana y caribena,issn:1
 revue internationale de politique comparee,issn:1370-0731,issn,3
 germanistische mitteilungen,issn:0771-3703,issn,3
 bulletin trimestriel de la fondation auschwitz,issn:2031-4183,issn,3
-antiquite classique,issn:0770-2817,abbreviation,3
 r diocesaine de namur,t:revue-diocesaine-de-namur,abbreviation,3
 b inst hist belge de rome,issn:2031-7190,abbreviation,3
-b comm r hist belgique,issn:0001-415X,abbreviation,3
 collat brugenses,t:collationes-brugenses-et-gandavenses,abbreviation,3
-handel v d soc d emul te brugge,issn:0770-0822,abbreviation,3
 bull comm r des anciennes lois et ordonnances,issn:1378-2282,abbreviation,3
 bull comm r anciennes lois et ordonnances de belgique,issn:1378-2282,abbreviation,3
 ann c archeol d enghien,t:annales-du-cercle-archeologique-d-enghien,abbreviation,3
@@ -1769,18 +1769,26 @@ les cahiers de la memoire contemporaine i,issn:1377-1256,abbreviation,3
 les cahiers de l urbanisme,t:les-cahiers-de-l-urbanisme-liege,abbreviation,3
 le nouvelles du patrimoine,t:les-nouvelles-du-patrimoine-bruxelles,abbreviation,3
 monumenten landschappen en archeologie,issn:0770-4984,abbreviation,3
+b comm topon belge,issn:0774-8396,issn,2
+rev belge philologie hist bruxelles,issn:0035-0818,issn,2
+revue internationale d onomastique,issn:0048-8151,issn,2
+b commission r toponymie et dialectologie bruxelles,issn:0774-8396,issn,2
+b c r h,issn:0001-415X,issn,2
+r belge philologie et hist,issn:0035-0818,issn,2
+hand der mij voor gesch en oudheidk te gent,issn:0770-0822,issn,2
+revue d hist du droit,issn:0040-7585,issn,2
+bull monumental paris,issn:0007-473X,issn,2
+population paris,issn:0032-4663,issn,2
 revue philosophique de louvain,issn:0035-3841,issn,2
 hand mij gesch en oudheidkunde gent nieuwe reeks dl,issn:0770-0822,issn,2
 bull de la comm royale d hist,issn:0001-415X,issn,2
 handelingen maatschappij geschiedenis en oudheidkunde gent,issn:0770-0822,issn,2
 tijdschrift voor sociale wetenschappen,issn:0040-7615,issn,2
-revue internationale d onomastique,issn:0048-8151,issn,2
 the musical quarterly,issn:0027-4631,issn,2
 rev belge de philologie et d hist bruxelles,issn:0035-0818,issn,2
 anal bollandiana,issn:0003-2468,issn,2
 bibl ecole chartes,issn:0373-6237,issn,2
 b comm royale d hist,issn:0001-415X,issn,2
-rev belge philologie hist bruxelles,issn:0035-0818,issn,2
 handel zuidned mij voor taal en letterkunde en geschied,issn:0774-3254,issn,2
 b i recherches economiques sociales louvain 24 ann,issn:1373-9719,issn,2
 rev b philol h,issn:0035-0818,issn,2
@@ -1794,7 +1802,6 @@ rev belge de phil et d histoire,issn:0035-0818,issn,2
 revue hist armee,issn:0035-3299,issn,2
 bull comm roy hist bruxelles,issn:0001-415X,issn,2
 handelingen mij gesch en oudh gent,issn:0770-0822,issn,2
-population paris,issn:0032-4663,issn,2
 journal of african history,issn:0021-8537,issn,2
 bull cl lettres academie royale de belgique 5 s,issn:0001-4133,issn,2
 jahrbuch fur wirtschaftsgeschichte,issn:0075-2800,issn,2
@@ -1879,7 +1886,6 @@ logos,issn:0957-9656,issn,2
 paedagogica historica international jr of the h of education,issn:0030-9230,issn,2
 paedagogica historica international journal of the h of education,issn:0030-9230,issn,2
 jb der berliner museen,issn:0075-2207,issn,2
-bull monumental paris,issn:0007-473X,issn,2
 comptes rendus des seances de l ac des inscriptions et belles lettres paris,issn:0065-0536,issn,2
 b ts voor fil en gesch,issn:0035-0818,issn,2
 european h quarterly,issn:0265-6914,issn,2
@@ -1928,7 +1934,6 @@ french colonial history,issn:1539-3402,issn,2
 population studies,issn:0032-4728,issn,2
 european journal of the history of economic thought,issn:0967-2567,issn,2
 histoire mesure,issn:0982-1783,issn,2
-history of education quarterly,issn:0046-760X,issn,2
 knowledge organization,issn:0943-7444,issn,2
 handelingen koninklijke zuid nederlandse maatschappij voor taal en letterkunde en geschiedenis,issn:0774-3254,issn,2
 environmental history,issn:1084-5453,issn,2
@@ -2038,9 +2043,6 @@ r medicale de liege,t:revue-medicale-de-liege,abbreviation,2
 b de la soc des bibliophiles liegeois,t:bulletin-de-la-societe-des-bibliophiles-liegeois-liege,abbreviation,2
 ann du c arch de soignies,t:annales-du-cercle-archeologique-du-canton-de-soignies,abbreviation,2
 r d histoire du droit,issn:0040-7585,abbreviation,2
-r belge philologie et hist,issn:0035-0818,abbreviation,2
-hand der mij voor gesch en oudheidk te gent,issn:0770-0822,abbreviation,2
-revue d hist du droit,issn:0040-7585,abbreviation,2
 ann du cercle hutois des sc et b a,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,2
 bijdr voor de g der nederl,issn:0165-0505,abbreviation,2
 revue gen belge,t:revue-generale-belge,abbreviation,2
@@ -2133,6 +2135,7 @@ cercle culturel de ciney,t:cercle-culturel-cinacien,abbreviation,2
 oud ruiselede,t:oud-ruysselede,abbreviation,2
 bull du cercle art et hist de gembloux et environs,t:bulletin-du-cercle-royal-art-et-histoire-de-gembloux-et-envi,abbreviation,2
 cahiers de la fonderie,t:les-cahiers-de-la-fonderie,abbreviation,2
+history of education quarterly,issn:0018-2680,abbreviation,2
 rond de stenen linde,t:rond-de-stenen-linde-schellebelle,abbreviation,2
 bull inst archeol luxembourg,t:bulletin-trimestriel-de-l-institut-archeologique-du-luxembou,abbreviation,2
 cercle historique de fleron,t:cercle-historique-de-fleron-bulletin-trimestriel,abbreviation,2
@@ -2174,10 +2177,42 @@ vlaanderen tweemaandelijks tijdschrift voor kunst en cultuur,t:vlaanderen-tweema
 publications de la societe historique et archeologique dans le limbourg jaarboek van limburgs geschied en oudheidkundig genootschap,t:publications-de-la-societe-historique-et-archeologique-dans-,abbreviation,2
 ons landen erfdeel,t:ons-landens-erfdeel,abbreviation,2
 les nouvelles du patrimoine,t:les-nouvelles-du-patrimoine-bruxelles,abbreviation,2
+handel m voor gesch en oudheidk te gent,issn:0770-0822,issn,1
+handel der mij voor gesch en oudheidk te gent,issn:0770-0822,issn,1
+b monumental,issn:0007-473X,issn,1
+r belge phil hist,issn:0035-0818,issn,1
+r benedictine,issn:0035-0893,issn,1
+b de la commiss roy d hist,issn:0001-415X,issn,1
 ts voor rechtsgesch r d hist du droit,issn:0040-7585,issn,1
 r belge philologie histoire bruxelles,issn:0035-0818,issn,1
+engl hist r,issn:0013-8266,issn,1
+r b de phil et d hist,issn:0035-0818,issn,1
+r belge de phil et d hist,issn:0035-0818,issn,1
+handel soc d emulation brugge,issn:0770-0822,issn,1
+handel soc d emul brugge,issn:0770-0822,issn,1
+zs fur kunstgesch,issn:0044-2992,issn,1
+rev belge de philologie et hist bruxelles,issn:0035-0818,issn,1
+hand soc d emul de bruges xc,issn:0770-0822,issn,1
+revue francaise de science politique,issn:0035-2950,issn,1
+the journal of modem history,issn:0022-2801,issn,1
+b comm r toponymie et dialectologie bruxelles,issn:0774-8396,issn,1
+hand kon comm toponymie en dialectologie,issn:0774-8396,issn,1
 b comm r toponymie et dialectologie,issn:0774-8396,issn,1
+antiquite classique bruxelles,issn:0770-2817,issn,1
 archivum latinitatis medii aevi xxiv,issn:0994-8090,issn,1
+hand v gesch en oudheidk gent,issn:0770-0822,issn,1
+handelingen soc emulation bruges cxi,issn:0770-0822,issn,1
+hand soc d emmulation brugge,issn:0770-0822,issn,1
+b commiss r d hist cxix,issn:0001-415X,issn,1
+rev ben,issn:0035-0893,issn,1
+i ii analecta bollandiana,issn:0003-2468,issn,1
+bull coram r d hist,issn:0001-415X,issn,1
+the antiquaries journal d oxford t,issn:0003-5815,issn,1
+bull comm r d hist xcix,issn:0001-415X,issn,1
+les decanats dans l eveche de bruges hand soc d emulat te brugge,issn:0770-0822,issn,1
+hand soc d emulat brugge,issn:0770-0822,issn,1
+bull cl beaux arts de l acad r de belgique xxxv,issn:0378-0716,issn,1
+b i rech economiques et sociales louvain,issn:1373-9719,issn,1
 archivum latinitatis medii aevi bulletin du cange paris et bruxelles,issn:0994-8090,issn,1
 1410 et 1576 revue du nord,issn:0035-2624,issn,1
 handel gen gesch soc d emul brugge,issn:0770-0822,issn,1
@@ -2216,6 +2251,8 @@ archivum latinit medii aevi,issn:0994-8090,issn,1
 new jersey rutgers univ press,issn:0002-8762,issn,1
 gent oostvlaams verbond kringen geschiedenis,issn:0770-0822,issn,1
 comm royale histoire,issn:0001-415X,issn,1
+french studies,issn:0016-1128,issn,1
+hand mij voor gesch en oudheidk te gent n r,issn:0770-0822,issn,1
 rev nord lille 39 ann,issn:0035-2624,issn,1
 hand gen gesch soc de l emul te brugge,issn:0770-0822,issn,1
 bulletin de la classe des beaux arts de l academie,issn:0378-0716,issn,1
@@ -2490,6 +2527,7 @@ deviance et societe geneve,issn:0378-7931,issn,1
 analecta bollandiana c,issn:0003-2468,issn,1
 rev interdisciplinaire d et juridiques,issn:0770-2310,issn,1
 rev d hist mod et contemp,issn:0048-8003,issn,1
+ac r de b bull de la cl des sc,issn:0001-4141,issn,1
 courrier hebdomadaire du crisp iii n,issn:0008-9664,issn,1
 gladius madrid,issn:0436-029X,issn,1
 rev belg de philol et d h lxii,issn:0035-0818,issn,1
@@ -2527,12 +2565,12 @@ rev d h moderne et cont,issn:0048-8003,issn,1
 bulletin de la comm r d h,issn:0001-415X,issn,1
 hand genootsch gesch soc d emulation te brugge,issn:0770-0822,issn,1
 bull de la commission r d h,issn:0001-415X,issn,1
-een statistische analyse,issn:0486-4700,issn,1
 la gazette des arch n,issn:0016-5522,issn,1
 review of income and wealth,issn:0034-6586,issn,1
 arch fur diplomatik schriftgeschichte siegel und wappenkunde,issn:0066-6297,issn,1
 a r de b bull de la cl des l,issn:0001-4133,issn,1
 the art bull,issn:0004-3079,issn,1
+hand van mij voor gesch en oudh te gent,issn:0770-0822,issn,1
 ac r de b bull de la cl des l et des sc mor et pol 5e serie,issn:0001-4133,issn,1
 holocaust genocide stud,issn:1476-7937,issn,1
 european history quartely,issn:0265-6914,issn,1
@@ -2594,6 +2632,7 @@ archeologie in vlaanderen,issn:0778-2837,issn,1
 bull ac r de b cl des beaux arts 1,issn:0378-0716,issn,1
 bull ac r de b cl des beaux arts 7,issn:0378-0716,issn,1
 ann h sc sociales,issn:0395-2649,issn,1
+theory and soc,issn:0304-2421,issn,1
 the sixteenth century journal saint louis mo,issn:0361-0160,issn,1
 bull ac r de b cl des beaux arts 10,issn:0378-0716,issn,1
 ann of sc,issn:0003-3790,issn,1
@@ -3145,68 +3184,49 @@ annalen des historischen vereins fur der niederrhein,issn:0341-289X,abbreviation
 arch biblioth et mus de belg,t:archives-bibliotheques-et-musees-de-belgique,abbreviation,1
 collect mechl,t:collectanea-mechliniensia,abbreviation,1
 b inst belge rome,issn:2031-7190,abbreviation,1
-handel m voor gesch en oudheidk te gent,issn:0770-0822,abbreviation,1
-handel der mij voor gesch en oudheidk te gent,issn:0770-0822,abbreviation,1
 hand gesch kr oudenaarde,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,1
-b monumental,issn:0007-473X,abbreviation,1
-r belge phil hist,issn:0035-0818,abbreviation,1
-r benedictine,issn:0035-0893,abbreviation,1
-b de la commiss roy d hist,issn:0001-415X,abbreviation,1
 b de la commiss roy des monuments et des sites,t:bulletin-de-la-commission-royale-des-monuments-et-des-sites,abbreviation,1
 archives bibl et mus de belg,t:archives-bibliotheques-et-musees-de-belgique,abbreviation,1
 wetensch tijd,issn:0774-532X,abbreviation,1
 bull van de kon nederl oudh bond,issn:0166-0470,abbreviation,1
 b soc bibliophiles liegeois,t:bulletin-de-la-societe-des-bibliophiles-liegeois-liege,abbreviation,1
 nouvelle r wallonne,t:la-nouvelle-revue-wallonne,abbreviation,1
-engl hist r,issn:0013-8266,abbreviation,1
 bijdragen van de geschiedenis der nederlanden,issn:0165-0505,abbreviation,1
 b inst recherches economiques sociales louvain,issn:1373-9719,abbreviation,1
-r b de phil et d hist,issn:0035-0818,abbreviation,1
 b cercle arch ath,t:bulletin-du-cercle-royal-d-histoire-et-d-archeologie-d-ath,abbreviation,1
 acad r belg bull cl lettr et sc mor et pol,issn:0001-4133,abbreviation,1
 r b d archeol et d hist de l art,issn:0035-077X,abbreviation,1
 r d hist du droit,issn:0040-7585,abbreviation,1
 pays lorrain,t:le-pays-lorrain,abbreviation,1
-r belge de phil et d hist,issn:0035-0818,abbreviation,1
 r belge d archeol et hist de l art,issn:0035-077X,abbreviation,1
 ann soc archeol et folklor de nivelles et du brabant wallon,t:annales-de-la-societe-archeologique-et-folklorique-de-nivell,abbreviation,1
 ann soc archeol et folklor de nivelles et du brab wallon,t:annales-de-la-societe-archeologique-et-folklorique-de-nivell,abbreviation,1
 hand v soc d emul te brugge,issn:0770-0822,abbreviation,1
-handel soc d emulation brugge,issn:0770-0822,abbreviation,1
-handel soc d emul brugge,issn:0770-0822,abbreviation,1
 ons geest erf,issn:0774-2827,abbreviation,1
 ann du cercle hutois d sciences et beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,1
 b trim de l inst archeol du luxembourg,t:bulletin-trimestriel-de-l-institut-archeologique-du-luxembou,abbreviation,1
 r belge de philologie et d hist,issn:0035-0818,abbreviation,1
 nederl archief voor kerkgesch,issn:0028-2030,abbreviation,1
 bull soc r de geographie,issn:1377-2368,abbreviation,1
-rev belge de philologie et hist bruxelles,issn:0035-0818,abbreviation,1
 handel kon gesch en oudh kring van kortrijk,t:handelingen-van-de-koninklijke-geschied-en-oudheidkundige-kr,abbreviation,1
 r b ph et h,issn:0035-0818,abbreviation,1
 folklore de stavelot malmedy,t:folklore-stavelot-malmedy,abbreviation,1
 annales hist de la revol fr,issn:0003-4436,abbreviation,1
 handelingen geschied en oudheidkundige kring oudenaarde,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,1
 arch bibl et musees de belgique,t:archives-bibliotheques-et-musees-de-belgique,abbreviation,1
-b comm r toponymie et dialectologie bruxelles,issn:0774-8396,abbreviation,1
-hand kon comm toponymie en dialectologie,issn:0774-8396,abbreviation,1
 bijdragen gesch ned,issn:0165-0505,abbreviation,1
 chr archeol du pays de liege,t:chronique-archeol-du-pays-de-liege,abbreviation,1
 rev b d arch et d hist de l art,issn:0035-077X,abbreviation,1
 rev b d arch et hist de l art,issn:0035-077X,abbreviation,1
 b comm r des anciennes lois et ordonnances de belgique,issn:1378-2282,abbreviation,1
 ann soc archeol et folkl nivelles et brab wallon,t:annales-de-la-societe-archeologique-et-folklorique-de-nivell,abbreviation,1
-hand v gesch en oudheidk gent,issn:0770-0822,abbreviation,1
 hand gesch en oudheidk kring oudenaarde,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,1
 rev b d arch et de l hist de l art,issn:0035-077X,abbreviation,1
-rev ben,issn:0035-0893,abbreviation,1
-bull coram r d hist,issn:0001-415X,abbreviation,1
 gedenkschr oudheidkundige kring van land van dendermonde,t:gedenkschriften-oudheidkundige-kring-van-het-land-van-dender,abbreviation,1
 utrecht en antwerpen het spectrum,issn:0013-0117,abbreviation,1
-hand soc d emulat brugge,issn:0770-0822,abbreviation,1
 hand soc d emul te brugge,issn:0770-0822,abbreviation,1
 vieux liege,t:le-vieux-liege,abbreviation,1
 bull cl l sc mor et pol de l acad r de belg,issn:0001-4133,abbreviation,1
-b i rech economiques et sociales louvain,issn:1373-9719,abbreviation,1
 hand geschied en oudheidk kr van kortrijk,t:handelingen-van-de-koninklijke-geschied-en-oudheidkundige-kr,abbreviation,1
 bull soc r b de geogr,issn:1377-2368,abbreviation,1
 gedenkschr oudheidkundige kr van het land van dendermonde,t:gedenkschriften-oudheidkundige-kring-van-het-land-van-dender,abbreviation,1
@@ -3257,8 +3277,6 @@ revue b d archeol et de l hist de l art,issn:0035-077X,abbreviation,1
 bull soc belge et napoleoniennes,t:bulletin-de-la-societe-belge-d-etudes-napoleoniennes-bruxell,abbreviation,1
 hand kon k oudh mechelen,t:handelingen-van-de-koninklijke-kring-voor-oudheidkunde-lette,abbreviation,1
 hand gesch en oudh kring van oudenaarde,t:handelingen-van-de-geschied-en-oudheidkundige-kring-van-oude,abbreviation,1
-french studies,issn:0016-1071,abbreviation,1
-hand mij voor gesch en oudheidk te gent n r,issn:0770-0822,abbreviation,1
 hand zuidned mij voor taal en letterkunde en geschied,issn:0774-3254,abbreviation,1
 rhein viert,t:rheinische-vierteljahrsblatter,abbreviation,1
 annales du cercle d archeologique du canton de soignies,t:annales-du-cercle-archeologique-du-canton-de-soignies,abbreviation,1
@@ -3354,7 +3372,6 @@ rev b de phil et d h,issn:0035-0818,abbreviation,1
 mem et publ de la soc des sc arts et l du hainaut,t:memoires-et-publications-de-la-societe-des-sciences-des-arts,abbreviation,1
 graafschap jette,t:graafschap-comte-de-jette,abbreviation,1
 bulletin du cercle benelux d h de la pharmacie,t:bulletin-du-cercle-benelux-d-histoire-de-la-pharmacie,abbreviation,1
-bull cl l acad r de belgique,issn:0001-4133,abbreviation,1
 hand kon kr oudh lett kunst mechelen,t:handelingen-van-de-koninklijke-kring-voor-oudheidkunde-lette,abbreviation,1
 bijdr tot de gesch der stad deinze en het land aan leie en schelde,t:bijdragen-tot-de-geschiedenis-der-stad-deinze-en-van-het-lan,abbreviation,1
 bull coram r d h,issn:0001-415X,abbreviation,1
@@ -3434,7 +3451,6 @@ versl en med van de kon ac voor ned taal en letterk,issn:0770-786X,abbreviation,
 bull trim de l inst archeol du luxembourg arlon,t:bulletin-trimestriel-de-l-institut-archeologique-du-luxembou,abbreviation,1
 rev belg de philol et d h belg ts voor filol en gesch,issn:0035-0818,abbreviation,1
 ann du c hutois des sc et des beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,1
-ac r de b bull de la cl des sc,issn:0001-4133,abbreviation,1
 arch vervietoises,t:archives-vervietoises,abbreviation,1
 bull du c d h et d archeol d ath et de la region et musees athois,t:bulletin-du-cercle-royal-d-histoire-et-d-archeologie-d-ath-e,abbreviation,1
 ann de c hutois des sc et beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,1
@@ -3476,7 +3492,6 @@ les amis de la citadelle de namu,t:les-amis-de-la-citadelle-de-namur-namur,abbre
 rev b d h cont,issn:0035-0869,abbreviation,1
 ann de soc archeol de namur,t:annales-de-la-societe-archeologique-de-namur,abbreviation,1
 ann de la soc archeol namur,t:annales-de-la-societe-archeologique-de-namur,abbreviation,1
-hand van mij voor gesch en oudh te gent,issn:0770-0822,abbreviation,1
 annales du cercle d h et d archeologie de saint ghislain et de la region,t:annales-du-cercle-d-histoire-et-d-archeologie-de-saint-ghisl,abbreviation,1
 bull d information du centre liegeois d hist et d archeol militaires,t:bulletin-d-information-du-centre-liegeois-d-histoire-et-d-ar,abbreviation,1
 bull du cercle r d h et d archeol d ath et de region et musees athois,t:bulletin-du-cercle-royal-d-histoire-et-d-archeologie-d-ath-e,abbreviation,1
@@ -3513,7 +3528,6 @@ les nouvelles de l archeol,issn:0242-7702,abbreviation,1
 archivum historicum societatis iesu,issn:0037-8887,abbreviation,1
 j heemkr ekeren,t:jaarboek-heemkring-ekeren,abbreviation,1
 economic h review,issn:0013-0117,abbreviation,1
-theory and soc,issn:0018-2656,abbreviation,1
 archiv espanol de arte,issn:0004-0428,abbreviation,1
 bull d information du c liegeois d h et d archeo militaires,t:bulletin-d-information-du-centre-liegeois-d-histoire-et-d-ar,abbreviation,1
 livre et estampe,t:le-livre-l-estampe,abbreviation,1
