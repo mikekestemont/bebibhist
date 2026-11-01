@@ -332,13 +332,13 @@ Not copied from the BNTL: its background, its Bootstrap look, and the "AI" label
 
 ---
 
-## 4c. Next: a misspelt word should find nothing, fast (found 1 Nov 2026)
+## 4c. Done: a misspelt word finds nothing, fast (found and fixed 1 Nov 2026)
 
 The 1.4 workaround preloads the index chunks of each query word's shorter prefixes (`loadPrefixChunks`). With those
 chunks in memory, Pagefind answers a word that is not in the index with every word that shares its prefix: an author
 search for "vanthemse" returns 16,638 unrelated hits in 11 s, where the bare search returns none in 0.2 s. Every typo
 is affected, on the live site since 30 Oct. It blocked the deploy of 1 Nov (the "did you mean" check timed out on
-GitHub's runner; its limit is now 45 s). The fix: before searching, check each query word against a list of the
+GitHub's runner). The fix, done: before searching, check each query word against a list of the
 index's words (folded as Pagefind folds them, single occurrences included, split as Pagefind splits them); a word
 with no match, not even as the start of a word, returns no hits at once, and "did you mean" follows. It must be
 tested on the 788 words that fall between two chunks and on the 16 search checks, since a word wrongly judged

@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -339,10 +339,15 @@
     const asked = [askedText ? searchQuery(askedText, field) : "", within].filter(Boolean).join(" ") || null;
     const relaxed = askedText ? relaxedQuery(askedText, field) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
-    const response = await searchBoth(engine, asked, loose, {
-      ...(filters ? { filters } : {}),
-      ...(sort ? { sort } : {}),
-    });
+    // A word that is not in the index finds nothing: say so at once rather than let Pagefind answer it with every
+    // word sharing its prefix.
+    const unknown = await unknownWords(loose || asked || "");
+    const response = unknown.length
+      ? await nothingFound(engine)
+      : await searchBoth(engine, asked, loose, {
+          ...(filters ? { filters } : {}),
+          ...(sort ? { sort } : {}),
+        });
     total = response.results.length;
     listed = response.results;
     const nextScope = scopeOf(params);
@@ -352,7 +357,7 @@
       );
       scope = nextScope;
     }
-    if (filters?.pubyear) {
+    if (filters?.pubyear && !unknown.length) {
       const rest = { ...filters };
       delete rest.pubyear;
       const broad = await engine.search(loose || asked, {

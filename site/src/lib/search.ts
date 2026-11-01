@@ -351,6 +351,48 @@ export function relaxedQuery(query: string, field: SearchField = "all"): string 
 }
 
 type WordFile = { counts: Record<string, [number, string?]>; keys: string[] };
+const knownFiles = new Map<string, Promise<string[] | null>>();
+
+/** The indexed words beginning with ``key`` (sorted), [] when there are none, or null when the file cannot be read. */
+function knownFile(key: string): Promise<string[] | null> {
+  if (!knownFiles.has(key)) {
+    const url = new URL(`${import.meta.env.BASE_URL}known/${key}.txt`, document.baseURI).href;
+    knownFiles.set(
+      key,
+      fetch(url)
+        .then((response) => (response.ok ? response.text().then((text) => (text ? text.split("\n") : [])) : response.status === 404 ? [] : null))
+        .catch(() => null),
+    );
+  }
+  return knownFiles.get(key)!;
+}
+
+/**
+ * The words of a Pagefind query that no word in the index equals or begins with. Pagefind 1.4, once the prefix
+ * chunks are loaded, answers such a word with every word that shares its prefix (16,638 slow hits for an author
+ * "vanthemse"), so a query holding one finds nothing and is not run. Only words of four letters or more are checked,
+ * bare or with a field tag ("au_vanthemse"); anything else, and any word whose list cannot be read, counts as known.
+ */
+export async function unknownWords(query: string): Promise<string[]> {
+  const unknown: string[] = [];
+  for (const token of query.toLowerCase().split(/\s+/).filter(Boolean)) {
+    const tagged = /^[a-z]{2}_/.test(token);
+    const word = tagged ? token.slice(3) : token;
+    if (word.length < 4 || !/^\p{L}+$/u.test(word)) continue;
+    const list = await knownFile(tagged ? token.slice(0, 5) : token.slice(0, 3));
+    if (list === null) continue;
+    let low = 0;
+    let high = list.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (list[middle] < token) low = middle + 1;
+      else high = middle;
+    }
+    if (!(low < list.length && list[low].startsWith(token))) unknown.push(token);
+  }
+  return unknown;
+}
+
 const wordFiles = new Map<string, Promise<WordFile>>();
 
 /** Words of the bibliography whose first two letters are ``shard``, with their number of entries. */
@@ -482,6 +524,15 @@ export async function searchBoth(
   const all = await pagefind.search(strict, options);
   const first = new Set(all.results.map((result) => result.id));
   return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], filters: more.filters };
+}
+
+/** No hits, with every filter value counted zero, so the filter column keeps its values. */
+export async function nothingFound(pagefind: Pagefind): Promise<SearchResponse> {
+  const all = await pagefind.filters();
+  return {
+    results: [],
+    filters: Object.fromEntries(Object.entries(all).map(([key, values]) => [key, Object.fromEntries(Object.keys(values).map((value) => [value, 0]))])),
+  };
 }
 
 export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | null> {

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
@@ -21,6 +22,7 @@ const placeCounts = new Map();
 // Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
 const browse = {};
 const wordsPath = new URL("../public/words", import.meta.url).pathname;
+const knownPath = new URL("../public/known", import.meta.url).pathname;
 // Every indexed word with its number of entries and its most common spelling, for "Did you mean …?".
 const words = new Map();
 
@@ -161,6 +163,7 @@ if (wasm.size < 1000) {
   process.exit(1);
 }
 await ensureEntry(outputPath, indexed);
+await writeKnownWords(`${outputPath}/index`, knownPath);
 await writeFile(browsePath, JSON.stringify(browse));
 await writePlaces(placesPath, placeCounts);
 await writeWords(wordsPath, words);
@@ -552,4 +555,59 @@ function parseCsv(text) {
     rows.push(row);
   }
   return rows;
+}
+
+/**
+ * Every word in Pagefind's index, read from its own chunks, so the site can tell a word that is not in the index
+ * from one that is: Pagefind 1.4, once the prefix chunks are loaded, answers an unknown word with every word that
+ * shares its prefix (16,638 hits for "vanthemse"). Files by the word's first three letters ("van.txt"), or a field
+ * word's tag and two letters ("au_va.txt"), one word a line, sorted. Ids and words with digits are left out: the
+ * site only checks words of letters.
+ */
+async function writeKnownWords(indexDir, dir) {
+  const shards = new Map();
+  for (const file of await readdir(indexDir)) {
+    const raw = gunzipSync(await readFile(`${indexDir}/${file}`)).subarray("pagefind_dcd".length);
+    for (const word of chunkWords(raw)) {
+      if (!/^(?:[a-z]{2}_)?\p{L}+$/u.test(word)) continue;
+      const key = /^[a-z]{2}_/.test(word) ? word.slice(0, 5) : word.slice(0, 3);
+      if (!shards.has(key)) shards.set(key, []);
+      shards.get(key).push(word);
+    }
+  }
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+  for (const [key, list] of shards) await writeFile(`${dir}/${key}.txt`, list.sort().join("\n"));
+  console.log(`known words: ${[...shards.values()].reduce((n, list) => n + list.length, 0)} in ${shards.size} files → ${dir}`);
+}
+
+/** The words of one Pagefind 1.4 index chunk, a CBOR array [[[word, pages], …]]; only what that needs is read. */
+function chunkWords(buffer) {
+  let at = 0;
+  const head = () => {
+    const byte = buffer[at++];
+    const major = byte >> 5;
+    const info = byte & 31;
+    let value = info;
+    if (info === 24) value = buffer[at++];
+    else if (info === 25) { value = buffer.readUInt16BE(at); at += 2; }
+    else if (info === 26) { value = buffer.readUInt32BE(at); at += 4; }
+    else if (info === 27) { value = Number(buffer.readBigUInt64BE(at)); at += 8; }
+    else if (info > 27) throw new Error(`unexpected CBOR byte ${byte} at ${at - 1}`);
+    return [major, value];
+  };
+  const item = () => {
+    const [major, value] = head();
+    if (major === 0 || major === 1) return value;
+    if (major === 2 || major === 3) {
+      const text = buffer.toString(major === 3 ? "utf8" : "latin1", at, at + value);
+      at += value;
+      return text;
+    }
+    if (major === 4) return Array.from({ length: value }, item);
+    if (major === 5) { for (let i = 0; i < value; i += 1) { item(); item(); } return null; }
+    if (major === 6) return item();
+    throw new Error(`unexpected CBOR major type ${major}`);
+  };
+  return item()[0].map((entry) => entry[0]);
 }

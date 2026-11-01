@@ -23,9 +23,8 @@ const checks = [
   { name: "map of places", hash: "#/map", selector: ".map .place", atLeast: 1000 },
   { name: "journal filter (Biekorf, all spellings)", hash: "#/search?journal=t%3Abiekorf&journalTitle=Biekorf", count: [1500, 2200] },
   { name: "a matched DOI on a record page", hash: "#/record/bhb%3Avs-1180580", selector: "a.derived[href^='https://doi.org/']", contains: /10\.1484/ },
-  // Slow until a misspelt word stops matching every word with its prefix (Pagefind 1.4 after the prefix preload):
-  // see docs/IMPLEMENTATION_PLAN.md §4c. The GitHub runner needs more than 20 s.
-  { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/, limitMs: 45000 },
+  // A word that is not in the index finds nothing at once (it used to match every word with its prefix, in 11 s).
+  { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/, limitMs: 5000 },
 ];
 
 const browser = await chromium.launch();
