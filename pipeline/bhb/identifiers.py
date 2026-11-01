@@ -562,7 +562,11 @@ def _openalex(params: dict[str, str], cache: Path, asked: list[str] | None = Non
     path = cache / f"{hashlib.sha1(url.encode()).hexdigest()}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
-    request = urllib.request.Request(url, headers={"User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
+    # An OpenAlex API key (in OPENALEX_API_KEY, never in the repository) raises the daily allowance; it is not part of
+    # the cache key, so answers fetched with or without one are the same files.
+    key = os.environ.get("OPENALEX_API_KEY", "").strip()
+    fetch_url = f"{url}&{urllib.parse.urlencode({'api_key': key})}" if key else url
+    request = urllib.request.Request(fetch_url, headers={"User-Agent": "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist)"})
     for attempt in range(5):
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
