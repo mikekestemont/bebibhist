@@ -419,6 +419,18 @@ one name. The same entry (`De Lage Landen van Prehistorie tot 1500`, 1978)
 shows another error the pass must correct: the place and publisher ("Sint-Stevens-Woluwe, Elsevier") read as a host,
 so a book is typed "other".
 
+**Context: batches in printed order, not single entries (Mike, 1 Nov 2026).** Many printed entries only make sense
+with their neighbours: "Ibid." and "Id." point to the journal or author of the entry before, "In: id." to the same
+person, a volume's contributions follow the volume, cross-references point to other numbers, and the section heading
+says what the entry is about. So the pass sends about ten consecutive entries of one section a request, each with
+its id, together with the entry before them (as context, not to be parsed) and the section heading, and asks for one
+answer per id. Every answer is checked: the same ids, as many, in the same order; a batch that skips or merges an
+entry is asked again entry by entry, with its neighbours as context. What the rules already resolve goes along as a
+hint (the journal behind an "Ibid.", 1,411 entries; split volumes; cross-references), so the model decides only where
+the rules stop. A collected volume printed with its contents is one batch on its own. Batches also cost less: the
+instructions and schema (about 1,000 tokens) are sent once per ten entries. The pilot compares batches of ten with
+single entries on the same answer key, per field and in cost.
+
 **Themes and periods (Mike, 1 Nov 2026).** The same pass can propose the subject area (theme) and period where they
 are still missing or only suggested by the local classifier: before 1993 a theme is on 14–36 % of the entries, and
 the pre-1993 headings are not yet tied to the scheme. The model is given the title, subtitle, journal or volume, the
