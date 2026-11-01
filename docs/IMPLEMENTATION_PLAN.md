@@ -344,6 +344,21 @@ with no match, not even as the start of a word, returns no hits at once, and "di
 tested on the 788 words that fall between two chunks and on the 16 search checks, since a word wrongly judged
 unknown would hide valid results.
 
+## 4d. Goal: permalinks that last (Mike, 1 Nov 2026)
+
+Every entry has an id meant to be stable (`bhb:1975-23701`: volume and printed number; `bhb:vs-1228206`: the State
+Archives' catalogue id), and its record page serves as its link. Two things keep that link from being permanent: the
+address depends on where the site is hosted (`mikekestemont.github.io/bebibhist/#/record/…`), and nothing yet stops
+a release from dropping or renumbering an id (contributions split from a volume, `-c5`, depend on the parser).
+While so much still changes this is a goal, not a promise; the steps, from cheap to more involved:
+
+1. **An id check per release:** `bhb release` compares the ids with the previous release and refuses, or lists, ids
+   that disappear; an entry merged or withdrawn keeps a short page saying where it went.
+2. **A permanent address** through w3id.org (free, community-run): `https://w3id.org/bhb/<id>` forwards to the
+   record page wherever the site lives, so a move to another domain changes one redirect rule, not every link.
+3. **A DOI per yearly release** through Zenodo (planned): the dataset is citable as a whole, and the w3id link
+   cites the entry within it.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |
