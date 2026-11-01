@@ -184,9 +184,10 @@ export function citationHtml(
     }
   }
   // A catalogue entry whose journal record was not exported: the journal name recovered from a match stands in for
-  // the placeholder, marked as supplied. (The catalogue's citation is composed by the pipeline, not printed.)
+  // the placeholder. (The catalogue's citation is composed by the pipeline, not printed.) It is marked as supplied
+  // in the journal row only; in the citation the note is a tooltip, without the dotted underline.
   if (meta.hostMatched === "1" && meta.host) {
-    const supplied = `<em><span class="derived" title="${escapeHtml(hostNote)}">${escapeHtml(meta.host.trim())}</span></em>`;
+    const supplied = `<em title="${escapeHtml(hostNote)}">${escapeHtml(meta.host.trim())}</em>`;
     html = html.replace("[host record not exported]", supplied);
   }
   // A book's or journal issue's title and subtitle are italic; an article's or chapter's stay roman.

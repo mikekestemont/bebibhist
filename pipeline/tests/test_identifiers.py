@@ -167,17 +167,21 @@ def test_free_to_read_comes_from_openalex_or_a_persee_doi(tmp_path, monkeypatch)
 
     from bhb.identifiers import open_access
 
-    persee, open_, closed = _record(), _record(), _record()
+    persee, open_, closed, bronze, green = _record(), _record(), _record(), _record(), _record()
     persee.doi, open_.doi, closed.doi = "10.3406/rbph.1955.1972", "10.21825/br.v22i4.15874", "10.1484/j.arihs.5.101852"
-    answer = {"results": [{"doi": "https://doi.org/10.21825/br.v22i4.15874", "open_access": {"is_oa": True}},
-                          {"doi": "https://doi.org/10.1484/j.arihs.5.101852", "open_access": {"is_oa": False}},
-                          {"doi": "https://doi.org/10.3406/rbph.1955.1972", "open_access": {"is_oa": False}}]}
+    bronze.doi, green.doi = "10.1484/j.rhe.3.232", "10.1017/s0000000000000001"
+    answer = {"results": [{"doi": "https://doi.org/10.21825/br.v22i4.15874", "open_access": {"is_oa": True, "oa_status": "bronze"}},
+                          {"doi": "https://doi.org/10.1484/j.arihs.5.101852", "open_access": {"is_oa": False, "oa_status": "closed"}},
+                          {"doi": "https://doi.org/10.3406/rbph.1955.1972", "open_access": {"is_oa": False, "oa_status": "closed"}},
+                          # Free on Brepols' page once, behind the paywall since; a repository copy is not at the DOI.
+                          {"doi": "https://doi.org/10.1484/j.rhe.3.232", "open_access": {"is_oa": True, "oa_status": "bronze"}},
+                          {"doi": "https://doi.org/10.1017/s0000000000000001", "open_access": {"is_oa": True, "oa_status": "green"}}]}
     monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=60: io.BytesIO(json_.dumps(answer).encode()))
     monkeypatch.setattr("time.sleep", lambda seconds: None)
-    open_access([persee, open_, closed], tmp_path)
+    open_access([persee, open_, closed, bronze, green], tmp_path)
     assert persee.free_to_read and persee.identifiers_from["free"] == "persee"
     assert open_.free_to_read and open_.identifiers_from["free"] == "openalex"
-    assert closed.free_to_read is None
+    assert closed.free_to_read is None and bronze.free_to_read is None and green.free_to_read is None
 
 
 def test_open_library_takes_only_a_work_with_one_edition():

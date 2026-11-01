@@ -303,10 +303,25 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     collecting_authors = False
     title_seen = False
     source_tail = ""
+    # Years tagged between the title and the journal, with no full stop between: part of the title ("La philologie
+    # wallonne en <year>1953</year>. <source>…", "college van <fpage>1625</fpage>–<lpage>1637</lpage>. <source>").
+    title_years: list[str] = []
+    title_open = False
+    previous_tail = ""
 
     for child in citation:
         text = squash(_plain(child))
         tail = child.tail or ""
+        if (child.tag in ("year", "fpage", "lpage") and title_open and not sources and _YEAR.fullmatch(text)
+                and _source_follows(child) and _closes_title(child)):
+            joiner = previous_tail if title_years else (", " if previous_tail.strip() == "," else " ")
+            title_years.append(f"{joiner}{text}")
+            title_open = "." not in tail
+            previous_tail = tail
+            continue
+        if child.tag not in ("article-title", "chapter-title", "trans-title"):
+            title_open = False
+        previous_tail = tail
         if child.tag == "person-group":
             grouped = _persons(child)
             # An editor group after the title belongs to the work named after "In:", not to the chapter.
@@ -325,10 +340,12 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
             article_title.append(text)
             collecting_authors = False
             title_seen = True
+            title_open = "." not in tail
         elif child.tag == "chapter-title" and text:
             chapter_title.append(text)
             collecting_authors = False
             title_seen = True
+            title_open = "." not in tail
         elif child.tag == "trans-title" and text:
             translated.append(text)
         elif child.tag == "source" and text:
@@ -370,10 +387,18 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         elif note_mode and tail.strip():
             note_parts.append(tail)
 
+    if title_years:
+        titles = chapter_title or article_title
+        titles[-1] = titles[-1] + "".join(title_years)
+        record.provenance.flags.append("year-in-title")
     if _EDITOR.search(" ".join(author_blob)):
         for person in persons:
             person.role = "editor"
     year = int(_YEAR.search(year_text).group(1)) if year_text and _YEAR.search(year_text) else None
+    # The volumes for 1952–1954 print the year of publication with two digits ("Brabantia, I, 52, p. 242"), which
+    # the vendor tagged as the volume or the issue, or left untagged before the format ("Desclée, 52, 8°").
+    if year is None and record.bgb_year in SHORT_YEARS:
+        year, volume, issue = _short_year(record.bgb_year, volume, issue, printed)
     pages = _pages(fpage, lpage)
     has_volume = bool(volume or issue or fpage)
     has_publisher = bool(publisher)
@@ -452,6 +477,48 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     return record, raw
 
 
+SHORT_YEARS = (1952, 1953, 1954)
+_SHORT_YEAR_TEXT = re.compile(r",\s*(\d{2})\s*,\s*(?:\d{1,2}\s*°|pp?\.|\d+\s*(?:p|blz)\.)")
+
+
+def _short_year(bgb_year: int, volume: str | None, issue: str | None, printed: str) -> tuple[int | None, str | None, str | None]:
+    """A two-digit year of publication, from the issue, the volume or the untagged imprint, when it falls in the
+    few years before the volume; the field it came from is emptied."""
+    def fits(value: str | None) -> int | None:
+        if value and re.fullmatch(r"\d{2}", value.strip()):
+            year = 1900 + int(value)
+            return year if bgb_year - 6 <= year <= bgb_year else None
+        return None
+
+    if year := fits(issue):
+        return year, volume, None
+    if year := fits(volume):
+        return year, None, issue
+    for match in _SHORT_YEAR_TEXT.finditer(printed):
+        if year := fits(match.group(1)):
+            return year, volume, issue
+    return None, volume, issue
+
+
+def _closes_title(element: etree._Element) -> bool:
+    """The year ends the title (a full stop, or a translated title after it) or opens a range of years; a year of
+    publication is followed by the format or the pages instead ("Heusden, 1944, 30 pp.")."""
+    tail = element.tail or ""
+    following = element.getnext()
+    if re.fullmatch(r"\s*[–-]\s*", tail) and following is not None and _YEAR.fullmatch(squash(_plain(following))):
+        return True
+    return bool(re.fullmatch(r"\s*\.?\s*\[?\s*", tail))
+
+
+def _source_follows(element: etree._Element) -> bool:
+    """The journal comes next: only the rest of a range of years or a translated title may stand between."""
+    for sibling in element.itersiblings():
+        if sibling.tag == "trans-title" or (sibling.tag in ("year", "fpage", "lpage") and _YEAR.fullmatch(squash(_plain(sibling)))):
+            continue
+        return sibling.tag == "source"
+    return False
+
+
 def _untagged_journal(tail: str) -> str | None:
     """The journal title in the untagged text after a <source> that holds the article title, or None."""
     text = squash(tail).strip(" .,;:")
@@ -464,6 +531,8 @@ def _persons(group: etree._Element) -> list[Person]:
     people: list[Person] = []
     for name in group.findall("string-name"):
         family = squash(_plain(name.find("surname"))) if name.find("surname") is not None else ""
+        # The vendor sometimes tagged the conjunction between two names as part of the second ("et Herbillon").
+        family = re.sub(r"^(?:et|en|and|und|&)\s+(?=[A-ZÀ-Ý])", "", family)
         given_el = name.find("given-names")
         given = squash(_plain(given_el)) if given_el is not None and squash(_plain(given_el)) else None
         if family:

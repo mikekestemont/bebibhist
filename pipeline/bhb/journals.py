@@ -35,6 +35,12 @@ def spelling_key(title: str) -> str:
     return re.sub(r"\s+\d+$", "", fold(title))
 
 
+def display_title(title: str) -> str:
+    """The journal's name to show: a catalogue's note in square brackets ("[voortgezet als = continué par] …") and
+    what follows it is left out; a place in round brackets stays, since it tells namesakes apart."""
+    return re.sub(r"\s*\[.*$", "", title).strip(" .,;:") or title
+
+
 def resolve_ibid(records) -> int:
     """Give an entry whose journal or volume is printed as "Ibid." that of the entry printed just before it in the same
     volume, flagged ``host-from-ibid``: the previous entry's journal or volume, or, when the previous entry is a book,
@@ -154,7 +160,7 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             full_forms.update({form: n for form, n in shown[spelling].items() if not re.search(r"\b\w{1,6}\.", form)})
         forms = full_forms or forms
         issns = sorted({issn for issn in parent if journal.startswith("issn:") and root(issn) == journal[5:]})
-        journals.append({"id": journal, "title": forms.most_common(1)[0][0], "issn": "|".join(issns),
+        journals.append({"id": journal, "title": display_title(forms.most_common(1)[0][0]), "issn": "|".join(issns),
                          "spellings": len(spellings), "articles": sum(count[s] for s in spellings)})
     journals.sort(key=lambda row: -row["articles"])
     return journals, mapping

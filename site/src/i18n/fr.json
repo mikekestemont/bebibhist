@@ -215,6 +215,7 @@
   "hostMatched": "La notice de cette revue n’a pas été exportée du catalogue ; le nom a été trouvé automatiquement dans Crossref ou le VABB-SHW, par cet article ou un autre article de la même revue. Non vérifié à la main.",
   "hostFromIbid": "Imprimé « Ibid. » : repris de la notice imprimée juste avant celle-ci.",
   "journalChip": "Revue :",
+  "journalPrinted": "Imprimé : {title}.",
   "journalGrouped": "Affiche tous les articles de cette revue, quelle que soit la graphie de son titre. Les graphies ont été regroupées automatiquement et n’ont pas été vérifiées à la main.",
   "freeToRead": "libre accès",
   "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",

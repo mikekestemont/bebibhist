@@ -47,3 +47,12 @@ def test_a_journal_is_named_by_its_lowest_issn_whatever_the_order_found():
     records = [_article(str(n), "Handelingen van het Genootschap voor Geschiedenis", ["0774-286X", "0770-0822"]) for n in range(3)]
     _, mapping = build(records)
     assert mapping["handelingen van het genootschap voor geschiedenis"] == ("issn:0770-0822", "issn")
+
+
+def test_a_catalogue_note_is_left_out_of_the_journal_name():
+    from bhb.journals import display_title
+
+    assert display_title("Mémoires de la Société d'Histoire de Comines et de la région [voortgezet als = continué par] Mémoires") == \
+        "Mémoires de la Société d'Histoire de Comines et de la région"
+    assert display_title("Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton)") == \
+        "Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton)"

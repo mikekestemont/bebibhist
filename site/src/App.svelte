@@ -422,7 +422,8 @@
       [text.hostEditors, meta.editors],
       [text.fieldTitle, meta.title, work],
       [text.subtitle, meta.subtitle ? capitalize(meta.subtitle) : undefined, work],
-      [hostLabel, meta.host, true],
+      // An article's journal by the name of the journal list (the citation keeps the printed spelling).
+      [hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : meta.host, true],
       [text.hostSubtitle, meta.hostSubtitle ? capitalize(meta.hostSubtitle) : undefined, true],
       [text.hostEditors, editors],
       [text.volume, meta.volume],
@@ -449,12 +450,19 @@
             authors: label === text.author || label === text.hostEditors,
             derived: derivedNote(label, meta),
             container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined),
-            containerTitle: label === text.journal && meta.journalId ? text.journalGrouped : undefined,
+            containerTitle: label === text.journal && meta.journalId ? journalNote(meta) : undefined,
             href: identifierLink(label, value),
             free: label === text.doi && meta.free ? (meta.free === "persee" ? text.freePersee : text.freeOpenAlex) : undefined,
           }]
         : [],
     );
+  }
+
+  /** The journal row's note: the spellings were grouped, and the spelling printed with this entry when it differs. */
+  function journalNote(meta: Hit["meta"]): string {
+    const printed = meta.host?.trim() || "";
+    const differs = printed && meta.journalTitle && printed.toLowerCase() !== meta.journalTitle.toLowerCase();
+    return differs ? `${text.journalPrinted.replace("{title}", printed)} ${text.journalGrouped}` : text.journalGrouped;
   }
 
   function seriesLine(meta: Hit["meta"]): string {

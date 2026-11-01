@@ -383,3 +383,41 @@ def test_article_title_tagged_as_source_with_the_journal_untagged(tmp_path: Path
     record = load_jats(path, "print-straive")[0]
     assert (record.type, record.title, record.host.title, record.host.volume) == ("article", "Schilde", "Antwerpiensia", "24")
     assert "journal-from-untagged-text" in record.provenance.flags
+
+
+def _volume(tmp_path: Path, year: int, citation: str) -> Path:
+    path = tmp_path / f"BGB_{year}.xml"
+    path.write_text(
+        f"""<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="r1"><label>5295</label><mixed-citation publication-type="journal">{citation}</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_year_tagged_inside_a_title_stays_in_it_and_the_short_year_is_read(tmp_path: Path):
+    citation = """<person-group person-group-type="author"><string-name><surname>Legros</surname> (<given-names>E.</given-names>)</string-name>
+        <string-name><surname>et Herbillon</surname> (<given-names>J.</given-names>)</string-name></person-group>.
+        <article-title>La philologie Wallonne en</article-title> <year>1953</year>. <source>B. Comm. R. Toponymie et Dialectologie</source>,
+        <publisher-loc>Bruxelles</publisher-loc>, <volume>XXVIII</volume>, <issue>54</issue>, pp. <fpage>279</fpage>–<lpage>368</lpage>."""
+    record = load_jats(_volume(tmp_path, 1954, citation), "print-straive")[0]
+    assert record.title == "La philologie Wallonne en 1953"
+    assert record.year == 1954 and record.host.volume == "XXVIII" and record.host.issue is None
+    assert [person.family for person in record.persons] == ["Legros", "Herbillon"]
+
+
+def test_a_range_of_years_in_a_title_is_not_read_as_pages(tmp_path: Path):
+    citation = """<person-group person-group-type="author"><string-name><surname>Dagens</surname> (<given-names>Jean</given-names>)</string-name></person-group>.
+        <article-title>Bérulle et les origines de la restauration catholique</article-title>, <fpage>1575</fpage>–<lpage>1611</lpage>.
+        <source>Bruges, Desclée</source>, <volume>52</volume>, 8°, <fpage>457</fpage> p., 240 fr."""
+    record = load_jats(_volume(tmp_path, 1952, citation), "print-straive")[0]
+    assert record.title == "Bérulle et les origines de la restauration catholique, 1575–1611"
+    assert record.year == 1952
+
+
+def test_a_year_of_publication_after_a_place_stays_the_year(tmp_path: Path):
+    citation = """<person-group person-group-type="author"><string-name><surname>Poort</surname> (<given-names>W. A.</given-names>)</string-name></person-group>.
+        <article-title>Kerk aan de rivier</article-title> <year>1944</year>, 30 pp. <source>Heusden</source>."""
+    record = load_jats(_volume(tmp_path, 1955, citation), "print-straive")[0]
+    assert record.title == "Kerk aan de rivier" and record.year == 1944

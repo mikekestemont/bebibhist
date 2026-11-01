@@ -526,6 +526,13 @@ OPENALEX = "https://api.openalex.org/works"
 FREE_PREFIXES = {"10.3406": "persee"}
 
 
+# Open at the DOI, under a licence: the label stays true. "Green" is a copy in a repository, not at the DOI, and
+# "bronze" (free on the publisher's page without a licence) comes and goes, except on platforms that are open by
+# design or after a fixed embargo: Ghent University's journals, OpenEdition, Cairn.
+OPEN_STATUSES = {"gold", "diamond", "hybrid"}
+OPEN_PLATFORMS = {"10.21825", "10.4000", "10.3917"}
+
+
 def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
     """Mark entries whose DOI leads to a free copy (``free_to_read``, with ``identifiers_from["free"]``): OpenAlex's
     open-access status, or a DOI of Persée. Only the status is kept: the link stays the DOI, so the publisher keeps
@@ -537,7 +544,7 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
     for record in with_doi:
         record.free_to_read = None
         record.identifiers_from.pop("free", None)
-    status: dict[str, bool] = {}
+    status: dict[str, str] = {}
     dois = sorted({record.doi for record in with_doi})
     cache.mkdir(parents=True, exist_ok=True)
     for start in range(0, len(dois), batch):
@@ -555,12 +562,12 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
             time.sleep(1.0)
         for work in data.get("results") or []:
             doi = (work.get("doi") or "").lower().replace("https://doi.org/", "")
-            status[doi] = bool((work.get("open_access") or {}).get("is_oa"))
+            status[doi] = (work.get("open_access") or {}).get("oa_status") or "closed"
     for record in with_doi:
         prefix = FREE_PREFIXES.get(record.doi.split("/")[0])
         if prefix:
             record.free_to_read, record.identifiers_from["free"] = True, prefix
-        elif status.get(record.doi):
+        elif status.get(record.doi) in OPEN_STATUSES or (status.get(record.doi) == "bronze" and record.doi.split("/")[0] in OPEN_PLATFORMS):
             record.free_to_read, record.identifiers_from["free"] = True, "openalex"
         counts["free to read" if record.free_to_read else "not known to be free"] += 1
     counts["known to openalex"] = len(status)
