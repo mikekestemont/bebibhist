@@ -431,6 +431,16 @@ the rules stop. A collected volume printed with its contents is one batch on its
 instructions and schema (about 1,000 tokens) are sent once per ten entries. The pilot compares batches of ten with
 single entries on the same answer key, per field and in cost.
 
+**Publishers (Mike, 1 Nov 2026).** Publishers are printed abbreviated and in many spellings ("Oxford Univ. Press",
+"Oxford University Press", with or without a place). As for journals and series, the spellings are first grouped by
+rule: abbreviations written out ("Univ." → University), and, from 1970 on, the publisher code inside the ISBN (0-19- is
+Oxford University Press), which does not depend on the spelling. The groups are then tied to Wikidata, where most
+publishers have an item (often with ISNI and VIAF), and to KBR's authority ids (publishers appear there as
+"Éditeur" with an id); the Library of Congress name authority covers large foreign publishers. There is no single
+authoritative list. The pass handles only what the rules leave, and the printed spelling stays in the citation.
+The same entry (`Anstey, King Leopold's legacy`, 1966) shows a parser fault to fix by rule: the extent printed
+"xv–293 p." is stored as "293 p.", so the roman-numbered preliminary pages are lost.
+
 **Themes and periods (Mike, 1 Nov 2026).** The same pass can propose the subject area (theme) and period where they
 are still missing or only suggested by the local classifier: before 1993 a theme is on 14–36 % of the entries, and
 the pre-1993 headings are not yet tied to the scheme. The model is given the title, subtitle, journal or volume, the
