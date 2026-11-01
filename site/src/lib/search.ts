@@ -159,9 +159,10 @@ function yearIn(text: string, year: string): boolean {
 /** Journal and monograph titles (and their subtitles) are italic; an article or chapter title and subtitle stay roman. */
 export function citationHtml(
   citation: string,
-  meta: { title?: string; subtitle?: string; host?: string; hostSubtitle?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string },
+  meta: { title?: string; subtitle?: string; host?: string; hostSubtitle?: string; kind?: string; pubyear?: string; yearMachine?: string; inVolume?: string; hostMatched?: string },
   yearNote = "",
   volumeNote = "",
+  hostNote = "",
 ): string {
   const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
@@ -181,6 +182,12 @@ export function citationHtml(
       const at = safe ? html.indexOf(safe, after) : -1;
       if (at >= 0) html = `${html.slice(0, at)}<em>${safe}</em>${html.slice(at + safe.length)}`;
     }
+  }
+  // A catalogue entry whose journal record was not exported: the journal name recovered from a match stands in for
+  // the placeholder, marked as supplied. (The catalogue's citation is composed by the pipeline, not printed.)
+  if (meta.hostMatched === "1" && meta.host) {
+    const supplied = `<em><span class="derived" title="${escapeHtml(hostNote)}">${escapeHtml(meta.host.trim())}</span></em>`;
+    html = html.replace("[host record not exported]", supplied);
   }
   // A book's or journal issue's title and subtitle are italic; an article's or chapter's stay roman.
   if (meta.kind === "book" || meta.kind === "journal-issue") {
