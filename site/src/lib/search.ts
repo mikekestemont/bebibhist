@@ -290,7 +290,10 @@ let preloading: Promise<void> = Promise.resolve();
 function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
   const prefixes: string[] = [];
   for (const word of query.toLowerCase().split(/\s+/)) {
-    for (let size = word.length - 1; size >= 2; size -= 1) {
+    // A field word ("au_vanthemse") stops at its tag and two letters: "au" or "au_" would load the chunks of every
+    // author name, about ten in a row before an author search.
+    const shortest = /^[a-z]{2}_/.test(word) ? 5 : 2;
+    for (let size = word.length - 1; size >= shortest; size -= 1) {
       const prefix = word.slice(0, size);
       if (!preloaded.has(prefix)) {
         preloaded.add(prefix);

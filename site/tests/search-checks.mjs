@@ -23,7 +23,9 @@ const checks = [
   { name: "map of places", hash: "#/map", selector: ".map .place", atLeast: 1000 },
   { name: "journal filter (Biekorf, all spellings)", hash: "#/search?journal=t%3Abiekorf&journalTitle=Biekorf", count: [1500, 2200] },
   { name: "a matched DOI on a record page", hash: "#/record/bhb%3Avs-1180580", selector: "a.derived[href^='https://doi.org/']", contains: /10\.1484/ },
-  { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/ },
+  // Slow until a misspelt word stops matching every word with its prefix (Pagefind 1.4 after the prefix preload):
+  // see docs/IMPLEMENTATION_PLAN.md §4c. The GitHub runner needs more than 20 s.
+  { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/, limitMs: 45000 },
 ];
 
 const browser = await chromium.launch();
@@ -48,7 +50,7 @@ for (const check of checks) {
         if (!check.contains.test(all)) problem = `no hit matches ${check.contains}`;
       }
     } else {
-      await page.waitForSelector(check.selector, { timeout: LIMIT_MS });
+      await page.waitForSelector(check.selector, { timeout: check.limitMs || LIMIT_MS });
       if (check.atLeast) {
         const found = await page.locator(check.selector).count();
         if (found < check.atLeast) problem = `${found} × ${check.selector}, expected at least ${check.atLeast}`;

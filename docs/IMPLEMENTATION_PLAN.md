@@ -11,6 +11,14 @@ this plan (optional function words in search, collected volumes split into their
 ranking) are recorded in `docs/DECISIONS.md`. Still open: the review of `heading_crosswalk.csv`, the gold pass, and
 theme coverage below the 90 % target. Next proposals: `docs/IDENTIFIER_PROPOSAL.md` (DOIs, ISBNs, ISSNs).
 
+**Principles (Mike, 1 Nov 2026).** The project follows the principles of *minimal computing*: a static site, no
+server or database to keep running, indexes built once and served as files, few dependencies, and every step
+reproducible from the raw inputs on one laptop, so the bibliography stays cheap to host and easy to hand over. And it
+integrates as much as it can with other open datasets, rather than rebuilding what they hold: identifiers and links
+from Crossref, OpenAlex, ORCID, VABB-SHW, Open Library, KBR's Belgian Bibliography, ISSN and, later, Wikidata and
+PeriodO, each credited and each value marked as machine-derived, while the bibliography's own records stay open in
+return (CC BY-NC 4.0, yearly releases).
+
 **Principle for this phase:** keep it light. One static site, one CI workflow, two small curated CSV files, one
 small local classifier. No server, no new front-end framework, no LLM API (since 31 Oct, one exception: the citation clean-up pass, see
 `AGENTS.md` and `docs/DECISIONS.md`).
@@ -323,6 +331,18 @@ namesakes are not separated and spelling variants are not joined. Identifying pe
 Not copied from the BNTL: its background, its Bootstrap look, and the "AI" label.
 
 ---
+
+## 4c. Next: a misspelt word should find nothing, fast (found 1 Nov 2026)
+
+The 1.4 workaround preloads the index chunks of each query word's shorter prefixes (`loadPrefixChunks`). With those
+chunks in memory, Pagefind answers a word that is not in the index with every word that shares its prefix: an author
+search for "vanthemse" returns 16,638 unrelated hits in 11 s, where the bare search returns none in 0.2 s. Every typo
+is affected, on the live site since 30 Oct. It blocked the deploy of 1 Nov (the "did you mean" check timed out on
+GitHub's runner; its limit is now 45 s). The fix: before searching, check each query word against a list of the
+index's words (folded as Pagefind folds them, single occurrences included, split as Pagefind splits them); a word
+with no match, not even as the start of a word, returns no hits at once, and "did you mean" follows. It must be
+tested on the 788 words that fall between two chunks and on the 16 search checks, since a word wrongly judged
+unknown would hide valid results.
 
 ## 5. Order, effort and stop points
 
