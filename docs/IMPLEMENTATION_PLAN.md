@@ -377,7 +377,10 @@ already split: 11,149 entries have a series, 8,181 with a separate number; about
 title), so the series row is a link to every entry in the series (done on the site through a series field in
 search). Abbreviated series names ("Elseviers histor. biblioth.") should be grouped under their full name, first by
 the rules that group journal spellings (`bhb/journals.py`: a full name, variants, abbreviations that fit one full
-name), then by the pass for what the rules leave. The same entry (`De Lage Landen van Prehistorie tot 1500`, 1978)
+name), then by the pass for what the rules leave. Until then the series link searches the words of the series' name in a
+series field (since 1 Nov), so "Elseviers histor. biblioth." and "Elseviers historische bibliotheek" are separate;
+once series are grouped, the link opens the series by its id, as the journal link does, with every spelling under
+one name. The same entry (`De Lage Landen van Prehistorie tot 1500`, 1978)
 shows another error the pass must correct: the place and publisher ("Sint-Stevens-Woluwe, Elsevier") read as a host,
 so a book is typed "other".
 

@@ -420,7 +420,7 @@
     }));
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string }[] {
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -460,6 +460,8 @@
             orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
             derived: derivedNote(label, meta),
             container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined) || (label === text.series ? seriesLink(meta) : undefined),
+            // The series link covers the series' name only; its number follows as text.
+            ...(label === text.series && meta.seriesTitle ? { value: meta.seriesTitle, suffix: meta.seriesNumber ? `, ${meta.seriesNumber}` : "" } : {}),
             containerTitle: label === text.journal && meta.journalId ? journalNote(meta) : label === text.series && meta.seriesTitle ? text.seriesWhy : undefined,
             href: identifierLink(label, value),
             free: label === text.doi && meta.free ? (meta.free === "persee" ? text.freePersee : text.freeOpenAlex) : undefined,
@@ -837,12 +839,12 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; containerTitle?: string; href?: string; free?: string })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
       <span class="tag tag-free" title={row.free}>{text.freeToRead}</span>{/if}
   {:else if row.container}
-    <a class={row.derived ? "container-link derived" : "container-link"} href={row.container} title={[row.derived, row.containerTitle || text.containerWhy].filter(Boolean).join(" ")}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>
+    <a class={row.derived ? "container-link derived" : "container-link"} href={row.container} title={[row.derived, row.containerTitle || text.containerWhy].filter(Boolean).join(" ")}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>{row.suffix || ""}
   {:else if row.authors}
     {@const names = authorParts(row.value)}
     {#each names as name, index}
