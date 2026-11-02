@@ -22,6 +22,13 @@ class Person:
     # An ORCID iD, machine-derived: "openalex" (from the entry's DOI) or "name" (from another entry by this name).
     orcid: str | None = None
     orcid_from: str | None = None
+    # From KBR's Belgian Bibliography, machine-derived: the given name written out where the entry prints initials,
+    # the dates ("1922-2013"), KBR's authority id, and where it came from: "kbr" (the entry's own book, matched to
+    # KBR) or "kbr-name" (this name on another entry, when it can only be that person).
+    given_full: str | None = None
+    dates: str | None = None
+    kbr_id: str | None = None
+    name_from: str | None = None
 
 
 @dataclass
@@ -117,6 +124,9 @@ class Record:
     isbn: list[str] = field(default_factory=list)
     issn: list[str] = field(default_factory=list)
     identifiers_from: dict[str, str] = field(default_factory=dict)
+    # The KBR record of the book, or of a chapter's volume (``uurl.kbr.be/bib/<number>``); its source in
+    # ``identifiers_from["kbr"]``.
+    kbr: str | None = None
     # True when the DOI leads to a free copy (OpenAlex, or Persée); the link stays the DOI.
     free_to_read: bool | None = None
     # The journal of an article (``bhb journals apply``): "issn:<ISSN>" or "t:<title>"; see data/curated/journals.csv.

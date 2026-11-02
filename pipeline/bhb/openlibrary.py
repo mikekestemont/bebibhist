@@ -106,8 +106,8 @@ def books(records) -> list:
             and (record.year or 0) >= 1970 and (not record.isbn or record.identifiers_from.get("isbn") == "openlibrary")]
 
 
-def hosts(records) -> dict[str, tuple[object, list[str]]]:
-    """The collected volumes of chapters from 1970 on whose volume has no ISBN in the bibliography, once each: by
+def hosts(records, since: int | None = 1970) -> dict[str, tuple[object, list[str]]]:
+    """The collected volumes of chapters (from ``since`` on) whose volume has no ISBN in the bibliography, once each: by
     volume key (the host record's id, or the volume's title and year), a stand-in record for the volume (title,
     editors, year, publisher) and the ids of its chapters."""
     from types import SimpleNamespace
@@ -116,7 +116,7 @@ def hosts(records) -> dict[str, tuple[object, list[str]]]:
     volumes: dict[str, tuple[object, list[str]]] = {}
     for record in records:
         host = record.host
-        if record.role != "entry" or record.type != "chapter" or not host or not host.title or record.isbn or (record.year or 0) < 1970:
+        if record.role != "entry" or record.type != "chapter" or not host or not host.title or record.isbn or (since and (record.year or 0) < since):
             continue
         if host.title.startswith("[host") or (by_id.get(host.id or "") and by_id[host.id].isbn):
             continue

@@ -39,6 +39,9 @@ export interface Hit {
     journalId?: string;
     journalTitle?: string;
     orcids?: string;
+    /** Given names written out from KBR: "Name (Given)\tgiven name\tdates\tKBR id\tsource|…". */
+    fullNames?: string;
+    kbr?: string;
     /** "1" when the places were found in the title, not in the printed index. */
     placesSuggested?: string;
     doi?: string;

@@ -96,6 +96,8 @@ def main(argv: list[str] | None = None) -> None:
     openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
     openlib.add_argument("--hosts", action="store_true", help="the collected volumes of chapters instead: build/identifiers/openlibrary-hosts.csv")
     identifiers_sub.add_parser("kbr-harvest", help="harvest KBR's Belgian Bibliography (OAI-PMH) into build/external/kbr; resumable")
+    kbr = identifiers_sub.add_parser("kbr", help="match books and volumes to the KBR harvest (build/identifiers/kbr.csv), then fetch their ermes records")
+    kbr.add_argument("--offline", action="store_true", help="match only; fetch no ermes records")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
     vabb.add_argument("--limit", type=int, default=None, help="only the first N entries, for a trial")
     sample = identifiers_sub.add_parser("sample", help="match a sample of printed articles and chapters across the years, as an answer key")
@@ -156,6 +158,9 @@ def main(argv: list[str] | None = None) -> None:
         from bhb.identifiers import orcids
 
         counts.update(orcids(records, build_dir() / "cache" / "openalex-authors"))
+        from bhb.kbr import apply_kbr
+
+        counts.update(apply_kbr(records, build_dir() / "identifiers", build_dir() / "cache" / "kbr-ermes"))
         write_jsonl(path, records)
         print(f"identifiers: {counts} → {path}")
         return
@@ -180,6 +185,9 @@ def main(argv: list[str] | None = None) -> None:
 
         fetched = harvest(build_dir() / "external" / "kbr", progress=lambda n: print(f"  page {n}", flush=True))
         print(f"kbr: {fetched} pages fetched now → {build_dir() / 'external' / 'kbr'}")
+        return
+    if args.command == "identifiers" and args.identifiers_command == "kbr":
+        _identifiers_kbr(args.offline)
         return
     if args.command == "identifiers" and args.identifiers_command == "openlibrary":
         _identifiers_openlibrary_hosts() if args.hosts else _identifiers_openlibrary(args.limit)
@@ -499,6 +507,31 @@ def _candidates_vabb(threshold: float) -> None:
     ]
     (out / "vabb-pilot.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
+
+
+def _identifiers_kbr(offline: bool) -> None:
+    import json
+
+    from bhb.kbr import books, ermes, match, name_index, write_matches
+
+    records = read_jsonl(build_dir() / "records.jsonl")
+    harvest = build_dir() / "external" / "kbr"
+    matches, counts = match(records, books(harvest))
+    out = build_dir() / "identifiers" / "kbr.csv"
+    write_matches(out, matches)
+    print(f"kbr: {counts} → {out}", flush=True)
+    names = name_index(records, books(harvest))
+    (build_dir() / "identifiers" / "kbr-names.json").write_text(json.dumps(names, ensure_ascii=False), encoding="utf-8")
+    print(f"kbr: {len(names)} family names of the bibliography in KBR → kbr-names.json", flush=True)
+    if offline:
+        return
+    cache = build_dir() / "cache" / "kbr-ermes"
+    missing = [found.number for found in matches if not (cache / f"{found.number}.xml.gz").exists()]
+    print(f"kbr: fetching {len(missing)} ermes records (one a second)", flush=True)
+    for number, kbr_number in enumerate(missing, 1):
+        ermes(kbr_number, cache)
+        if number % 250 == 0:
+            print(f"  {number}", flush=True)
 
 
 def _identifiers_openlibrary_hosts() -> None:

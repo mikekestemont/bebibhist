@@ -364,7 +364,7 @@ While so much still changes this is a goal, not a promise; the steps, from cheap
 The harvest of KBR's `BelgianDataset` (books and periodicals, oai_dc, `bhb identifiers kbr-harvest`) runs until about
 5 Nov. A test on the first 20 % (titles Z to "Ro", the server's order) matched 1,373 books and collected volumes
 without an ISBN (same title plus the same author or publisher, years close), 540 of them with an ISBN; a sample of 25
-was right. Extrapolated: about 7,500 matches and 3,000 ISBNs, and a KBR link for the rest. Once the harvest is done:
+was right. Extrapolated: about 7,500 matches and 3,000 ISBNs, and a KBR link for the rest. Built on 2 Nov (`bhb identifiers kbr`, `bhb/kbr.py`) and run on the partial harvest; it runs again when the harvest is done:
 
 1. **Match** books and the volumes of chapters, as in the test; a match on the publisher alone also needs the same
    year. Add the ISBN and the KBR link (`uurl.kbr.be/bib/…`), machine-derived and labelled, like Open Library's.

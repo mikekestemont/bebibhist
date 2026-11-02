@@ -165,6 +165,7 @@ main .search { margin: 1.6rem 0; }
 /* The ORCID iD icon after an author's name, linking to the person's ORCID record. */
 .orcid { display: inline-block; margin-left: 0.25rem; vertical-align: -0.12em; line-height: 0; }
 .orcid svg { display: block; }
+.full-name { color: #486249; }
 
 .layout {
   display: grid;

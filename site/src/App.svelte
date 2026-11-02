@@ -425,7 +425,17 @@
     }));
   }
 
-  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string }[] {
+  type FullName = { given: string; dates: string; id: string; note: string };
+
+  /** Given names written out from KBR (machine-derived), by the name as the author row shows it. */
+  function fullNamesOf(meta: Hit["meta"]): Map<string, FullName> {
+    return new Map((meta.fullNames || "").split("|").filter(Boolean).map((line) => {
+      const [name, given, dates, id, from] = line.split("\t");
+      return [name, { given, dates, id, note: from === "kbr-name" ? text.nameFromKbrElsewhere : text.nameFromKbr }];
+    }));
+  }
+
+  function rows(hit: Hit): { label: string; value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string }[] {
     const meta = hit.meta;
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
@@ -452,6 +462,7 @@
       [text.doi, meta.doi],
       [text.isbn, (meta.isbn || "").split("|").join(", ")],
       [text.issn, (meta.issn || "").split("|").join(", ")],
+      [text.kbrRecord, meta.kbr],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
       [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
@@ -463,6 +474,7 @@
             italic,
             authors: label === text.author || label === text.hostEditors,
             orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
+            fullNames: label === text.author || label === text.hostEditors ? fullNamesOf(meta) : undefined,
             derived: derivedNote(label, meta),
             container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined) || (label === text.series ? seriesLink(meta) : undefined),
             // The series link covers the series' name only; its number follows as text.
@@ -527,13 +539,14 @@
     if (label === text.doi) return `https://doi.org/${first}`;
     if (label === text.isbn) return `https://openlibrary.org/search?isbn=${first.replace(/[^0-9Xx]/g, "")}`;
     if (label === text.issn) return `https://portal.issn.org/resource/ISSN/${first}`;
+    if (label === text.kbrRecord) return `https://uurl.kbr.be/bib/${first}`;
     return undefined;
   }
 
   function identifierSource(kind: string, meta: Hit["meta"]): string | undefined {
     const source = (meta.identifiersFrom || "").split("|").find((entry: string) => entry.startsWith(`${kind}:`))?.split(":")[1];
     const notes: Record<string, string> = { crossref: text.fromCrossref, vabb: text.fromVabb, openlibrary: text.fromOpenLibrary,
-      volume: text.fromVolume, "openlibrary-volume": text.fromOpenLibraryVolume };
+      volume: text.fromVolume, "openlibrary-volume": text.fromOpenLibraryVolume, kbr: text.fromKbr, "kbr-volume": text.fromKbrVolume };
     return source ? notes[source] : undefined;
   }
 
@@ -541,6 +554,7 @@
     if (label === text.doi) return identifierSource("doi", meta);
     if (label === text.isbn) return identifierSource("isbn", meta);
     if (label === text.issn) return identifierSource("issn", meta);
+    if (label === text.kbrRecord) return identifierSource("kbr", meta);
     if (label === text.journal && meta.hostMatched === "1") return text.hostMatched;
     if ((label === text.journal || label === text.host) && meta.hostFromIbid === "1") return text.hostFromIbid;
     if (label === text.pubyear && meta.yearMachine === "1") return text.yearFromHost;
@@ -844,7 +858,7 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
       <span class="tag tag-free" title={row.free}>{text.freeToRead}</span>{/if}
@@ -854,7 +868,8 @@
     {@const names = authorParts(row.value)}
     {#each names as name, index}
       {@const orcid = row.orcids?.get(name)}
-      {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>{#if orcid}<a class="orcid" href={"https://orcid.org/" + orcid.id} title={`ORCID ${orcid.id}. ${orcid.note}`} target="_blank" rel="noopener"><span class="sr-only">ORCID {orcid.id}</span><svg viewBox="0 0 256 256" width="15" height="15" aria-hidden="true"><path fill="#A6CE39" d="M256 128c0 70.7-57.3 128-128 128S0 198.7 0 128 57.3 0 128 0s128 57.3 128 128z"/><path fill="#fff" d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1 4.5-10.1 10.1-10.1 10.1 4.6 10.1 10.1z"/></svg></a>{/if}
+      {@const full = row.fullNames?.get(name)}
+      {#if index > 0}{index === names.length - 1 ? " & " : ", "}{/if}<a class="author-link" href={"#/search?q=" + encodeURIComponent(name) + "&field=author"} title={text.authorMatch}>{name}</a>{#if orcid}<a class="orcid" href={"https://orcid.org/" + orcid.id} title={`ORCID ${orcid.id}. ${orcid.note}`} target="_blank" rel="noopener"><span class="sr-only">ORCID {orcid.id}</span><svg viewBox="0 0 256 256" width="15" height="15" aria-hidden="true"><path fill="#A6CE39" d="M256 128c0 70.7-57.3 128-128 128S0 198.7 0 128 57.3 0 128 0s128 57.3 128 128z"/><path fill="#fff" d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1 4.5-10.1 10.1-10.1 10.1 4.6 10.1 10.1z"/></svg></a>{/if}{#if full?.given}{@const note = `${full.given} ${name.split(" (")[0]}${full.dates ? ` (${full.dates.replace("-", "–")})` : ""}. ${full.note}`}{" "}{#if full.id}<a class="full-name derived" href={"https://opac.kbr.be/Library/search.aspx?SC=CATALOGUE&QUERY=Authority_id_idx%3a" + full.id} title={`${note} ${text.nameKbrLink}`} target="_blank" rel="noopener">[{full.given}]</a>{:else}<span class="full-name derived" title={note}>[{full.given}]</span>{/if}{/if}
     {/each}
   {:else if row.italic && row.derived}
     <em class="derived" title={row.derived}>{row.value}</em>

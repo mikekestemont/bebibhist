@@ -96,6 +96,11 @@ for await (const line of lines) {
       // ORCID iDs (machine-derived), per name as the name line shows it: "Name (Given)\tiD\tsource|…".
       orcids: (record.persons || []).filter((person) => person.orcid)
         .map((person) => `${person.given ? `${person.family} (${person.given})` : person.family}\t${person.orcid}\t${person.orcid_from || ""}`).join("|"),
+      // Given names written out from KBR (machine-derived), per name as the name line shows it:
+      // "Name (Given)\tgiven name\tdates\tKBR authority id\tsource|…".
+      fullNames: [...(record.persons || []), ...(record.host?.editors || [])].filter((person) => person.given_full || person.kbr_id)
+        .map((person) => [person.given ? `${person.family} (${person.given})` : person.family, person.given_full || "", person.dates || "", person.kbr_id || "", person.name_from || ""].join("\t")).join("|"),
+      kbr: record.kbr || "",
       subtitle: (record.subtitle || "").slice(0, 300),
       host: (record.host?.title || "").slice(0, 300),
       hostSubtitle: (record.host?.subtitle || "").slice(0, 300),
@@ -230,7 +235,7 @@ function yearOf(value) {
 }
 
 function fieldTokens(record) {
-  const authors = (record.persons || []).map((person) => [person.family, person.given].filter(Boolean).join(" ")).join(" ");
+  const authors = (record.persons || []).map((person) => [person.family, person.given, person.given_full].filter(Boolean).join(" ")).join(" ");
   return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
 }
 
@@ -245,7 +250,7 @@ function prefixed(tag, text) {
 
 function people(record) {
   return (record.persons || [])
-    .map((person) => [person.family, person.given].filter(Boolean).join(" "))
+    .map((person) => [person.family, person.given, person.given_full].filter(Boolean).join(" "))
     .join(" ");
 }
 
