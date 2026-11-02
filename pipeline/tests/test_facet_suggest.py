@@ -52,3 +52,18 @@ def test_values_from_a_machine_are_marked_as_suggested():
     assert record.theme_suggested == ["religious"]
     # The printed heading gives "contemporary"; "early-modern" came from the machine.
     assert record.period_suggested == ["early-modern"]
+
+
+def test_a_period_is_suggested_only_where_print_gives_none():
+    from bhb.facet_suggest import needs_period
+    from bhb.model import Record
+
+    habsburg = Record(id="bhb:1952-3281", source="print-straive", bgb_year=1952,
+                      section_path=["II. Histoire par époques", "D. — L’époque des Habsbourgs."])
+    sixties = Record(id="bhb:1969-14233", source="print-straive", bgb_year=1969,
+                     section_path=["III. Histoire par époques", "III. Histoire sociale et économique, 1789–1969"])
+    auxiliary = Record(id="bhb:1983-38984", source="print-straive", bgb_year=1983,
+                       section_path=["I. Bibliographies et sciences auxiliaires", "J. Folklore"])
+    assert not needs_period(habsburg)
+    assert not needs_period(sixties)
+    assert needs_period(auxiliary)

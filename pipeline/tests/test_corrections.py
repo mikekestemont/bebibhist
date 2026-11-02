@@ -1,0 +1,32 @@
+"""Hand corrections: an OCR error is corrected everywhere, a printer's error only in the parsed fields."""
+
+from bhb.corrections import apply_corrections
+from bhb.model import Person, Provenance, Record
+
+
+def _zumkir() -> Record:
+    printed = "Zuznkir (A.). Tableau politique de l’arrondissement de Verviers sous le suffrage censitaire (1830–93)."
+    return Record(id="bhb:1952-3797", source="print-straive", bgb_year=1952, printed=printed,
+                  title="Tableau politique de l’arrondissement de Verviers", persons=[Person("Zuznkir", "A.", "author")],
+                  provenance=Provenance())
+
+
+def test_an_ocr_error_is_corrected_in_the_citation_and_the_name():
+    record = _zumkir()
+    assert apply_corrections([record], [{"id": record.id, "wrong": "Zuznkir", "right": "Zumkir", "kind": "ocr"}]) == 1
+    assert record.printed.startswith("Zumkir (A.).") and record.persons[0].family == "Zumkir"
+    assert "corrected-ocr" in record.provenance.flags
+
+
+def test_a_printers_error_stays_in_the_citation():
+    record = _zumkir()
+    assert apply_corrections([record], [{"id": record.id, "wrong": "Zuznkir", "right": "Zumkir", "kind": "print"}]) == 1
+    assert record.printed.startswith("Zuznkir (A.).") and record.persons[0].family == "Zumkir"
+
+
+def test_a_row_the_entry_no_longer_matches_is_not_applied():
+    record = _zumkir()
+    rows = [{"id": record.id, "wrong": "Seivias", "right": "Scivias", "kind": "ocr"},
+            {"id": "bhb:1900-1", "wrong": "a", "right": "b", "kind": "ocr"}]
+    assert apply_corrections([record], rows) == 0
+    assert record.provenance.flags == []

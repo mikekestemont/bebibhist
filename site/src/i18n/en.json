@@ -250,6 +250,8 @@
   "fromCrossref": "Found automatically in Crossref, by title, author and year. Not checked by hand.",
   "fromVabb": "Found automatically in the VABB-SHW (Flemish Academic Bibliography, ECOOM), by title, author and year. Not checked by hand.",
   "hostMatched": "The catalogue's record of this journal was not exported; the name was found automatically in Crossref or the VABB-SHW, through this article or another one in the same journal. Not checked by hand.",
+  "hostMissing": "[journal or book not in the export]",
+  "hostMissingNote": "The record of the journal or book in which this appeared is missing from the export of the State Archives' catalogue; it will be added once the State Archives export it.",
   "hostFromIbid": "Printed as “Ibid.”: taken from the entry printed just before this one.",
   "journalChip": "Journal:",
   "journalPrinted": "Printed as: {title}.",

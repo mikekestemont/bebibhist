@@ -213,6 +213,16 @@ _SAINT = re.compile(r"^(saint|sainte|sint|sankt) ")
 # this share of them in the printed index of the same entry.
 STOP_MIN_MATCHES = 3
 STOP_AGREEMENT = 0.6
+# A name that titles also use this often as a lowercase word ("alle", "as", "namen", "kapellen") counts as a place
+# only where a place stands: before punctuation, a year or the end ("Halle, randgeval", "Halen 1914", "De belegering
+# van Namen"), or after a word that introduces a place ("à Alle sur Semois", "te Namen"). Elsewhere it is the word:
+# "Alle kerken van West-Vlaanderen", "Alle 25", a catalogue subtitle run on ("… 1852 Alle onbetaemelijkheid").
+WORD_MIN_LOWERCASE = 5
+_NAME_ALONE = re.compile(r"\s*(?:[,:;.()\[\]]|\d{4}\b|$)")
+_PLACE_BEFORE = re.compile(
+    r"(?:^|\s)(?:à|a|au|aux|de|du|d[’']|lez|sur|te|ter|in|van|uit|bij|op|naar|nabij|bei|zu|nach|im|at|near)\s*$",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -223,6 +233,7 @@ class TitleMatcher:
 
     codes: dict[str, str]
     stop: frozenset[str] = frozenset()
+    words: frozenset[str] = frozenset()
 
     @classmethod
     def from_gazetteer(cls, rows: dict[str, dict[str, str]], labels: dict[str, list[str]]) -> "TitleMatcher":
@@ -249,8 +260,8 @@ class TitleMatcher:
         while index < len(tokens):
             for size in range(min(longest, len(tokens) - index), 0, -1):
                 key = " ".join(folded[index:index + size])
-                if key in self.codes and key not in self.stop and tokens[index][0][:1].isupper():
-                    start, end = tokens[index][1], tokens[index + size - 1][2]
+                start, end = tokens[index][1], tokens[index + size - 1][2]
+                if key in self.codes and key not in self.stop and tokens[index][0][:1].isupper() and not self._is_word(key, text, start, end):
                     if not _is_venue(text, start, end) and not _is_other(text, start, end) and (key, self.codes[key]) not in found:
                         found.append((key, self.codes[key]))
                     index += size
@@ -258,6 +269,10 @@ class TitleMatcher:
             else:
                 index += 1
         return found
+
+
+    def _is_word(self, key: str, text: str, start: int, end: int) -> bool:
+        return key in self.words and not _NAME_ALONE.match(text[end:]) and not _PLACE_BEFORE.search(text[:start])
 
 
 # A German article or conjunction before a capitalised word makes it a German noun ("Völker, Reiche und Namen",
@@ -294,10 +309,23 @@ def _agrees(record, key: str, code: str, labels_of: dict[str, set[str]]) -> bool
     return f"nis:{code}" in record.place_ids or any(fold(name).startswith(label) for name in record.places for label in labels_of[code])
 
 
+def common_words(records, codes: dict[str, str]) -> frozenset[str]:
+    """Single-word place names that titles also use as a lowercase word, at least ``WORD_MIN_LOWERCASE`` times."""
+    from bhb.textutil import fold
+
+    lowercase: Counter[str] = Counter()
+    for record in records:
+        for token in _TOKEN.findall(_title(record)):
+            if token[:1].islower():
+                lowercase[fold(token)] += 1
+    return frozenset(key for key in codes if " " not in key and lowercase[key] >= WORD_MIN_LOWERCASE)
+
+
 def title_places(records, rows: dict[str, dict[str, str]], labels: dict[str, list[str]]) -> dict[str, int]:
     """Suggest places from the title for entries without an indexed place; tune the stop list on the entries with
     one. Returns statistics, including the agreement of the kept names with the printed index."""
     matcher = TitleMatcher.from_gazetteer(rows, labels)
+    matcher.words = common_words(records, matcher.codes)
     labels_of: dict[str, set[str]] = defaultdict(set)
     for key, code in matcher.codes.items():
         labels_of[code].add(key)
@@ -312,7 +340,7 @@ def title_places(records, rows: dict[str, dict[str, str]], labels: dict[str, lis
     )
     agree = sum(count[True] for key, count in tally.items() if key not in matcher.stop)
     checked = sum(sum(count.values()) for key, count in tally.items() if key not in matcher.stop)
-    counts: Counter[str] = Counter({"title names left out": len(matcher.stop), "title agreement (per mille)": round(1000 * agree / max(1, checked))})
+    counts: Counter[str] = Counter({"title names left out": len(matcher.stop), "names that are also words": len(matcher.words), "title agreement (per mille)": round(1000 * agree / max(1, checked))})
     for record in records:
         if record.place_ids or record.role != "entry":
             continue

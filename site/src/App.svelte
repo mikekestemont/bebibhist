@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -449,7 +449,7 @@
       [text.fieldTitle, meta.title, work],
       [text.subtitle, meta.subtitle ? capitalize(meta.subtitle) : undefined, work],
       // An article's journal by the name of the journal list (the citation keeps the printed spelling).
-      [hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : meta.host, true],
+      [hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : meta.host === HOST_MISSING ? text.hostMissing : meta.host, true],
       [text.hostSubtitle, meta.hostSubtitle ? capitalize(meta.hostSubtitle) : undefined, true],
       [text.hostEditors, editors],
       [text.volume, meta.volume],
@@ -558,6 +558,7 @@
     if (label === text.issn) return identifierSource("issn", meta);
     if (label === text.kbrRecord) return identifierSource("kbr", meta);
     if (label === text.journal && meta.hostMatched === "1") return text.hostMatched;
+    if ((label === text.journal || label === text.host) && meta.host === HOST_MISSING && !meta.journalTitle) return text.hostMissingNote;
     if ((label === text.journal || label === text.host) && meta.hostFromIbid === "1") return text.hostFromIbid;
     if (label === text.pubyear && meta.yearMachine === "1") return text.yearFromHost;
     if ((label === text.place || label === text.publisher) && meta.imprintMachine === "1") return text.imprintFromHost;
@@ -993,7 +994,7 @@
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
-      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched)}</span>
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</span>
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}
@@ -1084,7 +1085,7 @@
       <h1>
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
       </h1>
-      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched)}</p>
+      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</p>
       <div class="record-export">{@render wand(record)}{@render exporter(record)}</div>
       {#if rows(record).length}
         <dl class="fields">
@@ -1260,7 +1261,7 @@
     <p><a href="#/search?{sessionStorage.getItem("bhb-search") || ""}">{text.back}</a></p>
     <h1>{text.similar}</h1>
     {#if similarSource}
-      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched)}</a></p>
+      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</a></p>
     {/if}
     {#if loading && similarHits.length === 0}
       <p>{text.loading}</p>

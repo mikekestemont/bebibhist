@@ -58,3 +58,9 @@ test("an article's subtitle stays roman; only the journal is italic", () => {
   assert.doesNotMatch(html, /<em>A stylometric study<\/em>/);
   assert.match(html, /<em>Literary and Linguistic Computing<\/em>/);
 });
+
+test("a host missing from the export shows in the reader's language, with the reason", () => {
+  const html = citationHtml("Vanthemsche (Guy). Transports. In: [host record not exported], 2008, p. 433-439.", { title: "Transports", host: "[host record not exported]", kind: "chapter" }, "", "", "", "[tijdschrift of boek niet in de export]", "Ontbreekt in de export.");
+  assert.ok(html.includes('<span class="derived" title="Ontbreekt in de export.">[tijdschrift of boek niet in de export]</span>'));
+  assert.ok(!html.includes("host record not exported"));
+});

@@ -48,6 +48,13 @@ def checked_periods(record: Record) -> set[str]:
     return {period for period in assign_period(record.section_path, checked_codes(record)) if period in REAL_PERIODS}
 
 
+def needs_period(record: Record) -> bool:
+    """A period is suggested only where neither the printed heading nor a checked code gives one. The 90 % was
+    measured on recent years; beside a printed period a suggestion added a second one, often wrong ("L'époque des
+    Habsbourgs" → contemporary)."""
+    return not assign_period(record.section_path, checked_codes(record))
+
+
 def held_out(record: Record) -> bool:
     """The plan's split by year: V-Smart 2015–2017 and print 2005–2008 are held out."""
     year = record.bgb_year or 0
@@ -457,6 +464,8 @@ def apply_suggestions(records: list[Record], build_dir) -> dict[str, int]:
                 counts["themes_added"] += 1
                 added = True
         counts["entries_with_new_theme"] += added
+        if not needs_period(record):
+            continue
         new_periods = [period for period in sorted(period_run.suggestions.get(record_id, set())) if period not in record.period]
         record.period.extend(new_periods)
         counts["periods_added"] += len(new_periods)

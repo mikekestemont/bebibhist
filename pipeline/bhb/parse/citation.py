@@ -27,15 +27,15 @@ _CROSS = re.compile(
 )
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _PERSON = re.compile(r"^([A-ZÀ-Ý][^().]{0,80}?)\s*\(\s*([^)]{1,60})\s*\)")
-_EDITOR = re.compile(r"^\s*\((?:éds?|eds?|réd|red|dir|édit)\.?\)", re.IGNORECASE)
-_EDITOR_BARE = re.compile(r"^\s+(?:dir|éds?|eds?|réd|reds?|hrsg)\.(?=\s|$)", re.IGNORECASE)
+_EDITOR = re.compile(r"^\s*\((?:éds?|eds?|réd|red|dir|édit|co[oö]rd)\.?\)", re.IGNORECASE)
+_EDITOR_BARE = re.compile(r"^\s+(?:dir|éds?|eds?|réd|reds?|hrsg|co[oö]rd)\.(?=\s|$)", re.IGNORECASE)
 _ETAL = re.compile(r"^(?:e\.\s*a\.|e\.a\.|et\s+al\.)", re.IGNORECASE)
 _MMV = re.compile(
     r"^(?:m\.m\.v\.|avec la collaboration de|met medewerking van)\s+",
     re.IGNORECASE,
 )
 _SEP = re.compile(r"^(?:,\s*|&\s*|et\s+|en\s+)")
-_ROLE_WORD = re.compile(r"^(?:éds?|eds?|réd|red|dir|édit)\.?$", re.IGNORECASE)
+_ROLE_WORD = re.compile(r"^(?:éds?|eds?|réd|red|dir|édit|co[oö]rd)\.?$", re.IGNORECASE)
 _ABBREV = {
     "rev", "vol", "nr", "n", "dr", "mr", "mgr", "prof", "cf", "cfr", "ed", "éd",
     "dir", "red", "ill", "fig", "pl", "t", "tom", "fasc", "jg", "s", "l", "d",

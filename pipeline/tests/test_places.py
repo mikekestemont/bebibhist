@@ -103,3 +103,20 @@ def test_title_places_need_a_capital_and_skip_areas_saints_and_homonyms():
     assert matcher.find("Völker, Reiche und Namen im frühen Mittelalter") == []
     assert matcher.find("De vesting Bergen op Zoom") == []
     assert matcher.find("Het beleg van Bergen en Luik") == [("bergen", "53053"), ("luik", "62063")]
+
+
+def test_a_name_that_is_also_a_word_opens_a_title_only_as_a_word():
+    from bhb.model import Record
+    from bhb.places import common_words
+
+    matcher = _matcher()
+    titles = ["de namen van de straten"] * 5 + ["Weduwen in Gent"]
+    matcher.words = common_words([Record(id=f"bhb:x-{n}", source="print-straive", bgb_year=1990, title=title) for n, title in enumerate(titles)], matcher.codes)
+    assert matcher.words == frozenset({"namen"})
+    assert matcher.find("Namen van Heusdense schepenen") == []
+    assert matcher.find("Kloosters. Namen der straten") == []
+    assert matcher.find("Namen, 1914") == [("namen", "92094")]
+    assert matcher.find("De belegering van Namen") == [("namen", "92094")]
+    assert matcher.find("Gent en Namen 25 jaar later") == [("gent", "44021")]
+    assert matcher.find("Zo ging dat in 1852 Namen onbetaemelijk") == []
+    assert matcher.find("Het beleg te Namen in 1692") == [("namen", "92094")]

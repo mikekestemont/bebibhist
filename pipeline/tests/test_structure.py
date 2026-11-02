@@ -84,7 +84,9 @@ def test_part_one_is_auxiliary_and_part_three_uses_keywords():
     ) == ["contemporary"]
     assert periods_from_path(
         ["III. Histoire par époques", "Histoire sociale et économique, 1789–1970"]
-    ) == []
+    ) == ["contemporary"]
+    # A range that ends in 1789 is the early-modern period's end, not the contemporary period.
+    assert periods_from_path(["III. Histoire par époques", "Les Temps modernes, 1500–1789"]) == ["early-modern"]
     assert "early-modern" in periods_from_path(
         ["III. Histoire par époques", "Les Pays-Bas espagnols et la principauté de Liège"]
     )

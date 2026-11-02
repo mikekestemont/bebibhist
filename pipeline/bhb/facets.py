@@ -40,6 +40,9 @@ _ERA_WITH_1789 = re.compile(
     r"nos jours|tot heden|contemporain|hedendaags|eigentijds",
     re.IGNORECASE,
 )
+# The 1960–1972 volumes head the contemporary part "Histoire sociale et économique, 1789–1969": from 1789 to the
+# volume's own day, which the later volumes print beside "Époque contemporaine".
+_TO_PRESENT = re.compile(r"1789\s*[-–—]\s*(?:19[5-9]\d|20\d\d)")
 _CODE_MEDIEVAL = re.compile(r"^III\.B\.[12](?:\.|$)")
 _CODE_BURGUNDIAN = re.compile(r"^III\.B\.3(?:\.|$)")
 
@@ -63,8 +66,8 @@ def periods_from_path(section_path: list[str]) -> list[str]:
 
 
 def _contemporary(heading: str) -> bool:
-    """1789 counts only in the heading that also names the era, not in a date range."""
-    if re.search(r"contemporain|hedendaags", heading, re.IGNORECASE):
+    """1789 counts only in the heading that also names the era, or that runs to the volume's own day."""
+    if re.search(r"contemporain|hedendaags", heading, re.IGNORECASE) or _TO_PRESENT.search(heading):
         return True
     return "1789" in heading and _ERA_WITH_1789.search(heading) is not None
 

@@ -16,7 +16,7 @@ from bhb.textutil import clean_heading, squash, superscript
 
 XML = etree.XMLParser(load_dtd=False, no_network=True, recover=True, resolve_entities=False, huge_tree=True)
 _YEAR_FILE = re.compile(r"BGB_((?:19|20)\d{2})\.xml$")
-_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir)\.?\)|(?<![\w(])(?:éds?|eds?|réds?|red|dir|hrsg)\.(?=\s|$)", re.IGNORECASE)
+_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir|co[oö]rd)\.?\)|(?<![\w(])(?:éds?|eds?|réds?|red|dir|hrsg|co[oö]rd)\.(?=\s|$)", re.IGNORECASE)
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _EXTENT = re.compile(r"(\d+\s*p\.|s\.p\.)", re.IGNORECASE)
 _SPECIFIC = re.compile(r"pdf-page:(\d+)(?:\s+print-page:(\d+))?")
@@ -312,6 +312,7 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
     for child in citation:
         text = squash(_plain(child))
         tail = child.tail or ""
+        before = previous_tail
         if (child.tag in ("year", "fpage", "lpage") and title_open and not sources and _YEAR.fullmatch(text)
                 and _source_follows(child) and _closes_title(child)):
             joiner = previous_tail if title_years else (", " if previous_tail.strip() == "," else " ")
@@ -324,8 +325,11 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         previous_tail = tail
         if child.tag == "person-group":
             grouped = _persons(child)
-            # An editor group after the title belongs to the work named after "In:", not to the chapter.
-            if title_seen and child.get("person-group-type") == "editor":
+            # An editor group after the title belongs to the work named after "In:", not to the chapter; so does any
+            # group right after "In:", which the vendor sometimes tagged as authors ("In: Devos (Greta) coörd.").
+            if title_seen and (child.get("person-group-type") == "editor" or re.search(r"\bIn\s*:\s*$", before)):
+                for person in grouped:
+                    person.role = "editor"
                 host_editors.extend(grouped)
             else:
                 collecting_authors = True

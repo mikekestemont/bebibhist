@@ -386,6 +386,89 @@ was right. Extrapolated: about 7,500 matches and 3,000 ISBNs, and a KBR link for
 Also in the records, for later: publishers' full names (for the publisher clean-up of §5c), the extent and language
 as a check on ours, KBR's subjects as context for the LLM pass, and the periodicals' ISSNs and first issues.
 
+## 4f. Next: faults found in a test session (2 Nov 2026)
+
+A reader's test session on the live site (release `data-2026-11-01b`) reported eleven points. Checked on
+`build/records.jsonl` of 2 Nov: six are faults in the data, three are search behaviour, two are known gaps.
+
+**Done 2 Nov (release `data-2026-11-02`):** points 1, 2, 3, 4, 6 and 7, and the first hand correction (point 13,
+`data/curated/corrections.csv`). Measured against the previous build: no entry under a "1789–19xx" heading is
+"early-modern" any more (605 before); entries with a suggested period 36,058 → 14,336; "Alle" suggested 29 → 2 (one right, one a pun:
+"(H)Alle(s)"); "Ibid." resolved 1,402 → 2,077 of 2,631; a name group right after "In:" now goes to the volume's editors,
+which also stops 31 chapter authors from being read as editors (103 entries change). Still open: 5, 8–12, 14.
+
+**A. Faults to fix by rule (before the meeting of 9 November where possible)**
+
+1. **Period of the 1960–1972 headings.** A heading such as "Histoire sociale et économique, 1789–1969" gives no period:
+   `_contemporary` needs "nos jours" or "contemporain" next to 1789. 3,068 entries under a "1789–19xx" heading lack
+   the printed period; 766 have none, about 160 are "early-modern" (from the classifier code or a suggestion), e.g.
+   `bhb:1969-14233`, `bhb:1964-7470`. Rule: 1789 followed by a year from 1950 on is the contemporary period.
+2. **Suggested periods added to entries the print already places.** `facet_suggest` adds a second period even where
+   the printed heading gives one: "L'époque des Habsbourgs" entries get "contemporary" (`bhb:1952-3281`,
+   `bhb:1952-3529`), "avant 1790" too (`bhb:1952-2770`). The 90 % precision was measured on 2005–2008 and V-Smart
+   2015–2017, not on old volumes. Suggest a period only where print and code give none, and measure on a held-out
+   pre-1993 sample before showing it.
+3. **Place names that are common words.** "Alle" (Alle-sur-Semois, `nis:91143B`) is suggested for 29 entries, one
+   of them right ("Alle kerken van West-Vlaanderen"). Audit every suggested place whose name is also a frequent
+   word in titles (Alle, Ham, As, Lens, …): keep it only with the full form ("Alle-sur-Semois", "Alle sur Semois")
+   or in the printed place index. Redo the 100-entry sample on these names.
+4. **"Ibid." left unresolved.** Of 2,631 entries printed with "Ibid.", 1,016 have no host: `resolve_ibid` only sees
+   an "Ibid." that the parser put in the host title, not one left in the title or in parentheses
+   (`bhb:1986-45356`, Rezsohazy: the host is the journal of `bhb:1986-45355`, *Nieuw Ts. voor Politiek*, 1986).
+5. **Printed numbers repaired wrongly.** `bhb:1983-38992` is printed as n° 38984 (`label_raw`), but the label repair
+   renumbered it, so "cf. n° 38984" in its contributions (`bhb:1983-40263`, Lebrun) points at another entry and the
+   contributions get no year. 5,698 labels were repaired and 1,135 cross-references are unresolved. Audit the repair
+   with the cross-references as evidence (a contribution citing n° X of a volume whose raw label is X), fix it, and
+   then give contributions the year, place and editors of the volume they cite. A renumbered id must keep working
+   (§4d, step 1).
+6. **"coörd." and "coord." as editor.** "In: Devos (Greta) coörd." makes Devos an author of the chapter
+   (`bhb:2001-33057`).
+7. **The note "[host record not exported]"** is English on a Dutch or French page; translate it and link it to a
+   short explanation on the About page.
+
+**B. Search behaviour**
+
+8. **Names in all-text search.** A search for a name in "all text" also finds the chapters of volumes the person
+   edited (Bisschop under Vanthemsche, `bhb:vs-1250412`) and hyphenated names ("Sieben" finds "Jansen-Sieben",
+   `bhb:1999-28307`). The author field already excludes both. Rank entries where the name is an author first, and,
+   when the words match an author, offer "only as author" next to the results.
+9. **Subjects across languages.** "banques" does not find "Bankgeschiedenis" (`bhb:2001-33057`), which only appears
+   among the related publications; "Hongarije" does not find "Hongrie". Two cheap steps: (a) a bilingual subject
+   vocabulary from the printed headings, which pair French and Dutch ("Moyens de paiement, banques — Betalingsmiddelen,
+   banken"), added at indexing as the place synonyms are (`data/curated/place_synonyms.csv`); (b) countries and
+   foreign places with their names in four languages, the step already planned after the Belgian places. A title
+   that names only a person (Mindszenty) is left to the related publications and the semantic search (S5).
+10. **Matches through the printed heading.** "banken" finds entries under the heading "Betalingsmiddelen en banken"
+    whose title does not name banks (`bhb:1964-7470`). This is intended, but the result should say why it matched
+    ("found in the section heading"). Check also the 1964 heading tree: "d) Les villes" under "Moyens de payements
+    et banques" looks misplaced.
+
+**C. Display**
+
+11. **Two-digit years (1952–1959).** 3,163 entries print the year as "52". The stored year is 1952 where the parser
+    found it; show it in the list as "52 [1952]" (the bracket marks a supplied value, the printed text is untouched)
+    and in the details row. About 12,500 printed entries still have no year at all (1950s: 10 %, 2000s: 15 %), mostly
+    contributions whose volume is a cross-reference (point 5).
+12. **Italics** mark what the parser read as the journal or book title, so they vary where the reading fails:
+    "*Courrier hebdomadaire du* CRISP" (`bhb:1989-52364`, the journal cut at "du"), "*Banques et entreprises*" typed
+    as a book while it is a chapter of *La Wallonie, le Pays et les hommes* (`bhb:1976-27919`). Fix these two
+    patterns by rule (a journal title does not end on a preposition; "Title. Book, II, place, year, pp." is a
+    chapter); the rest goes to the LLM pass (§5c).
+13. **OCR in names** ("Zuznkir" for Zumkir, `bhb:1952-3797`). Propose a correction, flagged, where a name occurs
+    once, is one or two edits from a frequent name with the same initial, and the KBR authorities (§4e) or the LLM
+    pass agree.
+14. **A "report an error" link** on each record (a mailto with the record id), so readers' corrections reach the
+    editor. Which address receives them is for the meeting.
+
+**D. Not by code**
+
+15. The 537 host records missing from the V-Smart export (§9 of the internal plan, point 7): ask the State Archives.
+16. Collected volumes printed with their contents still read as one entry (`Vader Hoste`, 1989; the Mennekens volume,
+    1995): §5c.
+
+Order: 1, 2, 3, 4, 6, 7 first (rules, a day or two, then a release); then 8 and 11; then 5, 9, 10, 12, 13; 14 after
+the meeting decides the address. Every fix gets a test on the record ids above.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |

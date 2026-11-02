@@ -250,6 +250,8 @@
   "fromCrossref": "Automatisch gevonden in Crossref, op titel, auteur en jaar. Niet met de hand gecontroleerd.",
   "fromVabb": "Automatisch gevonden in het VABB-SHW (Vlaams Academisch Bibliografisch Bestand, ECOOM), op titel, auteur en jaar. Niet met de hand gecontroleerd.",
   "hostMatched": "De catalogusbeschrijving van dit tijdschrift werd niet geëxporteerd; de naam werd automatisch gevonden in Crossref of het VABB-SHW, via dit artikel of een ander artikel in hetzelfde tijdschrift. Niet met de hand gecontroleerd.",
+  "hostMissing": "[tijdschrift of boek niet in de export]",
+  "hostMissingNote": "De beschrijving van het tijdschrift of boek waarin dit verscheen, ontbreekt in de export uit de catalogus van het Rijksarchief; ze wordt aangevuld zodra het Rijksarchief ze exporteert.",
   "hostFromIbid": "Gedrukt als „Ibid.”: overgenomen van de beschrijving die er net voor gedrukt staat.",
   "journalChip": "Tijdschrift:",
   "journalPrinted": "Gedrukt als: {title}.",

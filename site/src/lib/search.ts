@@ -67,6 +67,8 @@ export interface Hit {
     themesSuggested?: string;
     periods?: string;
     periodsSuggested?: string;
+    languages?: string;
+    languageFrom?: string;
     similar?: string;
     container?: string;
     containerCount?: string;
@@ -160,6 +162,9 @@ function yearIn(text: string, year: string): boolean {
   return new RegExp(`(?<!\\d)${year}(?!\\d)`).test(text);
 }
 
+/** The pipeline's placeholder for a host record the State Archives' export lacks (`bhb/merge.py`). */
+export const HOST_MISSING = "[host record not exported]";
+
 /** Journal and monograph titles (and their subtitles) are italic; an article or chapter title and subtitle stay roman. */
 export function citationHtml(
   citation: string,
@@ -167,6 +172,8 @@ export function citationHtml(
   yearNote = "",
   volumeNote = "",
   hostNote = "",
+  hostMissing = "",
+  hostMissingNote = "",
 ): string {
   const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
@@ -192,8 +199,10 @@ export function citationHtml(
   // in the journal row only; in the citation the note is a tooltip, without the dotted underline.
   if (meta.hostMatched === "1" && meta.host) {
     const supplied = `<em title="${escapeHtml(hostNote)}">${escapeHtml(meta.host.trim())}</em>`;
-    html = html.replace("[host record not exported]", supplied);
+    html = html.replace(HOST_MISSING, supplied);
   }
+  // A journal or book still missing from the export: the placeholder in the reader's language, with the reason.
+  if (hostMissing) html = html.replace(HOST_MISSING, `<span class="derived" title="${escapeHtml(hostMissingNote)}">${escapeHtml(hostMissing)}</span>`);
   // A book's or journal issue's title and subtitle are italic; an article's or chapter's stay roman.
   if (meta.kind === "book" || meta.kind === "journal-issue") {
     for (const part of [meta.title, meta.subtitle]) {

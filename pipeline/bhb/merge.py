@@ -7,6 +7,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from bhb.corrections import apply_corrections
 from bhb.facets import assign_period
 from bhb.ingest.vsmart import render_printed
 from bhb.model import Host, Person, Publisher, Record
@@ -25,8 +26,11 @@ def merge_records(
     pdf: list[Record],
     vsmart: list[Record],
     code_labels: dict[str, dict[str, str | None]] | None = None,
+    corrections: list[dict[str, str]] | None = None,
 ) -> tuple[list[Record], dict[str, dict[str, str | None]]]:
+    """Combine the sources. Hand corrections (``data/curated/corrections.csv``, or ``corrections``) come first."""
     records = [*straive, *pdf, *vsmart]
+    apply_corrections(records, corrections)
     by_id = {record.id: record for record in records}
     link_cited_hosts(records, by_id)
     referenced: set[str] = set()

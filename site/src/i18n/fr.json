@@ -250,6 +250,8 @@
   "fromCrossref": "Trouvé automatiquement dans Crossref, d’après le titre, l’auteur et l’année. Non vérifié à la main.",
   "fromVabb": "Trouvé automatiquement dans le VABB-SHW (bibliographie académique flamande, ECOOM), d’après le titre, l’auteur et l’année. Non vérifié à la main.",
   "hostMatched": "La notice de cette revue n’a pas été exportée du catalogue ; le nom a été trouvé automatiquement dans Crossref ou le VABB-SHW, par cet article ou un autre article de la même revue. Non vérifié à la main.",
+  "hostMissing": "[revue ou livre absent de l’export]",
+  "hostMissingNote": "La notice de la revue ou du livre où ceci a paru manque dans l’export du catalogue des Archives de l’État ; elle sera ajoutée dès que les Archives de l’État l’exporteront.",
   "hostFromIbid": "Imprimé « Ibid. » : repris de la notice imprimée juste avant celle-ci.",
   "journalChip": "Revue :",
   "journalPrinted": "Imprimé : {title}.",

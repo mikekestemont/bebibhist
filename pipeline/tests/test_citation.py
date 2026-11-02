@@ -116,6 +116,8 @@ def test_dutch_editor_and_dir():
     directed = parse_citation("Maes (P.) (dir.). Titel. Liège, Université, 1980, 50 p.")
     assert directed.persons[0]["role"] == "editor"
     assert directed.place == "Liège"
+    coordinated = parse_citation("Devos (Greta) coörd. De lokroep van het bedrijf. Brussel, 2001, 320 p.")
+    assert coordinated.persons[0]["role"] == "editor" and coordinated.title.startswith("De lokroep")
 
 
 def test_et_al():

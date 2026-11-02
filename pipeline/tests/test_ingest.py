@@ -266,6 +266,23 @@ def test_editor_group_after_the_title_belongs_to_the_host(tmp_path: Path):
     assert "bhb:2000-29240" in record.cross_refs
 
 
+def test_a_group_tagged_as_authors_right_after_in_is_the_hosts_coordinator(tmp_path: Path):
+    path = tmp_path / "BGB_2001.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>II. Algemeen</title>
+        <ref id="ref1"><label>33057</label><mixed-citation publication-type="other">
+        <person-group person-group-type="author"><string-name><surname>Buyst</surname> (<given-names>Eric</given-names>)</string-name></person-group>.
+        <chapter-title>Bankgeschiedenis in België</chapter-title>. In:
+        <person-group person-group-type="author"><string-name><surname>Devos</surname> (<given-names>Greta</given-names>)</string-name></person-group> coörd.
+        <source>Liber amicorum Roland Baetens</source>. pp. <fpage>29</fpage>–<lpage>42</lpage>.
+        </mixed-citation></ref></ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert [(person.family, person.role) for person in record.persons] == [("Buyst", "author")]
+    assert [(person.family, person.role) for person in record.host.editors] == [("Devos", "editor")]
+
+
 @pytest.mark.skipif(not raw_available(), reason="set BHB_RAW or provide ../bebibhist-raw")
 def test_real_1975_volume_round_trips_a_known_entry():
     path = raw_root() / "2023-12-29" / "BGB_1970-79" / "BGB_1975.xml"

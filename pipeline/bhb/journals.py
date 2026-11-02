@@ -41,26 +41,60 @@ def display_title(title: str) -> str:
     return re.sub(r"\s*\[.*$", "", title).strip(" .,;:") or title
 
 
+# "Title. Ibid., 235, pp. 39–41." where the parser kept no host: the volume, year and pages printed after "Ibid.".
+_IBID_PRINTED = re.compile(
+    r"\bIbid\.?[.,]?\s*(?:(?P<volume>(?!(?:18|19|20)\d\d\b)[IVXLC]+|\d{1,4})\s*,\s*)?"
+    r"(?:(?P<year>(?:18|19|20)\d\d)\s*,\s*)?pp?\.\s*(?P<pages>\d+(?:\s*[-–]\s*\d+)?)"
+)
+
+
+def _is_ibid(title: str | None) -> bool:
+    return bool(title) and fold(title).split()[:1] != [] and fold(title).split()[0] in IBID
+
+
+def _printed_ibid(record):
+    """The host an entry prints as "Ibid., pp. …" when the parser left it in the citation only."""
+    from bhb.model import Host
+
+    match = _IBID_PRINTED.search(record.printed or "")
+    if not match:
+        return None
+    return Host(title="Ibid.", volume=match.group("volume"), year=match.group("year"),
+                pages=re.sub(r"\s*[-–]\s*", "–", match.group("pages")))
+
+
 def resolve_ibid(records) -> int:
     """Give an entry whose journal or volume is printed as "Ibid." that of the entry printed just before it in the same
     volume, flagged ``host-from-ibid``: the previous entry's journal or volume, or, when the previous entry is a book,
-    that book. When the previous entry is neither, the entry stays as printed. Returns how many were resolved.
-    Runs on a fresh build (``bhb build``), where "Ibid." is still as printed."""
+    that book. A journal's volume, issue and year come along when the entry prints none of its own ("Ibid., pp. 57–68"
+    is the same issue). When the previous entry is neither, the entry stays as printed. Resolved entries resolve the
+    next one in turn. Returns how many were resolved. Runs on a fresh build (``bhb build``), where "Ibid." is still as
+    printed."""
     printed = sorted((record for record in records if record.source.startswith("print") and record.print_number and record.print_number.isdigit()),
                      key=lambda record: (record.bgb_year or 0, int(record.print_number)))
     resolved = 0
     for previous, record in zip([None, *printed], printed):
-        host = record.host
-        if not (host and host.title and fold(host.title).split()[:1] and fold(host.title).split()[0] in IBID):
+        host = record.host if record.host and record.host.title else _printed_ibid(record)
+        if not (host and _is_ibid(host.title)):
             continue
         if previous is None or previous.bgb_year != record.bgb_year:
             continue
-        if previous.host and previous.host.title and fold(previous.host.title).split()[:1] != ["ibid"]:
+        if previous.host and previous.host.title and not _is_ibid(previous.host.title):
             host.title = previous.host.title
-        elif previous.type == "book" and previous.title and record.type == "chapter":
+            if not (host.volume or host.issue):
+                host.volume, host.issue = previous.host.volume, previous.host.issue
+                host.year = host.year or previous.host.year
+            if previous.type in ("article", "chapter") and record.type not in ("article", "chapter"):
+                record.type = previous.type
+        elif previous.type == "book" and previous.title:
             host.title = previous.title
+            host.year = host.year or (str(previous.year) if previous.year else None)
+            record.type = "chapter"
         else:
             continue
+        record.host = host
+        if not record.year and host.year and host.year.isdigit():
+            record.year = int(host.year)
         record.provenance.flags.append("host-from-ibid")
         resolved += 1
     return resolved
