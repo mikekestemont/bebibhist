@@ -359,6 +359,33 @@ While so much still changes this is a goal, not a promise; the steps, from cheap
 3. **A DOI per yearly release** through Zenodo (planned): the dataset is citable as a whole, and the w3id link
    cites the entry within it.
 
+## 4e. Next: KBR's Belgian Bibliography for ISBNs and names (Mike, 2 Nov 2026)
+
+The harvest of KBR's `BelgianDataset` (books and periodicals, oai_dc, `bhb identifiers kbr-harvest`) runs until about
+5 Nov. A test on the first 20 % (titles Z to "Ro", the server's order) matched 1,373 books and collected volumes
+without an ISBN (same title plus the same author or publisher, years close), 540 of them with an ISBN; a sample of 25
+was right. Extrapolated: about 7,500 matches and 3,000 ISBNs, and a KBR link for the rest. Once the harvest is done:
+
+1. **Match** books and the volumes of chapters, as in the test; a match on the publisher alone also needs the same
+   year. Add the ISBN and the KBR link (`uurl.kbr.be/bib/…`), machine-derived and labelled, like Open Library's.
+2. **Fetch the `ermes` record** (one `GetRecord` per matched book, a few thousand requests, cached) for the year of
+   publication, the publisher's full name and the authors' **KBR authority ids** (`Author_id_exact`).
+3. **Full names on the matched book.** KBR writes names out with dates and an occupation ("Duquet, Frans (1922-2013)
+   - heemkundige"). Where the entry has initials only and the initial agrees (loosely: OCR confuses I and J), store
+   the full first name, the dates and the KBR id on the person; the printed form stays. In the test, 176 of 1,815
+   persons on matched books; about 1,000 in all.
+4. **Carry a name over to other entries** only when it is safe: the family name plus initial points to one person in
+   the bibliography and KBR (one KBR id, one full name), the entry falls within the person's life (a death year rules
+   out later entries) and nothing else contradicts it. "Prevenier, W." becomes Walter; "Janssens, J." stays as
+   printed. The names found in the test occur with initials in 2,234 entries; the bibliography has 56,442 mentions
+   with initials only, so this solves part of the problem.
+5. **The site** shows the full name after the printed form, marked as machine-derived ("from KBR"), and the KBR id as
+   a link, like the ORCID mark. A KBR id also groups a person's variant spellings for the author pages of the entity
+   step.
+
+Also in the records, for later: publishers' full names (for the publisher clean-up of §5c), the extent and language
+as a check on ours, KBR's subjects as context for the LLM pass, and the periodicals' ISSNs and first issues.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |
