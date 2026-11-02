@@ -438,6 +438,11 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
    banken"), added at indexing as the place synonyms are (`data/curated/place_synonyms.csv`); (b) countries and
    foreign places with their names in four languages, the step already planned after the Belgian places. A title
    that names only a person (Mindszenty) is left to the related publications and the semantic search (S5).
+   **Changed 2 Nov:** the same point came from a second reader ("gewoonterecht" does not find "droit coutumier", not
+   even through the wand). The full answer is a machine translation of every title in the LLM pass (§5c, "Translated
+   titles"); (a) is dropped. A separate "In other languages" block in the wand was considered and dropped
+   (Mike, 2 Nov 2026): it would turn nothing into a little for "gewoonterecht" (2 relevant titles in 11) but stays noisy, and the
+   wand recomputed on the translations should make it unnecessary.
 10. **Matches through the printed heading.** "banken" finds entries under the heading "Betalingsmiddelen en banken"
     whose title does not name banks (`bhb:1964-7470`). This is intended, but the result should say why it matched
     ("found in the section heading"). Check also the 1964 heading tree: "d) Les villes" under "Moyens de payements
@@ -462,7 +467,7 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
 
 **D. Not by code**
 
-15. The 537 host records missing from the V-Smart export (§9 of the internal plan, point 7): ask the State Archives.
+15. The 537 host records missing from the V-Smart export (§9 of the internal plan, point 7): asked of the State Archives (Mike, 2 Nov 2026).
 16. Collected volumes printed with their contents still read as one entry (`Vader Hoste`, 1989; the Mennekens volume,
     1995): §5c.
 
@@ -580,6 +585,25 @@ goes into it; the pass checks it. The schema's `language` (`bhb/citations.py`, o
 a title printed in two languages gets both, and its description says that the editors' bracketed translation of a
 title is not a language of publication, the rule the local step follows. The local value goes along as a hint, like
 the journal behind an "Ibid."; where the model and the local step disagree, the entry goes on a review list.
+
+**Translated titles, for search across languages (Mike, 2 Nov 2026).** A reader looking for "gewoonterecht" should
+also find "droit coutumier", and the wand does not get there: only 23 % of a Dutch or French title's similar
+publications are in the other language (about 40 % if language played no part), and subtracting each language's mean
+vector raises that only to 32 %. Embedding the query itself does not either: for "gewoonterecht" the 15 closest titles
+are 13 Dutch and 2 French, and bge-m3 (2.2 GB) cannot run in a reader's browser anyway. So the pass translates every
+title (title and subtitle) into **Dutch, French and English**, the languages it is not already in: English serves a
+reader who searches in English, and Dutch and French connect the two languages of the bibliography both ways. Every
+title is translated, so entries the pass is not otherwise sent (a DOI or VABB match, or already right) go in separate
+requests with the title only, about 180,000 titles and some 10 million output tokens in all. The translations are
+indexed for search and shown under the title, marked as machine translations; a hit found only through one says so.
+Names of persons and places stay as printed (Luik/Liège excepted), and the editors' bracketed translation, where
+there is one, goes along as a reference. Before the full run: a hand check of 50 titles per language pair, with
+historical terms (costumen, échevins, schepenbank, mainmorte) in the sample, and a measure of the index growth against
+the 224 MB now (translations roughly double the indexed title words). The Dutch–French term list of §4f point 9 is
+then not needed for search; built from the 18,038 printed title pairs, it would only serve as a check on the
+translations. The similar publications (the wand) are then recomputed on the English translations as
+well, so that every title is compared in one language; the share of neighbours in another language is measured before
+and after. That should make a separate "other languages" block in the wand unnecessary, so none is built now.
 
 ## 6. Not in this phase
 
