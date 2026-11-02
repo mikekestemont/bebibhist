@@ -100,6 +100,16 @@ def resolve_ibid(records) -> int:
     return resolved
 
 
+def load_successions(path: Path | None = None) -> list[dict[str, str]]:
+    from bhb.paths import repo_root
+
+    path = path or repo_root() / "data" / "curated" / "journal_successions.csv"
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
 def _content(words: list[str]) -> list[str]:
     return [word for word in words if word not in STOP]
 
@@ -181,6 +191,20 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
         journals = {targets[target][0] for target in targets if is_abbreviation(spelling, target)}
         if len(journals) == 1:
             mapping[spelling] = (journals.pop(), "abbreviation")
+    # 5. A journal renamed under one ISSN: the spellings of its articles from before the new name go to the
+    # predecessor (data/curated/journal_successions.csv; the abbreviation rule reads "Bijdragen voor de geschiedenis
+    # der Nederlanden" as an abbreviation of BMGN).
+    years: dict[str, list[int]] = defaultdict(list)
+    for record in articles:
+        if year := record.year or record.bgb_year:
+            years[spelling_key(record.host.title)].append(int(year))
+    successions = load_successions()
+    names = {row["predecessor_id"]: row["predecessor_title"] for row in successions}
+    for row in successions:
+        for spelling, (journal, _rule) in list(mapping.items()):
+            dated = sorted(years.get(spelling, []))
+            if journal == row["successor"] and dated and dated[len(dated) // 2] < int(row["renamed_in"]):
+                mapping[spelling] = (row["predecessor_id"], "predecessor")
     # The list: per journal its ISSNs, the most frequent full spelling as its title, and its article count.
     members: dict[str, list[str]] = defaultdict(list)
     for spelling, (journal, _) in mapping.items():
@@ -194,7 +218,9 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             full_forms.update({form: n for form, n in shown[spelling].items() if not re.search(r"\b\w{1,6}\.", form)})
         forms = full_forms or forms
         issns = sorted({issn for issn in parent if journal.startswith("issn:") and root(issn) == journal[5:]})
-        journals.append({"id": journal, "title": display_title(forms.most_common(1)[0][0]), "issn": "|".join(issns),
+        # A predecessor is named as the curated list writes it, not by its most frequent spelling.
+        title = names.get(journal) or display_title(forms.most_common(1)[0][0])
+        journals.append({"id": journal, "title": title, "issn": "|".join(issns),
                          "spellings": len(spellings), "articles": sum(count[s] for s in spellings)})
     journals.sort(key=lambda row: -row["articles"])
     return journals, mapping

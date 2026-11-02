@@ -145,6 +145,8 @@ class Record:
     # Languages of publication (ISO 639-1) a machine read in the title (``bhb language apply``), the main title's
     # first; a second one only for a title in two languages, never for the editors' bracketed translation.
     language_suggested: list[str] = field(default_factory=list)
+    # Ids this entry had in earlier builds (a repaired printed number), so old links still find it (``bhb/ids.py``).
+    former_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return _clean(asdict(self))

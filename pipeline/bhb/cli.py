@@ -301,6 +301,12 @@ def build() -> list[Record]:
     write_jsonl(build_dir() / "vsmart.jsonl", vsmart)
     _write_labels(labels)
     merged, labels = merge_records(straive, pdf, vsmart, labels)
+    from bhb.ids import carry_former_ids, migrate_ids, previous_ids
+
+    renumbered = carry_former_ids(merged, previous_ids(build_dir() / "records.jsonl"))
+    print(f"ids: {len(renumbered)} entries changed id since the previous build; their former ids are kept")
+    for name, count in migrate_ids(repo_root(), renumbered).items():
+        print(f"ids: {count} ids moved to their new form in {name}")
     from bhb.categorise import categorise
 
     print("categorise…")

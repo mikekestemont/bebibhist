@@ -353,7 +353,12 @@ a release from dropping or renumbering an id (contributions split from a volume,
 While so much still changes this is a goal, not a promise; the steps, from cheap to more involved:
 
 1. **An id check per release:** `bhb release` compares the ids with the previous release and refuses, or lists, ids
-   that disappear; an entry merged or withdrawn keeps a short page saying where it went.
+   that disappear; an entry merged or withdrawn keeps a short page saying where it went. **Partly done 2 Nov:** an
+   entry whose id changes keeps its former ids (`former_ids`, matched on file and element id against the previous
+   build, `bhb/ids.py`), and the site opens an old link on the entry that had that id; the id that a different
+   entry now holds goes to that entry. Matches and hand checks stored by id (`build/identifiers/`, the corrections,
+   the language sample, the gold sheet) are rewritten to the new ids in the same build (`migrate_ids`), so a DOI, an
+   ISBN or a correction stays with its entry.
 2. **A permanent address** through w3id.org (free, community-run): `https://w3id.org/bhb/<id>` forwards to the
    record page wherever the site lives, so a move to another domain changes one redirect rule, not every link.
 3. **A DOI per yearly release** through Zenodo (planned): the dataset is citable as a whole, and the w3id link
@@ -395,7 +400,7 @@ A reader's test session on the live site (release `data-2026-11-01b`) reported e
 `data/curated/corrections.csv`). Measured against the previous build: no entry under a "1789–19xx" heading is
 "early-modern" any more (605 before); entries with a suggested period 36,058 → 14,336; "Alle" suggested 29 → 2 (one right, one a pun:
 "(H)Alle(s)"); "Ibid." resolved 1,402 → 2,077 of 2,631; a name group right after "In:" now goes to the volume's editors,
-which also stops 31 chapter authors from being read as editors (103 entries change). Still open: 5, 8–12, 14.
+which also stops 31 chapter authors from being read as editors (103 entries change). Still open: 8–12, 18, 19. **Done later on 2 Nov:** 5 and 17 (see there).
 
 **A. Faults to fix by rule (before the meeting of 9 November where possible)**
 
@@ -421,6 +426,18 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
    with the cross-references as evidence (a contribution citing n° X of a volume whose raw label is X), fix it, and
    then give contributions the year, place and editors of the volume they cite. A renumbered id must keep working
    (§4d, step 1).
+   **Checked 2 Nov:** two faults, not one. (a) In 1983 the repair shifted a whole run of 417 labels by +8 (409) or +9
+   (8), so the volume printed as n° 38984 became 38992 while 40 contributions cite "cf. n° 38984"; the raw labels look
+   right. (b) A reference printed in round brackets, "(cf. n° 38984)", is not read as a cross-reference at all: 465
+   such entries, almost all 1970–1989, are not linked to the volume they cite, so they get no year from it.
+   **Fixed 2 Nov:** (a) the repair now keeps the longest run of labels that increase in printed order and repairs
+   only the labels outside it, never against an earlier repair, and it reads letter suffixes (`38970a`) and `-c`,
+   `bis.`: repairs fall from 5,698 to 160, and no run is shifted any more (there were such runs in 12 volumes);
+   (b) "cf." and "voyez" are read like "Cfr.", in round brackets too, and a volume printed abbreviated without
+   "In:" is linked when its words begin the cited volume's title; the linked volume lends its year. A cited entry
+   whose people are all editors counts as a volume (the Arnould volume was tagged as a journal article), and an
+   editor mark split from its full stop by a tag ("Duvosquel (J.-M.) ed</string-name>.") is now read: 346 entries
+   get their editors.
 6. **"coörd." and "coord." as editor.** "In: Devos (Greta) coörd." makes Devos an author of the chapter
    (`bhb:2001-33057`).
 7. **The note "[host record not exported]"** is English on a Dutch or French page; translate it and link it to a
@@ -462,14 +479,32 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
 13. **OCR in names** ("Zuznkir" for Zumkir, `bhb:1952-3797`). Propose a correction, flagged, where a name occurs
     once, is one or two edits from a frequent name with the same initial, and the KBR authorities (§4e) or the LLM
     pass agree.
-14. **A "report an error" link** on each record (a mailto with the record id), so readers' corrections reach the
-    editor. Which address receives them is for the meeting.
+14. ~~A "report an error" link~~ Dropped (Mike, 2 Nov 2026): a mailto link would be simple, but nobody is
+    available to read and check the reports. Corrections go to `data/curated/corrections.csv` by hand.
 
 **D. Not by code**
 
 15. The 537 host records missing from the V-Smart export (§9 of the internal plan, point 7): asked of the State Archives (Mike, 2 Nov 2026).
 16. Collected volumes printed with their contents still read as one entry (`Vader Hoste`, 1989; the Mennekens volume,
     1995): §5c.
+
+**E. From a second test session (2 Nov 2026)**
+
+17. **Done 2 Nov:** `data/curated/journal_successions.csv` names a journal renamed under one ISSN and the year of
+    the new name; spellings whose articles predate it go to the predecessor, under its own name (here 10 spellings,
+    45 articles). A rule on years alone was tried and dropped: a journal's anchoring spellings often cover only the
+    recent years, so it split off 58 written-out variants of the same journals. Other renamed journals are added as
+    they are found. **Predecessor journals merged into their successor.** "Bijdr. Gesch. Ned." (`bhb:1956-8208`) is grouped under
+    BMGN by its ISSN (`issn:0165-0505`, rule "abbreviation" in `data/curated/journal_spellings.csv`), but the
+    *Bijdragen voor de geschiedenis der Nederlanden* (1946–1969) only became the *Bijdragen en mededelingen betreffende
+    de geschiedenis der Nederlanden* in 1970. A spelling may join a journal by abbreviation only when its articles fall
+    within that journal's years; otherwise it stays a journal of its own, linked to its successor. Check the other
+    ISSN-anchored journals for the same merge (a title change or a fusion), and give the predecessor its own ISSN
+    where it has one.
+18. (Low priority, Mike, 2 Nov 2026: not now.) **Variant names of persons in titles** ("Godelieve" / "Godeliph" of Gistel): a list of name variants, added at
+    indexing as the place synonyms are, starting with saints and rulers; Wikidata gives many of the variants.
+19. **Historical territories on the map**: their borders changed over time; start with the dioceses, whose borders
+    were steadier, after the foreign places.
 
 Order: 1, 2, 3, 4, 6, 7 first (rules, a day or two, then a release); then 8 and 11; then 5, 9, 10, 12, 13; 14 after
 the meeting decides the address. Every fix gets a test on the record ids above.

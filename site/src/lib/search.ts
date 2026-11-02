@@ -3,6 +3,7 @@ export interface Hit {
   excerpt: string;
   meta: {
     id: string;
+    formerIds?: string;
     title: string;
     citation: string;
     year: string;
@@ -557,10 +558,14 @@ export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | 
   return match(response, id);
 }
 
+/** The entry with this id; else the one that had it before (a repaired printed number), so old links still work.
+ * The entry that holds the id now comes first. */
 async function match(response: SearchResponse, id: string): Promise<Hit | null> {
+  let former: Hit | null = null;
   for (const result of response.results.slice(0, 40)) {
     const data = await result.data();
     if (data.meta.id === id) return data;
+    if (!former && (data.meta.formerIds || "").split("|").includes(id)) former = data;
   }
-  return null;
+  return former;
 }

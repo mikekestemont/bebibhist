@@ -1,6 +1,6 @@
 id,title,issn,spellings,articles
 t:biekorf,Biekorf,,2,1736
-issn:0770-0822,"Handelingen van het Genootschap voor Geschiedenis, gesticht onder de benaming «Société d’émulation» te Brugge",0770-0822|0774-286X,127,1094
+issn:0770-0822,"Handelingen van het Genootschap voor Geschiedenis, gesticht onder de benaming «Société d’émulation» te Brugge",0770-0822|0774-286X,127,1093
 t:eigen-schoon-en-de-brabander,Eigen Schoon en de Brabander,,2,1081
 issn:1783-9033,Ghendtsche Tydinghen,1783-9033,13,993
 t:het-land-van-aalst,Het Land van Aalst,,3,760
@@ -15,16 +15,16 @@ t:bulletin-de-la-societe-royale-le-vieux-liege,Bulletin de la Société royale L
 issn:0035-2624,Revue du Nord,0035-2624|1166-486X|2271-7005,17,533
 issn:0486-4700,Res Publica,0486-4700|1356-4765,9,531
 t:wavriensia,Wavriensia,,3,515
-t:la-vie-wallonne,La Vie Wallonne,,4,502
+t:la-vie-wallonne,La Vie Wallonne,,4,501
 t:het-land-van-beveren,Het Land van Beveren,,2,487
 t:het-brugs-ommeland,Het Brugs Ommeland,,2,472
 t:memoires-de-la-societe-d-histoire-de-comines-warneton-et-de-,Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton),,9,467
 issn:1370-7477,Brood en rozen: tijdschrift voor de geschiedenis van de sociale bewegingen (Gent),1370-7477,9,464
-issn:0035-0869,Belgisch tijdschrift voor nieuwste geschiedenis - Revue belge d’histoire contemporaine (Gent),0035-0869|2295-3744,17,461
+issn:0035-0869,Belgisch tijdschrift voor nieuwste geschiedenis - Revue belge d’histoire contemporaine (Gent),0035-0869|2295-3744,17,460
 t:het-land-van-nevele,Het Land van Nevele,,3,431
 t:de-plate,De Plate,,2,427
 t:de-faluintjes,De Faluintjes,,3,404
-t:hemecht,Hémecht,,4,395
+t:hemecht,Hémecht,,4,397
 issn:0042-8523,Volkskunde,0042-8523|0775-3128,2,391
 t:histoire-et-archeologie-spadoises,Histoire et Archéologie spadoises,,6,387
 t:zonien,Zoniën,,2,387
@@ -49,7 +49,6 @@ t:huldenbergs-heemblad,Huldenbergs Heemblad,,3,283
 issn:0777-5067,De Gulden Passer,0777-5067,5,279
 t:franciscana,Franciscana,,2,273
 t:gooik,Gooik,,1,270
-issn:0165-0505,Bijdragen en mededelingen betreffende de geschiedenis der Nederlanden (Utrecht),0165-0505|2211-2898,29,269
 t:bilisium-tijdschrift-voor-heemkunde,Bilisium: Tijdschrift voor heemkunde,,1,264
 t:heidebloemke,Heidebloemke,,2,263
 t:laakdalse-heemtijdingen,Laakdalse Heemtijdingen,,1,263
@@ -65,12 +64,13 @@ t:iepers-kwartier,Iepers kwartier,,3,239
 t:calmpthoutania,Calmpthoutania,,3,234
 t:taxandria,Taxandria,,3,228
 t:ons-erfdeel,Ons Erfdeel,,1,226
+issn:0165-0505,Bijdragen en mededelingen betreffende de geschiedenis der Nederlanden (Utrecht),0165-0505|2211-2898,19,224
 t:bulletin-de-l-institut-archeologique-liegeois,Bulletin de l'Institut archéologique liégeois,,14,224
 t:curtenberg,Curtenberg,,1,223
 t:de-maasgouw,De Maasgouw,,1,219
 t:le-folklore-brabancon,Le Folklore Brabançon,,1,215
-t:de-brabantse-folklore,De Brabantse Folklore,,1,213
 t:mededelingen-van-de-heemkundige-kring-van-erpe-mere,Mededelingen van de Heemkundige Kring van Erpe-Mere,,9,213
+t:de-brabantse-folklore,De Brabantse Folklore,,1,212
 t:terres-d-herbeumont-a-orchimont,Terres d'Herbeumont à Orchimont,,2,210
 t:het-ezendropke,Het èzendröpke,,1,210
 t:ten-mandere,Ten Mandere,,2,207
@@ -180,11 +180,11 @@ t:de-achelse-kapetulie,De Achelse Kapetulie,,1,111
 t:in-de-steigers,In de Steigers,,1,110
 t:im-gohltal,Im Göhltal,,2,109
 t:ernigahem,Ernigahem,,1,109
-t:memoires-de-la-societe-royale-d-histoire-et-d-archeologie-de,Mémoires de la Société royale d’histoire et d’archéologie de Tournai (Tournai),,6,109
 t:brugge,Brugge die Scone,,3,108
 t:entre-senne-et-soignes,Entre Senne et Soignes,,2,108
 t:het-aldegondisklokje,Het Aldegondisklokje,,1,108
 t:bulletin-du-cercle-d-histoire-et-d-archeologie-segnia-houffa,Bulletin du Cercle d’histoire et d’archéologie SEGNIA (Houffalize),,5,108
+t:memoires-de-la-societe-royale-d-histoire-et-d-archeologie-de,Mémoires de la Société royale d’histoire et d’archéologie de Tournai (Tournai),,6,108
 t:oters-jaarboek-kulturele-kring-neeroeteren,Oters jaarboek / Kulturele Kring Neeroeteren,,1,108
 t:revue-cercle-d-etudes-historiques-de-gedinne,Revue / Cercle d'études historiques de Gedinne,,2,108
 t:bijdragen-tot-de-geschiedenis-der-stad-deinze-en-van-het-lan,Bijdragen tot de geschiedenis der stad Deinze en van het land aan Leie en Schelde,,12,107
@@ -368,7 +368,6 @@ t:ons-zelems-erfgoed,Ons Zelems Erfgoed,,1,50
 t:t-land-van-ryen,‘t Land van Ryen,,1,49
 t:brabantse-folklore,Brabantse Folklore,,1,49
 t:le-souvenir-perwezien-bulletin-du-cercle-historique-et-arche,Le souvenir perwézien: bulletin du Cercle historique et archéologique de Perwez et environs (Perwez),,2,49
-t:piete-baroque-en-luxembourg,Piété baroque en Luxembourg,,1,48
 t:bulletin-de-la-societe-belge-d-etudes-napoleoniennes-bruxell,Bulletin de la Société belge d'études napoléoniennes (Bruxelles),,5,48
 t:la-tour-d-hobruge-receuil-tubize,La Tour d’Hobruge. Receuil (Tubize),,1,48
 t:comte-de-jette,Comté de Jette,,1,47
@@ -385,6 +384,7 @@ t:brabantica,Brabantica,,1,45
 t:jaarboek-heemkring-scheldeveld,Jaarboek Heemkring Scheldeveld (Sint-Martens-Latem),,2,45
 t:les-cahiers-de-l-urbanisme-liege,Les Cahiers de l’urbanisme (Liège),,2,45
 t:in-de-steigers-erfgoednieuws-uit-west-vlaanderen-brugge,In de steigers: erfgoednieuws uit West-Vlaanderen (Brugge),,1,45
+t:bijdragen-voor-de-geschiedenis-der-nederlanden,Bijdragen voor de geschiedenis der Nederlanden,,10,45
 issn:0772-7151,Tijdschrift voor Interieurgeschiedenis en Design,0772-7151,2,44
 issn:1783-6425,Relicta,1783-6425,2,44
 t:annales-du-comite-flamand-de-france,Annales du Comité Flamand de France,,2,44
@@ -474,7 +474,6 @@ t:jaarboek-heemkring-ter-cuere,Jaarboek / Heemkring Ter Cuere,,2,35
 t:brussel,Brussel,,1,34
 t:collationes-brugenses-et-gandavenses,Collationes Brugenses et Gandavenses,,5,34
 t:toerisme-oost-vlaanderen,Toerisme Oost-Vlaanderen,,1,34
-t:liber-amicorum-achiel-de-vos,Liber Amicorum Achiel De Vos,,1,34
 t:ons-landens-erfdeel,Ons Landens Erfdeel,,2,34
 t:de-stam,De Stam,,1,34
 t:sportimonium-leuven,Sportimonium (Leuven),,1,34
@@ -489,7 +488,6 @@ t:geschiedenis-der-geneeskunde,Geschiedenis der geneeskunde,,1,33
 t:cella-periodique-du-cercle-d-histoire-et-d-archeologie-de-po,Cella: périodique du Cercle d’histoire et d’archéologie de Pont-à-Celles et environs,,1,33
 t:zeitschrift-fur-luxemburger-geschichte,Zeitschrift für Luxemburger Geschichte,,1,33
 issn:0007-9731,Cahiers de civilisation médiévale,0007-9731,9,32
-issn:0035-1601,Ét. sur le xviiiᵉ s,0035-1601,3,32
 issn:0007-6287,The Burlington Magazine,0007-6287,2,32
 issn:0770-3104,Jaarboek Koninklijk Museum voor Schone Kunsten (Antwerpen),0770-3104,2,32
 t:la-nouvelle-revue-wallonne,La Nouvelle Revue Wallonne,,5,32
@@ -582,7 +580,6 @@ t:annalen-van-de-oudheidkundige-kring-van-het-land-van-waas,Annalen van de Oudhe
 t:dans,Dans,,1,24
 t:lepers-kwartier,lepers Kwartier,,1,24
 t:confluent-namur,Confluent (Namur),,1,24
-t:arbeid-in-veelvoud,Arbeid in Veelvoud,,2,24
 t:liniaal-culturele-verenigingen-nieuwerkerken-nieuwerkerken-a,Liniaal: culturele verenigingen Nieuwerkerken (Nieuwerkerken-Aalst),,3,24
 t:de-eik-driemaandelijks-tijdschrift-voor-familiekunde-eeklo,De eik: driemaandelijks tijdschrift voor familiekunde (Eeklo),,1,24
 t:scientiarum-historia-antwerpen,Scientiarum Historia (Antwerpen),,1,24
@@ -609,7 +606,6 @@ issn:0023-8856,Latomus,0023-8856,1,22
 t:kultuurleven,Kultuurleven,,1,22
 t:saint-laurent-de-liege-eglise-abbaye-et-hopital-militaire,"Saint-Laurent de Liège, église, abbaye et hôpital militaire (…)",,2,22
 t:dat-stedeken-peer,Dat Stedeken Peer,,1,22
-t:le-luxembourg-en-lotharingie,Le Luxembourg en Lotharingie,,1,22
 t:sandelyntje-herenthout,Sandelyntje (Herenthout),,1,22
 t:bulletin-de-l-institut-historique-belge-de-rome-bulletin-van,Bulletin de l’Institut historique belge de Rome - Bulletin van het Belgisch Historisch Instituut te Rome (Bruxelles-Brussel),,2,22
 t:jaarboek-heemkundige-kring-van-rijkevorsel,Jaarboek Heemkundige Kring van Rijkevorsel,,1,22
@@ -645,8 +641,6 @@ t:haec-olim,Haec Olim,,1,20
 t:bulletin-du-cercle-benelux-d-histoire-de-la-pharmacie,Bulletin du Cercle Benelux d'Histoire de la Pharmacie,,4,20
 t:etudes-ardennaises,Études Ardennaises,,1,20
 t:graafschap-comte-de-jette,Graafschap/Comté de Jette,,2,20
-t:les-structures-du-pouvoir,Les structures du pouvoir,,1,20
-t:les-grands-mythes-de-l-histoire-de-belgique,Les grands mythes de l'Histoire de Belgique,,1,20
 t:de-maasgouw-tijdschrift-voor-limburgse-geschiedenis-en-oudhe,De Maasgouw: tijdschrift voor Limburgse geschiedenis en oudheidkunde (Maastricht),,1,20
 t:contactblad-kring-voor-geschiedenis-en-kunst-van-deinze-en-d,Contactblad. Kring voor geschiedenis en kunst van Deinze en de Leiestreek,,2,20
 t:gentse-cadenas,Gentse cadenas,,1,20
@@ -672,7 +666,6 @@ issn:1022-6966,Tydskrif vir Nederlands en Afrikaans,1022-6966,1,18
 issn:1370-2262,C@hiers du CRHIDI,1370-2262|2406-4157,1,18
 t:les-cahiers-lorrains,Les Cahiers lorrains,,1,18
 t:le-scalpel,Le Scalpel,,1,18
-t:la-grande-procession-de-tournai,La grande procession de Tournai,,1,18
 t:archief-et-bibliotheekwezen-in-belgie-archives-et-bibliotheq,Archief- et bibliotheekwezen in België - Archives et bibliothèques de Belgique (Brussel-Bruxelles),,2,18
 t:heemkring-ravensteyn-boortmeerbeek,Heemkring Ravensteyn (Boortmeerbeek),,1,18
 t:anderlechtensia-anderlecht,Anderlechtensia (Anderlecht),,1,18
@@ -706,7 +699,6 @@ t:wallonie,Wallonie,,1,16
 t:hommages-a-la-wallonie,Hommages à la Wallonie,,1,16
 t:in-memoriam-vormezeele,In memoriam … Vormezeele …,,1,16
 t:terres-ardennaises,Terres ardennaises,,1,16
-t:hotels-de-ville-et-maisons-communales,Hôtels de ville et maisons communales,,1,16
 t:peasants-and-townsmen-in-medieval-europe,Peasants and townsmen in medieval Europe,,1,16
 t:toerisme-oost-vlaanderen-tijdschrift-voor-recreatie-en-cultu,Toerisme Oost-Vlaanderen: tijdschrift voor recreatie en cultuur (Gent),,1,16
 t:jaarboek-van-de-heemkundige-kring-oud-wachtebeke-wachtebeke,Jaarboek van de Heemkundige Kring Oud-Wachtebeke (Wachtebeke),,1,16
@@ -734,7 +726,6 @@ t:bos-en-beverveld,Bos en Beverveld,,1,15
 t:contradictions,Contradictions,,1,15
 t:de-gidsenkr,De Gidsenkr,,1,15
 t:getuigen-in-polderklei-pp,"Getuigen in polderklei, pp",,1,15
-t:wallonie-atouts-et-references-d-une-region,Wallonie. Atouts et références d'une région,,1,15
 t:braem-driemaandelijks-tijdschrift-van-de-heemkring-braem-elv,Braem: driemaandelijks tijdschrift van de Heemkring Braem (Elversele),,1,15
 t:jaarboek-crekel-beke-kortemark,Jaarboek Crekel Beke (Kortemark),,1,15
 t:bullletin-de-la-dexia-banque-bruxelles-het-tijdschrift-van-d,Bullletin de la Dexia Banque (Bruxelles) - Het Tijdschrift van Dexia Bank (Brussel),,1,15

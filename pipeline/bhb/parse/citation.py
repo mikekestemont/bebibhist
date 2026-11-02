@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 from bhb.textutil import squash
 
 _CROSS = re.compile(
-    r"\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*"
-    r"((?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+)\s*\]?",
+    r"[\[(]?\s*(?:cfr?|voir|voyez|zie)\.?\s+n(?:°|º|o|r)\.?\s*"
+    r"((?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+)\s*[\])]?",
     re.IGNORECASE,
 )
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")

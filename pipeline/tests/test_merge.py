@@ -186,3 +186,24 @@ def test_heading_report_warns_when_a_top_heading_is_not_a_part():
     text = "\n".join(heading_report_lines(records))
     assert "| 1972 |" in text
     assert "50.0%" in text
+
+
+def test_an_article_citing_a_volume_by_cf_without_in_gets_the_volume_and_its_year():
+    # Tagged as a journal article by the vendor; its people are all editors, so it is a collected volume.
+    volume = Record(
+        id="bhb:1983-38984", source="print-straive", bgb_year=1983, type="article", year=1983,
+        persons=[Person("Cauchies", "J.-M.", "editor"), Person("Duvosquel", "J.-M.", "editor")],
+        title="Recueil d’études d’histoire hainuyère offertes à Maurice A. Arnould",
+    )
+    article = Record(
+        id="bhb:1983-40263", source="print-straive", bgb_year=1983, type="article",
+        title="Panorama des banques hainuyères de la seconde moitié du XIXᵉ siècle",
+        host=Host(title="Rec. d’ét. d’h. hainuyère …", volume="I", pages="743–765"),
+        cross_refs=["bhb:1983-38984"],
+        printed="Lebrun (J.). Panorama des banques hainuyères. Rec. d’ét. d’h. hainuyère …, I, pp. 743–765 (cf. n° 38984).",
+    )
+    merged, _labels = merge_records([volume, article], [], [])
+    found = next(record for record in merged if record.id == article.id)
+    assert found.host.id == volume.id and "host-from-cross-ref" in found.provenance.flags
+    assert found.year == 1983 and found.type == "chapter"
+    assert next(record for record in merged if record.id == volume.id).type == "book"

@@ -17,6 +17,21 @@ def test_label_repair_keeps_bis_and_real_gaps():
     assert repair_labels(["50", "52"]) == [("50", False), ("52", False)]
 
 
+def test_label_repair_keeps_letters_and_is_not_pushed_on_by_a_misreading():
+    # BGB 1983: entries inserted as 38970a, 38970b once shifted 409 later numbers by 8.
+    assert repair_labels(["38970", "38970a", "38970b", "38971"]) == [
+        ("38970", False), ("38970a", False), ("38970b", False), ("38971", False),
+    ]
+    # One misreading is repaired, and the numbers after it stay as printed.
+    assert repair_labels(["3170", "3171", "9172", "3173", "3174"]) == [
+        ("3170", False), ("3171", False), ("3172", True), ("3173", False), ("3174", False),
+    ]
+    # A misread suffixed label belongs to the number before it.
+    assert repair_labels(["44158", "44159", "47159b", "47159c", "44160", "44161"]) == [
+        ("44158", False), ("44159", False), ("44159b", True), ("44159c", True), ("44160", False), ("44161", False),
+    ]
+
+
 def test_letter_i_after_h_is_not_a_new_part():
     stack: list[tuple[int, str]] = []
     stack = push_heading(stack, "I. Bibliographies et sciences auxiliaires")

@@ -79,10 +79,12 @@ for await (const line of lines) {
   countWords(content);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    content: `${record.id}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}`,
+    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}`,
     language,
     meta: {
       id: record.id,
+      // Ids the entry had in earlier releases (a repaired printed number), so old links still open it.
+      formerIds: (record.former_ids || []).join("|"),
       title: (record.title || citation).slice(0, 180),
       citation: presentCitation(citation),
       year: record.bgb_year ? String(record.bgb_year) : "",

@@ -80,3 +80,18 @@ def test_a_catalogue_note_is_left_out_of_the_journal_name():
         "Mémoires de la Société d'Histoire de Comines et de la région"
     assert display_title("Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton)") == \
         "Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton)"
+
+
+def test_a_renamed_journal_keeps_its_old_name_for_the_years_before():
+    records = [_article(str(n), "Bijdragen en mededelingen betreffende de geschiedenis der Nederlanden", ["0165-0505"], year=1975 + n)
+               for n in range(20)]
+    records += [_article(str(100 + n), "Bijdragen voor de geschiedenis der Nederlanden", year=1955 + n) for n in range(4)]
+    records += [_article(str(200 + n), "Bijdr. Gesch. Ned.", year=1956 + n) for n in range(3)]
+    records += [_article(str(300 + n), "Bijdr. en Meded. betreffende de Gesch. der Ned.", year=1980 + n) for n in range(3)]
+    journals, mapping = build(records)
+    predecessor = ("t:bijdragen-voor-de-geschiedenis-der-nederlanden", "predecessor")
+    named = next(journal for journal in journals if journal["id"] == predecessor[0])
+    assert named["title"] == "Bijdragen voor de geschiedenis der Nederlanden" and named["issn"] == ""
+    assert mapping["bijdragen voor de geschiedenis der nederlanden"] == predecessor
+    assert mapping["bijdr gesch ned"] == predecessor
+    assert mapping["bijdr en meded betreffende de gesch der ned"] == ("issn:0165-0505", "abbreviation")

@@ -16,7 +16,7 @@ from bhb.textutil import clean_heading, squash, superscript
 
 XML = etree.XMLParser(load_dtd=False, no_network=True, recover=True, resolve_entities=False, huge_tree=True)
 _YEAR_FILE = re.compile(r"BGB_((?:19|20)\d{2})\.xml$")
-_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir|co[oö]rd)\.?\)|(?<![\w(])(?:éds?|eds?|réds?|red|dir|hrsg|co[oö]rd)\.(?=\s|$)", re.IGNORECASE)
+_EDITOR = re.compile(r"\((?:éds?|eds?|réd|red|dir|co[oö]rd)\.?\)|(?<![\w(])(?:éds?|eds?|réds?|red|dir|hrsg|co[oö]rd)\.(?=[\s,;:.]|$)", re.IGNORECASE)
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 _EXTENT = re.compile(r"(\d+\s*p\.|s\.p\.)", re.IGNORECASE)
 _SPECIFIC = re.compile(r"pdf-page:(\d+)(?:\s+print-page:(\d+))?")
@@ -334,7 +334,8 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
             else:
                 collecting_authors = True
                 persons.extend(grouped)
-                author_blob.append(_plain(child))
+                # The mark, or its full stop, often follows the group as plain text ("… Duvosquel (J.-M.) ed</string-name></person-group>.").
+                author_blob.append(f"{_plain(child)}{tail}" if not title_seen else _plain(child))
         elif child.tag == "collab":
             if text:
                 corporate.append(text)

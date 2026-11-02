@@ -89,15 +89,18 @@ def link_cited_hosts(records: list[Record], by_id: dict[str, Record] | None = No
         if record.host is not None and record.host.id:
             continue
         printed = record.printed or ""
-        if not _IN.search(printed):
+        # Without "In:" the volume is printed abbreviated, as a journal would be ("Rec. d'ét. d'h. hainuyère …, I,
+        # pp. 743–765 (cf. n° 38984)"): its words must begin the cited volume's title words, in order.
+        short = record.host.title if record.host and record.host.title else None
+        if not _IN.search(printed) and not short:
             continue
         targets = {
             ref
             for ref in record.cross_refs
             if (target := index.get(ref)) is not None
-            and target.type == "book"
+            and _a_volume(target)
             and target.title
-            and _host_title_matches(printed, target.title)
+            and (_host_title_matches(printed, target.title) if _IN.search(printed) else _abbreviates(short, target.title))
         }
         if len(targets) != 1:
             continue
@@ -105,6 +108,10 @@ def link_cited_hosts(records: list[Record], by_id: dict[str, Record] | None = No
             record.host = Host()
         record.host.id = targets.pop()
         record.provenance.flags.append("host-from-cross-ref")
+        volume = index[record.host.id]
+        if volume.type != "book":
+            volume.type = "book"
+            volume.provenance.flags.append("type-from-cross-ref")
         linked += 1
     return linked
 
@@ -123,10 +130,14 @@ def borrow_host_years(records: list[Record], by_id: dict[str, Record] | None = N
         if record.year or _FOUR_DIGIT_YEAR.search(record.printed or ""):
             continue
         printed = record.printed or ""
-        if not _IN.search(printed):
-            continue
         years: set[int] = set()
-        for ref in record.cross_refs:
+        # A volume already linked through its cross-reference (``link_cited_hosts``) lends its year directly.
+        linked = index.get(record.host.id) if record.host and record.host.id in record.cross_refs else None
+        if linked is not None and linked.year:
+            years.add(int(linked.year))
+        elif not _IN.search(printed):
+            continue
+        for ref in record.cross_refs if linked is None else []:
             target = index.get(ref)
             if target is None or not target.year or not target.title:
                 continue
@@ -157,6 +168,28 @@ def _host_title_matches(printed: str, title: str) -> bool:
     if name[:12] in host:
         return True
     return len(host) >= 20 and host in name
+
+
+def _a_volume(record: Record) -> bool:
+    """A book, or an entry whose people are all editors: a collected volume the vendor tagged otherwise (the
+    Arnould volume of 1983, "Cauchies (J.-M.), Duvosquel (J.-M.) ed. Recueil …", tagged as a journal)."""
+    return record.type == "book" or (bool(record.persons) and all(person.role == "editor" for person in record.persons))
+
+
+def _abbreviates(short: str, title: str) -> bool:
+    """Every word of ``short`` begins a word of ``title``, in order, the first with the first ("rec d et d h
+    hainuyere" → "recueil d etudes d histoire hainuyere offertes …"); at least three words."""
+    words, target = re.findall(r"[a-z]+", fold(short)), re.findall(r"[a-z]+", fold(title))
+    if len(words) < 3 or not target or not target[0].startswith(words[0]):
+        return False
+    position = 0
+    for word in words:
+        while position < len(target) and not target[position].startswith(word):
+            position += 1
+        if position == len(target):
+            return False
+        position += 1
+    return True
 
 
 def _host_phrase(printed: str) -> str:

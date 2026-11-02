@@ -266,6 +266,21 @@ def test_editor_group_after_the_title_belongs_to_the_host(tmp_path: Path):
     assert "bhb:2000-29240" in record.cross_refs
 
 
+def test_an_editor_mark_split_from_its_full_stop_by_a_tag_makes_editors(tmp_path: Path):
+    path = tmp_path / "BGB_1983.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="ref194"><label>38984</label><mixed-citation publication-type="journal">
+        <person-group person-group-type="author"><string-name><surname>Cauchies</surname> (<given-names>J.-M.</given-names>)</string-name>,
+        <string-name><surname>Duvosquel</surname> (<given-names>J.-M.</given-names>) ed</string-name></person-group>.
+        <article-title>Recueil d’études d’histoire hainuyère offertes à Maurice A. Arnould</article-title>. <source>Mons</source>, <year>1983</year>.
+        </mixed-citation></ref></ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    record = load_jats(path, "print-straive")[0]
+    assert [(person.family, person.role) for person in record.persons] == [("Cauchies", "editor"), ("Duvosquel", "editor")]
+
+
 def test_a_group_tagged_as_authors_right_after_in_is_the_hosts_coordinator(tmp_path: Path):
     path = tmp_path / "BGB_2001.xml"
     path.write_text(
