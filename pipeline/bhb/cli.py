@@ -82,6 +82,12 @@ def main(argv: list[str] | None = None) -> None:
     places_sub = places.add_subparsers(dest="places_command", required=True)
     places_sub.add_parser("apply", help="write the indexed places into build/records.jsonl")
 
+    language = sub.add_parser("language", help="language of publication from the title (needs the language extra)")
+    language_sub = language.add_subparsers(dest="language_command", required=True)
+    language_sub.add_parser("apply", help="write suggested languages into build/records.jsonl")
+    language_sub.add_parser("sample", help="write a sample per decade to label by hand: data/curated/language/sample.csv")
+    language_sub.add_parser("score", help="score the suggestions in build/records.jsonl against the labelled sample")
+
     identifiers = sub.add_parser("identifiers", help="DOIs from Crossref (docs/IDENTIFIER_PROPOSAL.md)")
     identifiers_sub = identifiers.add_subparsers(dest="identifiers_command", required=True)
     pilot = identifiers_sub.add_parser("pilot", help="match a sample of recent articles and chapters; write build/identifiers/pilot.csv")
@@ -139,6 +145,9 @@ def main(argv: list[str] | None = None) -> None:
         counts = apply_places(records, raw_root())
         write_jsonl(path, records)
         print(f"places: {counts} → {path}")
+        return
+    if args.command == "language":
+        _language(args.language_command)
         return
     if args.command == "identifiers" and args.identifiers_command == "pilot":
         _identifiers_pilot(args.size, args.seed)
@@ -355,6 +364,38 @@ def _merge_from_disk() -> tuple[list[Record], dict]:
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
     )
+
+
+def _language(command: str) -> None:
+    import csv
+
+    from bhb import language
+
+    path = build_dir() / "records.jsonl"
+    if not path.is_file():
+        raise SystemExit("build/records.jsonl is missing; run bhb build first")
+    records = read_jsonl(path)
+    sheet = repo_root() / "data" / "curated" / "language" / "sample.csv"
+    if command == "apply":
+        counts = language.suggest(records)
+        write_jsonl(path, records)
+        print(f"language: {dict(sorted(counts.items(), key=lambda item: -item[1]))} → {path}")
+    elif command == "sample":
+        if sheet.exists():
+            raise SystemExit(f"{sheet} exists and holds checked labels; move it away first")
+        sheet.parent.mkdir(parents=True, exist_ok=True)
+        rows = language.sample_rows(records)
+        with sheet.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, language.SAMPLE_COLUMNS)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"language: {len(rows)} entries to check → {sheet}")
+    elif command == "score":
+        with sheet.open(encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        for period, scores in language.score_rows(records, rows).items():
+            print(f"{period:>6}  checked {scores['checked']:>3}  coverage {scores['coverage']:.1%}  "
+                  f"precision {scores['precision']:.1%}  first language right {scores['first language right']:.1%}")
 
 
 def _categorise_draft(tau_code: float | None, tau_theme: float | None, records_path: Path | None) -> None:

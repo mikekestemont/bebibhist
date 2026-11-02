@@ -135,6 +135,10 @@ for await (const line of lines) {
       themesSuggested: (record.theme_suggested || []).join("|"),
       periods: (record.period || []).join("|"),
       periodsSuggested: (record.period_suggested || []).join("|"),
+      // Languages a machine read in the title (``bhb language apply``), and how: "title", "bilingual", "journal" or
+      // "volume" (a title of names only takes its journal's or volume's language).
+      languages: (record.language_suggested || []).join("|"),
+      languageFrom: languageRoute(record),
       similar: similarLine(record),
       container: container?.hash || "",
       containerCount: container ? String(container.count) : "",
@@ -214,9 +218,25 @@ function filters(record) {
   if (record.place_ids?.length) values.place = record.place_ids;
   if (record.journal_id) values.journal = [record.journal_id];
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
+  if (record.language_suggested?.length) values.language = [...new Set(record.language_suggested.map(languageFacet))];
   const when = chronology(record);
   if (when.pubyear) values.pubyear = [when.pubyear];
   return values;
+}
+
+/** The languages with a value of their own in the filter: the four that cover 99 % of the entries (2 Nov 2026). The
+ * rarer ones (Spanish, Italian, Latin, each under 0.3 %) are grouped under "other"; the entry still names its language. */
+function languageFacet(code) {
+  return ["nl", "fr", "en", "de"].includes(code) ? code : "other";
+}
+
+function languageRoute(record) {
+  const flags = record.provenance?.flags || [];
+  if (!record.language_suggested?.length) return "";
+  if (flags.includes("language-bilingual")) return "bilingual";
+  if (flags.includes("language-from-journal")) return "journal";
+  if (flags.includes("language-from-volume")) return "volume";
+  return "title";
 }
 
 /** Publication year, or the volume year when that year is missing or outside 1945–today. */

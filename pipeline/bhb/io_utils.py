@@ -110,4 +110,5 @@ def record_from_dict(data: dict) -> Record:
         similar_scores=[float(score) for score in data.get("similar_scores") or []],
         theme_suggested=list(data.get("theme_suggested") or []),
         period_suggested=list(data.get("period_suggested") or []),
+        language_suggested=list(data.get("language_suggested") or []),
     )

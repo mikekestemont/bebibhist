@@ -404,9 +404,15 @@ reason). Keep `printed` untouched. Update the internal project plan §9 at the e
 
 ---
 
-## 5b. Next: language of publication (added 31 Oct 2026)
+## 5b. Done: language of publication (added 31 Oct 2026, built 2 Nov 2026)
 
-No entry has a language yet (0 of 183,578). It would serve in several places:
+Built 2 Nov (`bhb language apply`, `bhb/language.py`): 92 % of the entries have a suggested language, read from the
+title by Lingua, or for a title of names only from its journal or volume; 1,306 titles printed in two or more
+languages have each; the editors' bracketed translations never count. Checked on 40 entries per decade: 98.8 %
+exactly right (`data/curated/language/`). The site has the facet and shows the language as suggested. Still open:
+the LLM pass's language as a check where both exist, and the language in the exports (RIS `LA`, MODS).
+
+No entry had a language (0 of 183,578). It would serve in several places:
 - **a facet** "Language / Taal / Langue", multi-valued (a bilingual title has two), beside period, subject and place;
 - **matching**: a translated edition is another publication with its own ISBN (the Dutch and English *Hieronymus
   Cock* catalogues); `bhb.identifiers` now refuses a match when the function words of the two titles disagree, which
@@ -485,8 +491,15 @@ where the publisher has opened them (I4OA). Its proposals stay marked as machine
 are checked against the gold sample before they are shown. Odd narrower labels (such as "› l education the
 sciences") are fixed in the scheme, not by the pass.
 
+**Language (Mike, 2 Nov 2026).** The local language step (§5b) stays: it covers the entries the pass is not sent
+(a DOI or VABB match, or already right) and is needed before the pass, as a guard in DOI/VABB matching. No more work
+goes into it; the pass checks it. The schema's `language` (`bhb/citations.py`, one ISO 639-1 code) becomes a list, so
+a title printed in two languages gets both, and its description says that the editors' bracketed translation of a
+title is not a language of publication, the rule the local step follows. The local value goes along as a hint, like
+the journal behind an "Ibid."; where the model and the local step disagree, the entry goes on a review list.
+
 ## 6. Not in this phase
 
-Places (first version done 31 Oct), language detection (see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for
+Places (first version done 31 Oct), language detection (done 2 Nov, see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for
 1952–2007, XLSX/CSV export, an advanced search form with several fields at once (E5 offers one field at a time), person/journal identification, the map. They stay in the internal project plan and `docs/PROTOTYPE_SPEC.md` P4–P6
 for the next phase.

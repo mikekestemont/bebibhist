@@ -13,6 +13,7 @@
   const groups = {
     period: ["general", "ancient", "medieval", "burgundian", "early-modern", "contemporary"],
     theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
+    language: ["nl", "fr", "en", "de", "other"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
   } as const;
 
@@ -204,6 +205,7 @@
     if (group === "period") return text.periods[value as keyof typeof text.periods] || value;
     if (group === "theme") return text.themes[value as keyof typeof text.themes] || value;
     if (group === "type") return text.types[value as keyof typeof text.types] || value;
+    if (group === "language") return text.languages[value as keyof typeof text.languages] || value;
     return value;
   }
 
@@ -916,6 +918,18 @@
   {#if hit.meta.periods}
     <p class="category-line"><span class="theme">{text.periodsLabel}</span> {@render facetValues("period", hit.meta.periods, hit.meta.periodsSuggested || "")}</p>
   {/if}
+  {#if hit.meta.languages}
+    <!-- Every language is a machine value: read in the title, or lent by the journal or volume. -->
+    {@const why = text.languageWhy[(hit.meta.languageFrom || "title") as keyof typeof text.languageWhy] || text.languageWhy.title}
+    <p class="category-line">
+      <span class="theme">{text.languagesLabel}</span>
+      <span class="tags">
+        {#each hit.meta.languages.split("|") as code (code)}
+          <span class="tag tag-suggested" title={why}>{label("language", code)}</span>
+        {/each}
+      </span>
+    </p>
+  {/if}
   {#if hit.meta.placeIds}
     {@const names = (hit.meta.places || "").split("|")}
     <p class="category-line">
@@ -1099,7 +1113,7 @@
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
-          <legend>{text[group as "period" | "theme" | "type"]}</legend>
+          <legend>{text[group as "period" | "theme" | "language" | "type"]}</legend>
           {#each values as value}
             {@const count = counts[group]?.[value] ?? 0}
             <label>
