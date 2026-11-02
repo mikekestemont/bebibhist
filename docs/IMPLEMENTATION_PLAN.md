@@ -514,6 +514,9 @@ values and shown as suggested; a title in two languages gets both.
 
 ## 5c. The citation clean-up pass: collected volumes printed with their contents (Mike, 1 Nov 2026)
 
+**When (Mike, 2 Nov 2026):** the full pass, translations included, waits until after the meeting of 9 November,
+where it is decided together; the pilot on the answer key can go ahead.
+
 Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
 and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards
 sur Léopold Ier & Léopold II …", 1997). The rules (`split_contents`) split only part of them: in that entry three
