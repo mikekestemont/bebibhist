@@ -463,14 +463,34 @@ def fields_of_record(record) -> dict:
     }
 
 
-def tidy(answer: dict) -> dict:
-    """Fixed faults of a model answer, fixed by rule: the editors' bracketed translation put in the subtitle goes to
-    title_translated (Mistral Small 4 does this in about one entry in ten with a translation, hint or not)."""
+def tidy(answer: dict, printed: str | None = None, bgb_year: int | None = None) -> dict:
+    """Faults of a model answer that have a fixed form, fixed by rule:
+    - the editors' bracketed translation put in the subtitle goes to title_translated (Mistral Small 4 does this in
+      about one entry in ten with a translation, hint or not);
+    - a bracketed text printed after the host or imprint is a gloss ("[famille luxembourgeoise]"), not a translation;
+    - a two-digit number taken for the issue that is the year of the volume ("Limburg, XXXI, 52", the 1950s) is the
+      year;
+    - an article has no publishers: a place printed with a journal ("Hautes Fagnes, XXXI, Verviers, 1965") belongs
+      to the journal, and stays in the citation."""
+    if answer.get("type") == "article" and answer.get("publishers"):
+        answer = dict(answer, publishers=[])
     subtitle = (answer.get("subtitle") or "").strip()
     translated = (answer.get("title_translated") or "").strip()
     bracketed = subtitle.startswith("[") and subtitle.rstrip(" .").endswith("]")
     if subtitle and (bracketed or (translated and fold(subtitle.strip("[] .")) == fold(translated.strip("[] .")))):
         answer = dict(answer, subtitle=None, title_translated=translated or subtitle.strip(" .").strip("[]"))
+        translated = answer["title_translated"]
+    if printed and translated:
+        at = printed.find("[" + translated.strip("[] .")[:20])
+        anchors = [(answer.get("host") or {}).get("title")] + [p.get("place") or p.get("name") for p in answer.get("publishers") or []]
+        starts = [printed.find(anchor[:15]) for anchor in anchors if anchor and printed.find(anchor[:15]) >= 0]
+        if at >= 0 and starts and at > min(starts):
+            answer = dict(answer, title_translated=None)
+    host = answer.get("host")
+    if bgb_year and host and re.fullmatch(r"\d{2}", str(host.get("issue") or "").strip()) and not host.get("year"):
+        year = 1900 + int(host["issue"])
+        if 0 <= bgb_year - year <= 2:
+            answer = dict(answer, host=dict(host, issue=None, year=str(year)), year=answer.get("year") or year)
     return answer
 
 
@@ -554,3 +574,245 @@ def expansion_right(answer: dict, journal_title: str) -> bool:
     """Whether the model's written-out journal name is the curated full name (case, accents and punctuation aside)."""
     full = (answer.get("host") or {}).get("title_full") or ""
     return fuzz.ratio(fold(full), fold(journal_title)) >= 90
+
+
+# --- the hand-checked key (data/curated/citations/key.csv) ----------------------------------------------------------
+
+def load_key(path: Path) -> dict[str, dict]:
+    import csv
+
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["id"]: row for row in csv.DictReader(handle)}
+
+
+def answer_of_record(record) -> dict:
+    """The parser's fields in the shape of a model answer, so both are scored alike."""
+    host = record.host
+    return {
+        "type": record.type,
+        "persons": [{"family": person.family, "given": person.given, "role": person.role} for person in record.persons],
+        "title": record.title, "subtitle": record.subtitle, "title_translated": record.title_translated,
+        "host": {"title": host.title, "volume": host.volume, "issue": host.issue, "year": host.year, "pages": host.pages} if host else None,
+        "publishers": [{"place": record.publisher.place, "name": record.publisher.name}] if record.publisher else [],
+        "year": record.year, "extent": record.extent,
+        "series": {"title": record.series.title, "number": record.series.number} if record.series else None,
+    }
+
+
+def _alternatives(value: str) -> list[str]:
+    return [part.strip() for part in value.split(" || ")]
+
+
+def _like(value, accepted: str, threshold: int = 90) -> bool:
+    folded = fold(str(value or ""))
+    return any((fold(alternative) == folded) if not alternative or not folded else fuzz.ratio(folded, fold(alternative)) >= threshold
+               for alternative in _alternatives(accepted))
+
+
+def score_key(answer: dict, row: dict) -> dict[str, bool | None]:
+    """Per field against a row of the hand-checked key: right, wrong, or None when not scored. A field the key leaves
+    empty is scored only when the answer fills it (a made-up host or publisher counts as wrong); volume, issue and
+    first page only for an entry with a host."""
+    fields = fields_of_answer(answer)
+    host = answer.get("host") or {}
+    persons = answer.get("persons") or []
+    publishers = answer.get("publishers") or []
+    series = answer.get("series") or {}
+
+    def names(role: str) -> list[str]:
+        return sorted(fold(person.get("family") or "") for person in persons if person.get("role", "author") == role)
+
+    def optional(name: str, given) -> bool | None:
+        accepted = row[name]
+        if accepted == "*" or (not accepted and not given):
+            return None
+        return _like(given, accepted)
+
+    result: dict[str, bool | None] = {
+        "type": answer.get("type") in row["type"].split("|"),
+        "authors": names("author") == sorted(fold(name) for name in row["authors"].split("; ") if name),
+        "editors": names("editor") == sorted(fold(name) for name in row["editors"].split("; ") if name),
+        "title": _like(fields["title"], row["title"], 95),
+        "title_translated": optional("title_translated", answer.get("title_translated")),
+        "host": optional("host", host.get("title")),
+        "place": optional("place", next((p.get("place") for p in publishers if p.get("place")), None))
+                 if not row["place"] or not publishers else any(_like(p.get("place"), row["place"]) for p in publishers),
+        "publisher": optional("publisher", next((p.get("name") for p in publishers if p.get("name")), None))
+                     if not row["publisher"] or not publishers else any(_like(p.get("name"), row["publisher"]) for p in publishers),
+        "extent": optional("extent", answer.get("extent")),
+        "series": optional("series", series.get("title")),
+        "series_number": optional("series_number", series.get("number")),
+    }
+    if row["year"] != "*":
+        accepted = {int(year) if year else None for year in _alternatives(row["year"])}
+        result["year"] = fields["year"] in accepted
+    if row["host"] and row["host"] != "*":
+        for name, key, compare in (("volume", "volume", _number), ("issue", "issue", None), ("first_page", "pages", _first_page)):
+            accepted = row[key]
+            if accepted == "*":
+                continue
+            given = host.get(key)
+            if compare is None:
+                result[name] = _like(given, accepted) or any(_number(given) == _number(alt) for alt in _alternatives(accepted) if alt and given)
+            else:
+                result[name] = any(compare(given) == compare(alt) for alt in _alternatives(accepted))
+    return result
+
+
+# --- prompt v4: parsing only (translations in requests of their own, collected volumes with the full schema) -------
+
+PARSE_ENTRY = _object({key: value for key, value in ENTRY["properties"].items()
+                       if key not in ("translations", "editions", "contents")}
+                      | {"host": _object({key: _NULLABLE_TEXT for key in ("title", "volume", "issue", "year", "pages")}, nullable=True)})
+PARSE_SCHEMA = _object({"entries": {"type": "array", "items": PARSE_ENTRY}})
+
+PARSE = """You split entries of the Bibliography of Belgian History (Bibliographie de l'Histoire de Belgique / \
+Bibliografie van de Geschiedenis van België, 1952–2017) into fields. Entries are in French, Dutch, German, English \
+or Latin, and most were digitised from print with OCR.
+
+You get the section heading, sometimes the entry printed before (context only: do not answer for it), and the \
+entries, each after its id in square brackets, sometimes with hints from earlier processing. Answer with one object \
+per id, in the same order: never skip, merge or split an entry. Each entry stands alone: never take a value from \
+another entry, except the journal or volume that "Ibid." stands for.
+
+What the entry is:
+- article: in a journal or newspaper. The journal title follows the article title, is usually abbreviated, and has \
+a volume number, a year or an issue ("Biekorf, LXXIV, 1973, 7–8, pp. 202–204").
+- chapter: in a collected volume, a Festschrift, an exhibition catalogue or a reference work ("In:", "Dans:", \
+"In :", often with the volume's editors, place and publisher; "Flandria Nostra, t. I, Antwerpen, 1957"). A \
+contribution to a multi-volume work is a chapter, not an article.
+- book: a place followed by a publisher, or a place and a year, then a number of pages ("Bussum, Uitg. P. Brand, \
+1955, 210 pp."). Exhibition catalogues, theses and booklets are books. The imprint is never a host.
+- journal-issue: a whole issue or volume of a journal; review: a review of a named book; other: none of these.
+
+Fields:
+- Copy every value exactly as printed: do not translate, expand abbreviations, modernise spelling or fix OCR \
+errors. Journal names stay abbreviated as printed.
+- persons are the entry's own authors, editors and translators, printed as "Family (Given)". "(éd.)", "(ed.)", \
+"(red.)", "(dir.)", "(uitg.)", "eds." mark editors. "e.a." or "et al." adds no person; "s.n." is no person. The \
+editors of the volume a chapter is in ("In: Witte (Els) red. …") belong to that volume, not to the chapter.
+- host is the journal or the collected volume: its title, volume, issue, year and pages. A volume title goes in \
+host.title without its editors, place or publisher. "Ibid." as journal is the journal of the entry before: put \
+that journal's name in host.title, as printed there (a hint may give it).
+- publishers: the place and publisher of a book, or of a chapter's volume. A bilingual imprint ("Bruxelles, X; \
+Brussel, Y" or "Bruxelles, X — Brussel, Y") gives two. "S.l." is no place, "s.n." no publisher, "s.d." no year.
+- year is the year of publication as an integer, also for an article (the year printed with its journal volume; \
+"1959–60" gives 1959) and for a chapter (the year of its volume's imprint). In the 1950s volumes a year is often \
+printed with two digits after the volume: "Limburg, XXXI, 52, p. 79–80" is volume XXXI of 1952, no issue. null \
+when none is printed.
+- extent is the whole pagination of a book as printed ("xv–293 p.", "2 vol.", "210 pp.", "s.p."), never the \
+format (8°, 4°), the illustrations or the price; an article's or chapter's pages go in host.pages.
+- series: a series in parentheses after the imprint, title and number apart ("(Ius romanum medii aevi, V, 5b)": \
+title "Ius romanum medii aevi", number "V, 5b").
+- title and subtitle as printed; the editors' translation in square brackets after the title goes in \
+title_translated, never in title or subtitle (a hint may give it). A bracketed text that only describes the \
+subject ("[Izegem]", "[famille luxembourgeoise]", "[Cfr. n° 1234]") is no translation: leave it out or put it in note.
+- note: text after " — " or " - " at the end that is no part of the title (a summary, contents, a comment).
+- language lists the languages the title (with subtitle) is written in, as ISO 639-1 codes: two only for a title \
+printed in two languages. The editors' bracketed translation is not a language of publication.
+- ocr_fixes lists only single words that are clearly OCR errors, with the correction ("Seivias" → "Scivias", \
+"terrrein" → "terrein"); one or two letters wrong, never a word that may be a historical or regional spelling, \
+never an abbreviation. Leave it empty when in doubt.
+
+Five worked examples. Entries:
+Section: I. Généralités › C. Travaux d'ensemble
+Entry before (context only): Faider-Feytmans (G.). Adolphe Quetelet et les Beaux-Arts. Bull. de l'Ac. R. de B., \
+Cl. des Beaux-Arts, 1974, 2, pp. 190–199.
+
+[ex-1] Janssen (C.). Carmelkluis en Carmelwereld. [Ermitage de C. et monde du C.]. Bussum, Uitg. P. Brand, 1955, \
+8°, 210 pp., 95 fr. — Esquisse historique de l'Ordre des Frères de N.-D.-du-Mont-Carmel.
+    hint: the editors' bracketed translation: Ermitage de C. et monde du C.
+[ex-2] Roberts-Jones (Philippe). Madou et Quetelet. Ibid., pp. 200–204.
+[ex-3] Dupont (Marie). Les confréries de Huy au XVᵉ siècle. In: Lambert (Jean) & Hoste (Anne) éds. La ville et ses \
+métiers. Liège, Éd. du Perron, 1998, pp. 45–67. [Cfr. n° 1234]
+[ex-4] Van Damme (Pieter). Het stadhuis van Leuven. Bruxelles, Crédit communal; Brussel, Gemeentekrediet, 1987, \
+xii–214 p.
+[ex-5] Martin (L.). Les comptes du domaine de Namur (1350–1400). Bruxelles, Palais des Académies, 1975, 8°, 312 p., \
+450 fr. (Commission royale d'Histoire, Publications in-octavo, 12).
+
+Answer:
+{"entries": [
+{"id": "ex-1", "type": "book", "persons": [{"family": "Janssen", "given": "C.", "role": "author"}], "title": \
+"Carmelkluis en Carmelwereld", "subtitle": null, "title_translated": "Ermitage de C. et monde du C.", "host": null, \
+"publishers": [{"place": "Bussum", "name": "Uitg. P. Brand"}], "year": 1955, "extent": "210 pp.", "series": null, \
+"note": "Esquisse historique de l'Ordre des Frères de N.-D.-du-Mont-Carmel.", "language": ["nl"], "ocr_fixes": []},
+{"id": "ex-2", "type": "article", "persons": [{"family": "Roberts-Jones", "given": "Philippe", "role": "author"}], \
+"title": "Madou et Quetelet", "subtitle": null, "title_translated": null, "host": {"title": "Bull. de l'Ac. R. de \
+B., Cl. des Beaux-Arts", "volume": null, "issue": "2", "year": "1974", "pages": "200–204"}, "publishers": [], \
+"year": 1974, "extent": null, "series": null, "note": null, "language": ["fr"], "ocr_fixes": []},
+{"id": "ex-3", "type": "chapter", "persons": [{"family": "Dupont", "given": "Marie", "role": "author"}], "title": \
+"Les confréries de Huy au XVᵉ siècle", "subtitle": null, "title_translated": null, "host": {"title": "La ville et \
+ses métiers", "volume": null, "issue": null, "year": "1998", "pages": "45–67"}, "publishers": [{"place": "Liège", \
+"name": "Éd. du Perron"}], "year": 1998, "extent": null, "series": null, "note": null, "language": ["fr"], \
+"ocr_fixes": []},
+{"id": "ex-4", "type": "book", "persons": [{"family": "Van Damme", "given": "Pieter", "role": "author"}], "title": \
+"Het stadhuis van Leuven", "subtitle": null, "title_translated": null, "host": null, "publishers": [{"place": \
+"Bruxelles", "name": "Crédit communal"}, {"place": "Brussel", "name": "Gemeentekrediet"}], "year": 1987, "extent": \
+"xii–214 p.", "series": null, "note": null, "language": ["nl"], "ocr_fixes": []},
+{"id": "ex-5", "type": "book", "persons": [{"family": "Martin", "given": "L.", "role": "author"}], "title": "Les \
+comptes du domaine de Namur (1350–1400)", "subtitle": null, "title_translated": null, "host": null, "publishers": \
+[{"place": "Bruxelles", "name": "Palais des Académies"}], "year": 1975, "extent": "312 p.", "series": {"title": \
+"Commission royale d'Histoire, Publications in-octavo", "number": "12"}, "note": null, "language": ["fr"], \
+"ocr_fixes": []}]}"""
+
+DRAFT = """
+
+Each entry comes with a draft by a rule-based parser ("draft: …"). Check every field of the draft against the \
+printed text: keep what is right, correct what is wrong, fill what is missing. The draft is often wrong on books \
+(an imprint read as a journal), on chapters typed as articles, and on years, extents and series."""
+
+
+def draft_hint(record) -> str:
+    """The parser's fields, in one line, for the draft variant."""
+    answer = answer_of_record(record)
+    parts = [f"type={answer['type']}"]
+    if answer["persons"]:
+        parts.append("persons=" + ", ".join(f"{p['family']} ({p['given'] or ''}) {p['role']}" for p in answer["persons"]))
+    for name in ("title", "subtitle", "title_translated", "year", "extent"):
+        if answer.get(name):
+            parts.append(f"{name}={answer[name]}")
+    if answer["host"]:
+        parts.append("host=" + "; ".join(f"{k}={v}" for k, v in answer["host"].items() if v))
+    for publisher in answer["publishers"]:
+        parts.append(f"publisher={publisher['place'] or ''}: {publisher['name'] or ''}")
+    if answer["series"]:
+        parts.append(f"series={answer['series']['title']}; number={answer['series']['number'] or ''}")
+    return "draft: " + " | ".join(parts)
+
+
+def checked_ocr_fixes(answer: dict, printed: str) -> list[dict]:
+    """The model's OCR fixes that pass a rule: one word, printed as such, one or two letters changed, no digits."""
+    from rapidfuzz.distance import Levenshtein
+
+    kept = []
+    for fix in answer.get("ocr_fixes") or []:
+        wrong, right = (fix.get("printed") or "").strip(), (fix.get("corrected") or "").strip()
+        if (wrong and right and wrong != right and " " not in wrong and " " not in right and not re.search(r"\d", wrong + right)
+                and re.search(rf"(?<!\w){re.escape(wrong)}(?!\w)", printed) and Levenshtein.distance(wrong, right) <= 2):
+            kept.append(fix)
+    return kept
+
+
+def ask_parse(batch: Batch, model: str, cache: Path, reasoning: str | None = None, provider: str | None = None,
+              draft: bool = False) -> tuple[dict[str, dict], list[Reply]]:
+    """Prompt v4: parsing only, checked per id like ``ask_batch``; a collected volume goes with the full schema (v3)."""
+    if len(batch.items) == 1 and is_collected_volume(batch.items[0].printed):
+        return ask_batch(batch, model, cache, reasoning, provider)
+    system = PARSE + (DRAFT if draft else "")
+    reply = call(request_body(system, batch_message(batch), PARSE_SCHEMA, model, reasoning, name="parse", provider=provider), cache)
+    replies = [reply]
+    entries = (reply.content or {}).get("entries") or []
+    if [entry.get("id") for entry in entries] == [item.id for item in batch.items]:
+        return {entry["id"]: entry for entry in entries}, replies
+    if reply.content is not None:
+        reply.error = reply.error or "ids do not match"
+    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+        return {}, replies
+    answers: dict[str, dict] = {}
+    before = batch.before
+    for item in batch.items:
+        single, more = ask_parse(Batch(batch.section, before, [item], batch.markup), model, cache, reasoning, provider, draft)
+        answers.update(single)
+        replies.extend(more)
+        before = item.printed
+    return answers, replies

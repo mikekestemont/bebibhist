@@ -575,6 +575,23 @@ on a matching title), so the pilot shows that the model does not make these wors
 entries: that needs a hand-checked random sample (about 150 printed entries, by decade and type), which comes next,
 and a check of its OCR fixes against the second digitisation of 1960–63 and 1966–69 (Persée).
 
+**Hand-checked key (3 Nov 2026, `bhb citations key`, `data/curated/citations/key.csv`).** 150 printed entries at
+random, 25 per decade, every field checked against the printed text (by an AI assistant; no person has reviewed it
+yet), split into a tuning half (`dev`) and a test half (`test`) used once. Unlike the DOI key it shows where the
+parser fails: on the test half the parser gets 86.9 % of the fields right, but type 84 %, place 45 %, publisher
+50 %, extent 56 %, series 50 % (books read as articles, their imprint as a host). Prompt v4 (parsing only: rules for
+the publication type, the 1950s two-digit years, the volume's editors, glosses in brackets; five worked examples;
+translations in requests of their own; collected volumes with the full schema) and rules after it (`tidy`) get
+96.7 % on the test half against 94.2 % for v3 (type 100 %, publisher 100 %, extent 95 %, series 100 %), with the
+parser's year where the model gives none; every other field taken from the parser makes it worse, since the
+parser's errors come back. Giving the model the parser's draft to check ties with v4 (96.4 %) and makes it invent
+slightly more; batches of 5 or single entries are no better than batches of 10 on the tuning half (95.1, 95.2
+against 94.6 %), and single entries cost more. Fixes by rule after the model: a bracketed translation put in the
+subtitle; a bracketed gloss after the host; a two-digit year taken for the issue; no publishers for an article. OCR
+fixes are kept only when one printed word changes by one or two letters (about two thirds pass); checking them
+against the Persée digitisation is still to do. About 5 % of the entries still hold a value that is not in the
+printed text.
+
 Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
 and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards
 sur Léopold Ier & Léopold II …", 1997). The rules (`split_contents`) split only part of them: in that entry three

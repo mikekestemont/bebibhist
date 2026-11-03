@@ -130,6 +130,15 @@ def main(argv: list[str] | None = None) -> None:
     cpilot.add_argument("--xml", action="store_true", help="send the vendor's JATS mark-up of each STRAIVE entry instead of the plain text")
     cpilot.add_argument("--workers", type=int, default=8)
     cpilot.add_argument("--seed", type=int, default=3)
+    ckey = citations_sub.add_parser("key", help="score the parser and prompt variants on the hand-checked key (data/curated/citations/key.csv)")
+    ckey.add_argument("--model", action="append", required=True)
+    ckey.add_argument("--variant", choices=["v3", "v4", "v4-draft"], default="v4",
+                      help="v3: one answer with translations; v4: parsing only; v4-draft: v4 checking the parser's draft")
+    ckey.add_argument("--batch-size", type=int, default=10)
+    ckey.add_argument("--split", choices=["dev", "test", "all"], default="dev")
+    ckey.add_argument("--reasoning")
+    ckey.add_argument("--provider")
+    ckey.add_argument("--workers", type=int, default=3)
     ctrans = citations_sub.add_parser("translate", help="translate a sample of titles into nl, fr and en, title only, for a hand check and a cost")
     ctrans.add_argument("--model", action="append", required=True)
     ctrans.add_argument("--per-language", type=int, default=50)
@@ -231,6 +240,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "pilot":
         _citations_pilot(args.model, args.per_decade, args.seed, args.single, args.reasoning, args.workers, args.provider, args.xml)
+        return
+    if args.command == "citations" and args.citations_command == "key":
+        _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
         return
     if args.command == "citations" and args.citations_command == "translate":
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
@@ -873,6 +885,93 @@ def _citations_pilot(models: list[str], per_decade: int, seed: int, single: bool
     print("\n".join(lines))
     with (out / "pilot-summary.md").open("a", encoding="utf-8") as handle:
         handle.write(f"\n## {date.today()} — reasoning {reasoning or 'default'}, {len(chosen)} batches, seed {seed}\n\n" + "\n".join(lines) + "\n")
+
+
+def _citations_key(models: list[str], variant: str, batch_size: int, split: str, reasoning: str | None, workers: int,
+                   provider: str | None) -> None:
+    import csv
+    import time
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bhb.citations import (Item, answer_of_record, ask_batch, ask_parse, checked_ocr_fixes, copied_values, draft_hint,
+                               load_key, make_batches, score_key, tidy)
+
+    all_records = read_jsonl(build_dir() / "records.jsonl")
+    records = {record.id: record for record in all_records}
+    key = load_key(repo_root() / "data" / "curated" / "citations" / "key.csv")
+    wanted = {record_id for record_id, row in key.items() if split == "all" or row["split"] == split}
+    journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
+    batches = make_batches([record for record in all_records if record.source.startswith("print")], journals, size=batch_size)
+    chosen = [batch for batch in batches if any(item.id in wanted for item in batch.items)]
+    if variant == "v4-draft":
+        for batch in chosen:
+            batch.items = [Item(item.id, item.printed, item.hints + [draft_hint(records[item.id])]) for item in batch.items]
+    sent = sum(len(batch.items) for batch in chosen)
+    parsed, _ = _citations_pass_size(all_records)
+
+    def tally(answers: dict) -> Counter:
+        counts: Counter = Counter()
+        for record_id in wanted:
+            if record_id in answers:
+                for name, ok in score_key(answers[record_id], key[record_id]).items():
+                    if ok is not None:
+                        counts[(name, ok)] += 1
+        return counts
+
+    def merged(model: dict, parser: dict) -> dict:
+        """The model's fields, with the parser's year where the model gives none: filling other fields from the parser
+        brings its errors back (a book's imprint as host)."""
+        return dict(model, year=model.get("year") or parser.get("year"))
+
+    parser_answers = {record_id: answer_of_record(records[record_id]) for record_id in wanted}
+    parser_tally = tally(parser_answers)
+    names = [name for name in ("type", "authors", "editors", "title", "title_translated", "host", "volume", "issue", "first_page",
+                               "year", "place", "publisher", "extent", "series", "series_number") if parser_tally[(name, True)] + parser_tally[(name, False)]]
+    out = build_dir() / "citations"
+    cache = build_dir() / "cache" / "citations"
+    rate = lambda counts, name: (lambda r, w: f"{r / (r + w):.1%}" if r + w else "—")(counts[(name, True)], counts[(name, False)])
+    overall = lambda counts: sum(n for (name, ok), n in counts.items() if ok) / max(1, sum(counts.values()))
+    rows = []
+    for model in models:
+        label = f"{model.split('/')[-1]} {variant} b{batch_size}" + (f" r-{reasoning}" if reasoning else "")
+        ask = (lambda batch: ask_batch(batch, model, cache, reasoning, provider)) if variant == "v3" else \
+              (lambda batch: ask_parse(batch, model, cache, reasoning, provider, draft=variant == "v4-draft"))
+        started = time.monotonic()
+        with ThreadPoolExecutor(workers) as pool:
+            results = list(pool.map(ask, chosen))
+        wall = time.monotonic() - started
+        answers = {record_id: tidy(answer, records[record_id].printed, records[record_id].bgb_year)
+                   for found, _ in results for record_id, answer in found.items()}
+        replies = [reply for _, more in results for reply in more]
+        cost = sum(reply.cost for reply in replies)
+        model_tally = tally(answers)
+        with (out / f"key-{split}-{label.replace(' ', '-')}.jsonl").open("w", encoding="utf-8") as handle:
+            for record_id in sorted(wanted & set(answers)):
+                handle.write(json.dumps({"id": record_id, "score": score_key(answers[record_id], key[record_id]),
+                                         "answer": answers[record_id], "parser": parser_answers[record_id]}, ensure_ascii=False) + "\n")
+        both_tally = tally({record_id: merged(answers[record_id], parser_answers[record_id]) for record_id in wanted if record_id in answers})
+        invented = sum(1 for record_id, answer in answers.items() if (lambda f: f[0] < f[1])(copied_values(answer, records[record_id].printed)))
+        proposed = sum(len(answer.get("ocr_fixes") or []) for answer in answers.values())
+        kept = sum(len(checked_ocr_fixes(answer, records[record_id].printed)) for record_id, answer in answers.items())
+        per_entry = cost / max(1, len(answers))
+        rows.append((label, model_tally, both_tally, len([i for i in wanted if i in answers]), len(answers) / sent, invented / max(1, len(answers)),
+                     proposed, kept, per_entry, wall, Counter(r.error.split(":")[0] for r in replies if r.error)))
+        print(f"{label}: {len(answers)} of {sent} answered, ${cost:.4f}, {wall:.0f} s", flush=True)
+    lines = [f"# Hand-checked key, {split} ({len(wanted)} entries), {date.today()}", "",
+             "| Field | Parser | " + " | ".join(f"{row[0]} | + parser's year" for row in rows) + " |",
+             "|---|---:|" + "---:|---:|" * len(rows)]
+    for name in names:
+        lines.append(f"| {name} | {rate(parser_tally, name)} | " + " | ".join(f"{rate(row[1], name)} | {rate(row[2], name)}" for row in rows) + " |")
+    lines.append(f"| **all fields** | **{overall(parser_tally):.1%}** | " + " | ".join(f"**{overall(row[1]):.1%}** | **{overall(row[2]):.1%}**" for row in rows) + " |")
+    lines += ["", "| Variant | Key entries answered | All answered | Entries with a value not in the text | OCR fixes proposed / kept by the rule | $ per 1,000 | Full pass | Time | Errors |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|---|"]
+    for label, _, _, scored, answered, invented, proposed, kept, per_entry, wall, errors in rows:
+        lines.append(f"| {label} | {scored} | {answered:.1%} | {invented:.1%} | {proposed} / {kept} | {per_entry * 1000:.3f} | ${per_entry * parsed:,.0f} | {wall:.0f} s | {dict(errors)} |")
+    text = "\n".join(lines) + "\n"
+    print(text)
+    with (out / "key-summary.md").open("a", encoding="utf-8") as handle:
+        handle.write("\n" + text)
 
 
 def _citations_translate(models: list[str], per_language: int, seed: int, reasoning: str | None, workers: int,

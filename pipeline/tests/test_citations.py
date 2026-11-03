@@ -113,3 +113,17 @@ def test_a_bracketed_translation_in_the_subtitle_is_moved_to_title_translated():
     assert twice["subtitle"] is None
     kept = {"title": "Le Château de Clabecq", "subtitle": "le bâtiment, des hommes", "title_translated": None}
     assert tidy(kept) == kept
+
+
+def test_a_gloss_after_the_host_is_no_translation_and_a_two_digit_year_is_no_issue():
+    printed = "Martens (M.). Jachtrecht. [Droit de chasse]. Limburg, XXXI, 52, p. 79–80. [famille]"
+    gloss = tidy({"title": "Jachtrecht", "title_translated": "famille", "host": {"title": "Limburg", "issue": None, "year": None}}, printed)
+    assert gloss["title_translated"] is None
+    kept = tidy({"title": "Jachtrecht", "title_translated": "Droit de chasse", "host": {"title": "Limburg", "issue": None, "year": None}}, printed)
+    assert kept["title_translated"] == "Droit de chasse"
+    year = tidy({"title": "Jachtrecht", "year": None, "host": {"title": "Limburg", "volume": "XXXI", "issue": "52", "year": None}}, printed, 1952)
+    assert year["host"]["issue"] is None and year["year"] == 1952
+
+
+def test_an_article_keeps_no_publisher():
+    assert tidy({"type": "article", "title": "x", "publishers": [{"place": "Verviers", "name": None}]})["publishers"] == []
