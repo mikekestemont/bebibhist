@@ -26,6 +26,8 @@
   },
   "theme": "Thème",
   "language": "Langue",
+  "access": "Accès",
+  "openAccess": "Libre accès",
   "category": "Classement",
   "suggested": "suggéré",
   "draftLabel": "traduction provisoire",

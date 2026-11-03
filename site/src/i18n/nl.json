@@ -26,6 +26,8 @@
   },
   "theme": "Thema",
   "language": "Taal",
+  "access": "Toegang",
+  "openAccess": "Open access",
   "category": "Classificatie",
   "suggested": "voorgesteld",
   "draftLabel": "voorlopige vertaling",

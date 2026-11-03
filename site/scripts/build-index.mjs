@@ -221,6 +221,8 @@ function filters(record) {
   if (record.journal_id) values.journal = [record.journal_id];
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
   if (record.language_suggested?.length) values.language = [...new Set(record.language_suggested.map(languageFacet))];
+  // Free to read (OpenAlex or Persée, through the DOI): a filter of one value.
+  if (record.free_to_read) values.access = ["free"];
   const when = chronology(record);
   if (when.pubyear) values.pubyear = [when.pubyear];
   return values;

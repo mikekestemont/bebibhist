@@ -59,7 +59,7 @@ jobs:
 
       - name: Check the artifact size
         run: |
-          size=$(du -sm site/dist | cut -f1)
+          size=$(du -sm --apparent-size site/dist | cut -f1)
           echo "site/dist: ${size} MB" >> "$GITHUB_STEP_SUMMARY"
           if [ "$size" -gt 900 ]; then
             echo "site/dist is ${size} MB, above the 900 MB limit"

@@ -15,6 +15,7 @@
     theme: ["reference", "general", "local", "political", "economic", "social", "religious", "cultural", "unclassified"],
     language: ["nl", "fr", "en", "de", "other"],
     type: ["article", "chapter", "book", "journal-issue", "other"],
+    access: ["free"],
   } as const;
 
   let lang = $state<Lang>(initialLang());
@@ -206,6 +207,7 @@
     if (group === "theme") return text.themes[value as keyof typeof text.themes] || value;
     if (group === "type") return text.types[value as keyof typeof text.types] || value;
     if (group === "language") return text.languages[value as keyof typeof text.languages] || value;
+    if (group === "access") return text.openAccess;
     return value;
   }
 
@@ -864,7 +866,7 @@
 {#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
-      <span class="tag tag-free" title={row.free}>{text.freeToRead}</span>{/if}
+      <span class="tag tag-free" title={row.free}>{@render padlock()}{text.freeToRead}</span>{/if}
   {:else if row.container}
     <a class={row.derived ? "container-link derived" : "container-link"} href={row.container} title={[row.derived, row.containerTitle || text.containerWhy].filter(Boolean).join(" ")}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>{row.suffix || ""}
   {:else if row.authors}
@@ -989,12 +991,21 @@
   {/if}
 {/snippet}
 
+{#snippet padlock()}
+  <!-- The open access padlock (PLoS, public domain): an open shackle over the lock. -->
+  <svg class="padlock" viewBox="0 0 64 100" width="9" height="14" aria-hidden="true"><path d="M14 47V30a18 18 0 0 1 36 0v5" /><circle cx="32" cy="70" r="24" /><circle class="keyhole" cx="32" cy="70" r="7" /></svg>
+{/snippet}
+
+{#snippet openAccess(source: string)}
+  <span class="open-access" title={source === "persee" ? text.freePersee : text.freeOpenAlex} aria-label={text.freeToRead}>{@render padlock()}</span>
+{/snippet}
+
 {#snippet resultRow(hit: Hit)}
   {@const open = openId === hit.meta.id}
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
-      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</span>
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}{#if hit.meta.free}{@render openAccess(hit.meta.free)}{/if}</span>
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}
@@ -1114,7 +1125,7 @@
       <h2>{text.filters}</h2>
       {#each Object.entries(groups) as [group, values]}
         <fieldset>
-          <legend>{text[group as "period" | "theme" | "language" | "type"]}</legend>
+          <legend>{text[group as "period" | "theme" | "language" | "type" | "access"]}</legend>
           {#each values as value}
             {@const count = counts[group]?.[value] ?? 0}
             <label>

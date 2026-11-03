@@ -836,6 +836,14 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tag-link { text-decoration: none; }
 .tag-link:hover { background: #e2eee4; text-decoration: underline; }
 
+/* The open access padlock: after the citation in the result list, and in the tag beside a DOI. Its orange is the
+   logo's own (#F68212); darker on the light background so the thin strokes keep their contrast. */
+.padlock { vertical-align: -1px; }
+.padlock path, .padlock circle { fill: none; stroke: #d9690b; stroke-width: 10; }
+.padlock .keyhole { fill: #d9690b; stroke: none; }
+.open-access { margin-left: 0.4rem; cursor: help; white-space: nowrap; }
+.tag-free .padlock { margin-right: 0.3rem; }
+
 /* "Free to read" beside a DOI: the status only; the link is the DOI's. */
 .tag-free {
   margin-left: 0.45rem;
