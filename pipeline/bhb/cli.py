@@ -987,17 +987,21 @@ def _citations_translate(models: list[str], per_language: int, seed: int, reason
 
     all_records = read_jsonl(build_dir() / "records.jsonl")
     rng = random.Random(seed)
-    terms = re.compile(r"costume|coutum|échevin|schepen|mainmorte|dode hand|keure|leenhof|cijns|tonlieu|baljuw|bailli|ambacht|métier|gilde", re.IGNORECASE)
+    terms = re.compile(r"costume|coutum|échevin|schepen|mainmorte|dode hand|keure|leenhof|cijns|tonlieu|baljuw|bailli|ambacht|métier|gilde|heerlijkheid|seigneurie", re.IGNORECASE)
+    # The plan's check (§5c): 50 titles per language pair, historical terms among them. Titles in one language only,
+    # so that every translation has one source.
     by_language: dict[str, list] = {}
     for record in all_records:
-        if record.title and record.language_suggested:
+        if record.title and len(record.language_suggested) == 1:
             language = record.language_suggested[0] if record.language_suggested[0] in ("nl", "fr", "en", "de") else "other"
             by_language.setdefault(language, []).append(record)
-    chosen = [record for language in sorted(by_language) for record in rng.sample(by_language[language], min(per_language, len(by_language[language])))]
+    sizes = {"nl": per_language, "fr": per_language, "en": per_language // 2, "de": per_language // 2, "other": per_language // 5}
+    chosen = [record for language in sizes for record in rng.sample(by_language[language], sizes[language])]
     seen = {record.id for record in chosen}
-    chosen += rng.sample([record for record in all_records if record.title and record.id not in seen and terms.search(record.title)], per_language)
+    chosen += rng.sample([record for language in ("nl", "fr") for record in by_language[language]
+                          if record.id not in seen and terms.search(record.title)], per_language)
     items = [Item(record.id, ": ".join(part for part in (record.title, record.subtitle) if part)
-                  + (f" [{record.title_translated}]" if record.title_translated else "")) for record in chosen]
+                  + (f" [{record.title_translated}]" if record.title_translated else ""), list(record.language_suggested)) for record in chosen]
     groups = [items[start:start + 25] for start in range(0, len(items), 25)]
     parsed, titled = _citations_pass_size(all_records)
     out = build_dir() / "citations"
@@ -1008,31 +1012,37 @@ def _citations_translate(models: list[str], per_language: int, seed: int, reason
         started = time.monotonic()
         with ThreadPoolExecutor(workers) as pool:
             results = list(pool.map(lambda group: ask_titles(group, model, cache, reasoning, provider), groups))
-        wall = time.monotonic() - started
         found = {record_id: title for answers, _ in results for record_id, title in answers.items()}
         replies = [reply for _, reply in results]
+        # A title whose batch failed, or that lacks a translation it needs, is asked again alone.
+        needs = lambda item: [code for code in ("nl", "fr", "en") if code not in item.hints and not (found.get(item.id) or {}).get(code)]
+        again = [item for item in items if needs(item)]
+        with ThreadPoolExecutor(workers) as pool:
+            alone = list(pool.map(lambda item: ask_titles([item], model, cache, reasoning, provider), again))
+        for answers, reply in alone:
+            replies.append(reply)
+            for record_id, title in answers.items():
+                found[record_id] = {code: (found.get(record_id) or {}).get(code) or title.get(code) for code in ("nl", "fr", "en")}
+        wall = time.monotonic() - started
         cost = sum(reply.cost for reply in replies)
         per_title = cost / max(1, len(found))
-        own, missing = 0, 0
+        missing = sum(len(needs(item)) for item in items)
         with (out / f"translate-{slug}.csv").open("w", encoding="utf-8", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["id", "language", "title", "nl", "fr", "en", "ok"])
+            writer.writerow(["id", "language", "title", "editors_translation", "nl", "fr", "en"])
             for record, item in zip(chosen, items):
                 answer = found.get(record.id) or {}
-                for code in ("nl", "fr", "en"):
-                    if code in record.language_suggested:
-                        own += answer.get(code) is not None
-                    else:
-                        missing += not answer.get(code)
-                writer.writerow([record.id, "+".join(record.language_suggested), item.printed, answer.get("nl"), answer.get("fr"), answer.get("en"), ""])
+                writer.writerow([record.id, "+".join(record.language_suggested), ": ".join(part for part in (record.title, record.subtitle) if part),
+                                 record.title_translated or "", answer.get("nl") or "", answer.get("fr") or "", answer.get("en") or ""])
         lines = [f"# Title translations: {model}", "",
-                 f"{len(found)} of {len(items)} titles answered in {len(replies)} requests; errors: {dict(Counter(r.error.split(':')[0] for r in replies if r.error))}.",
+                 f"{len(found)} of {len(items)} titles answered in {len(replies)} requests ({len(again)} asked again alone); "
+                 f"errors: {dict(Counter(r.error.split(':')[0] for r in replies if r.error))}.",
                  f"Cost ${cost:.4f}, ${per_title * 1000:.3f} per 1,000 titles; tokens per title "
                  f"{sum(r.tokens_in for r in replies) / max(1, len(found)):.0f} in, {sum(r.tokens_out for r in replies) / max(1, len(found)):.0f} out "
                  f"({sum(r.tokens_reasoning for r in replies) / max(1, len(found)):.0f} reasoning); {wall:.0f} s.",
-                 f"A translation into the title's own language: {own}; a translation missing: {missing}.",
-                 f"Titles translated alone in the full pass: {titled:,}, about ${per_title * titled:,.0f}; every title alone: ${per_title * (parsed + titled):,.0f}.",
-                 f"Hand check: {out / f'translate-{slug}.csv'} (column ok)."]
+                 f"Translations still missing: {missing}.",
+                 f"Every title of the bibliography ({parsed + titled:,}): about ${per_title * (parsed + titled):,.0f}.",
+                 f"Sheet: {out / f'translate-{slug}.csv'}."]
         (out / f"translate-{slug}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("\n".join(lines), flush=True)
 

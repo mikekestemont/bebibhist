@@ -93,7 +93,7 @@ ENTRY = _object({
 })
 SCHEMA = _object({"entries": {"type": "array", "items": ENTRY}})
 TITLES = _object({"titles": {"type": "array", "items": _object(
-    {"id": _TEXT, "nl": _NULLABLE_TEXT, "fr": _NULLABLE_TEXT, "en": _NULLABLE_TEXT})}})
+    {"id": _TEXT, "nl": _TEXT, "fr": _TEXT, "en": _TEXT})}})
 
 SYSTEM = """You split entries of the Bibliography of Belgian History (Bibliographie de l'Histoire de Belgique / \
 Bibliografie van de Geschiedenis van België, 1952–2017) into fields. Entries are in French, Dutch, German, English \
@@ -169,12 +169,26 @@ tagged <issue>, a price tagged <fpage>). Use them as hints only, judge every fie
 from the text without tags."""
 
 TRANSLATE = """You translate titles of publications on Belgian history, listed in the Bibliography of Belgian \
-History, for a search engine. For each id, give the title in Dutch (nl), French (fr) and English (en); null for a \
-language the title is already in. Translate faithfully and plainly; do not explain. Keep names of persons and \
-places as printed, except well-known places that have a name in that language (Luik/Liège, Gent/Gand, Bergen/Mons). \
-Use the terms of historical scholarship (costumen → coutumes / customs; schepenbank → échevinage / bench of \
-aldermen; mainmorte → dode hand / mortmain). A bracketed translation by the editors may follow the title: use it as \
-a reference. Answer with one object per id, in the same order."""
+History, so that a reader can find them by searching in Dutch, French or English. For each id, give the title in \
+Dutch (nl), French (fr) and English (en): always all three. Where the title is already in one of these languages, \
+copy it unchanged for that language. The language in parentheses before the title was read by a machine and may be \
+wrong; a title in German, Latin or another language is translated into all three.
+
+Translate faithfully and plainly, the whole title with its subtitle; do not explain, shorten or add. Keep names of \
+persons as printed. Places keep their printed name, except well-known places that have a name of their own in that \
+language (Luik/Liège, Gent/Gand, Bergen/Mons, Antwerpen/Anvers, Brussel/Bruxelles/Brussels, Leuven/Louvain, \
+Mechelen/Malines, Doornik/Tournai, Rijsel/Lille); any other place stays exactly as printed, even when a similar \
+name exists. Use the terms of historical scholarship in each language, as in this glossary (Dutch / French / \
+English):
+schepenbank, schepenen / échevinage, échevins / bench of aldermen, aldermen; leenhof / cour féodale / feudal court; \
+vierschaar / vierschaar, tribunal / court of justice; baljuw / bailli / bailiff; meier / mayeur / mayor; \
+kasselrij / châtellenie / castellany; ambacht (a district of a castellany) / métier / ambacht; ambacht (a craft), \
+gilde / métier, corporation / craft, guild; heerlijkheid / seigneurie / seigneury; proosdij / prévôté / \
+provostship; costumen / coutumes / customary law; keure / keure, charte / charter; cijns / cens / quitrent; tol / \
+tonlieu / toll; dode hand / mainmorte / mortmain; Staten / États / States; raadpensionaris / pensionnaire / \
+pensionary.
+A bracketed translation by the editors may follow the title: use it as a reference, and do not translate the \
+brackets themselves. Answer with one object per id, in the same order."""
 
 
 @dataclass
@@ -316,14 +330,21 @@ def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
 
 def ask_titles(items: list[Item], model: str, cache: Path, reasoning: str | None = None,
                provider: str | None = None) -> tuple[dict[str, dict], Reply]:
-    """Translations of title-only items (``Item.printed`` holds the title), checked per id like a batch."""
-    user = "\n".join(f"[{item.id}] {item.printed}" for item in items)
+    """Translations of title-only items (``Item.printed`` holds the title, ``Item.hints`` the languages the local
+    identifier read), checked per id like a batch. The model gives all three; a translation into a language of the
+    title, or one that only copies the title, is dropped by rule."""
+    user = "\n".join(f"[{item.id}] ({'+'.join(item.hints) or '?'}) {item.printed}" for item in items)
     reply = call(request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider), cache)
     titles = (reply.content or {}).get("titles") or []
     if [title.get("id") for title in titles] != [item.id for item in items]:
         reply.error = reply.error or "ids do not match"
         return {}, reply
-    return {title["id"]: title for title in titles}, reply
+    found = {}
+    for item, title in zip(items, titles):
+        original = fold(re.sub(r"\s*\[.*?\]", "", item.printed))
+        found[item.id] = {code: (None if code in item.hints or fold(title.get(code) or "") == original else (title.get(code) or "").strip() or None)
+                          for code in ("nl", "fr", "en")}
+    return found, reply
 
 
 def markup_of(records: list) -> dict[str, str]:
