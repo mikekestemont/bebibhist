@@ -1,6 +1,5 @@
 id,title,issn,spellings,articles
 t:biekorf,Biekorf,,2,1736
-issn:0770-0822,"Handelingen van het Genootschap voor Geschiedenis, gesticht onder de benaming «Société d’émulation» te Brugge",0770-0822|0774-286X,127,1093
 t:eigen-schoon-en-de-brabander,Eigen Schoon en de Brabander,,2,1081
 issn:1783-9033,Ghendtsche Tydinghen,1783-9033,13,993
 t:het-land-van-aalst,Het Land van Aalst,,3,760
@@ -8,6 +7,7 @@ t:vlaamse-stam,Vlaamse Stam,,7,726
 t:limburg,Limburg,,1,711
 issn:0774-532X,Wetenschappelijke tijdingen op het gebied van de geschiedenis van de Vlaamse Beweging (Gent),0774-532X,21,670
 issn:0035-0818,Revue Belge de Philologie et d'Histoire,0035-0818,96,662
+issn:0770-0822,"Handelingen van het Genootschap voor Geschiedenis, gesticht onder de benaming «Société d’émulation» te Brugge",0770-0822,72,657
 t:de-leiegouw,De Leiegouw,,2,657
 t:cercle-historique-de-fleron-bulletin-trimestriel,Cercle historique de Fléron: bulletin trimestriel,,10,653
 t:het-oude-land-van-edingen-en-omliggende,Het oude Land van Edingen en omliggende,,6,559
@@ -21,6 +21,7 @@ t:het-brugs-ommeland,Het Brugs Ommeland,,2,472
 t:memoires-de-la-societe-d-histoire-de-comines-warneton-et-de-,Mémoires de la Société d’histoire de Comines-Warneton et de la région (Warneton),,9,467
 issn:1370-7477,Brood en rozen: tijdschrift voor de geschiedenis van de sociale bewegingen (Gent),1370-7477,9,464
 issn:0035-0869,Belgisch tijdschrift voor nieuwste geschiedenis - Revue belge d’histoire contemporaine (Gent),0035-0869|2295-3744,17,460
+issn:0774-286X,Handelingen der Maatschappij voor Geschiedenis- en Oudheidkunde te Gent,0774-286X,55,436
 t:het-land-van-nevele,Het Land van Nevele,,3,431
 t:de-plate,De Plate,,2,427
 t:de-faluintjes,De Faluintjes,,3,404
@@ -212,7 +213,6 @@ t:ardenne-et-famenne,Ardenne et Famenne,,2,101
 t:jaarboek-heemkundige-kring-van-malle,Jaarboek Heemkundige Kring van Malle,,1,101
 t:de-gids-op-maatschappelijk-gebied,De Gids op Maatschappelijk Gebied,,4,100
 t:duffla,Duffla,,2,99
-issn:0303-9935,Tijdschrift voor Sociale en Economische Geschiedenis,0303-9935|1572-1701|2468-9068,4,98
 t:jaarboek-van-de-heemkundige-kring-ardooie-koolskamp,Jaarboek van de Heemkundige Kring Ardooie-Koolskamp,,1,98
 t:archief-en-bibliotheekwezen-in-belgie,Archief- en Bibliotheekwezen in België,,5,97
 t:de-horen,De Horen (Tervuren),,2,97
@@ -285,6 +285,7 @@ t:kadoc-nieuwsbrief,KADOC Nieuwsbrief,,2,72
 t:jaarboek-heemkring-balen-voortgezet-als-continue-par-jaarboe,Jaarboek Heemkring Balen,,1,72
 t:militaria-belgica-jaarboek-over-uniformologie-en-krijgsgesch,Militaria Belgica : Jaarboek over uniformologie en krijgsgeschiedenis,,1,72
 issn:0772-7003,Bibliotheek- en archiefgids (Antwerpen),0772-7003,2,71
+issn:1572-1701,Tijdschrift voor Sociale en Economische Geschiedenis,1572-1701|2468-9068,2,71
 t:jaarboek-provinciale-commissie-voor-geschiedenis-en-volkskun,Jaarboek Provinciale Commissie voor Geschiedenis en Volkskunde (Antwerpen),,1,71
 t:annales-de-l-institut-archeologique-du-luxembourg-arlon,Annales de l’Institut archéologique du Luxembourg (Arlon),,10,70
 t:rollariensia,Rollariensia,,1,69
@@ -531,7 +532,6 @@ t:la-revue-generale-bruxelles,La revue générale (Bruxelles),,1,29
 t:interbellum-bulletin-van-de-vereniging-voor-de-studie-van-de,Interbellum: bulletin van de Vereniging voor de Studie van de Vernieuwende Creativiteit tussen de Twee Wereldoorlogen (Gent),,3,29
 t:cahiers-simenon,Cahiers Simenon,,1,29
 t:heembode,Heembode,,1,29
-issn:0921-142X,De zeventiende eeuw: cultuur in de Nederlanden in interdisciplinair perspectief: tijdschrift van de Werkgroep Zeventiende Eeuw (Deventer),0921-142X|2212-7402,3,28
 issn:0254-4296,Annales Aequatoria,0254-4296,1,28
 t:parcs-nationaux,Parcs Nationaux,,1,28
 t:de-vlaamse-gids,De Vlaamse Gids,,3,28
@@ -545,6 +545,7 @@ t:museumbulletin,Museumbulletin,,1,28
 t:le-p-tit-brania,Le p'tit Brania,,1,28
 t:heulespiegel,Heulespiegel,,1,28
 issn:0929-9890,De achttiende eeuw: documentatieblad van de Werkgroep achttiende eeuw (Amsterdam),0929-9890,3,27
+issn:0303-9935,Tijdschrift voor sociale geschiedenis (Amsterdam),0303-9935,2,27
 issn:1636-3671,Outre-Terre,1636-3671,1,27
 t:credit-communal-de-belgique,Crédit communal de Belgique,,2,27
 t:oost-vlaanderen,Oost-Vlaanderen,,1,27
@@ -633,6 +634,7 @@ t:cambresis,Cambrésis,,1,21
 t:tijdschrift-van-de-heemkundige-kring-oostkamp,Tijdschrift van de Heemkundige Kring Oostkamp,,1,21
 t:heemkundige-kring-moorslede,Heemkundige Kring Moorslede,,1,21
 issn:0994-8090,Archivum Latinitatis Medii Aevi,0994-8090,8,20
+issn:0921-142X,De zeventiende eeuw: cultuur in de Nederlanden in interdisciplinair perspectief: tijdschrift van de Werkgroep Zeventiende Eeuw (Deventer),0921-142X,2,20
 issn:2032-8192,Medieval and Modern Matters,2032-8192|2295-905X,1,20
 t:oost-vlaamse-zanten,Oost-Vlaamse Zanten,,1,20
 t:bijdragen-tot-de-geschiedenis,Bijdragen tot de Geschiedenis,,1,20
@@ -756,11 +758,11 @@ issn:0066-6297,"Archiv für Diplomatik, Schriftgeschichte, Siegel- und Wappenkun
 issn:0035-3299,Revue historique de l'Armée,0035-3299,7,12
 issn:0323-4142,Zeitschrift der Savigny-Stiftung für Rechtsgeschichte. Kanonistische Abteilung (Wien),0323-4142|2304-4896,9,12
 issn:0143-9685,"Historical Journal of Film, Radio and Television",0143-9685|1465-3451,3,12
-issn:0928-303X,Studium,0928-303X|1876-9055|2212-7283,4,12
 issn:0004-9468,Australian Journal of French Studies,0004-9468|2046-2913,1,12
 issn:0012-1223,Deutsches Archiv für Erforschung des Mittelalters,0012-1223|2194-3842,2,11
 issn:0752-5702,"Histoire, économie et société",0752-5702,7,11
 issn:0361-0160,The Sixteenth Century Journal,0361-0160|2326-0726,3,11
+issn:1876-9055,Studium,1876-9055|2212-7283,3,11
 issn:0143-4632,Journal of Multilingual and Multicultural Development,0143-4632|1747-7557,1,11
 issn:0013-8266,The English Historical Review,0013-8266|1477-4534,6,10
 issn:0032-4663,Population,0032-4663,4,10
@@ -803,6 +805,7 @@ issn:1871-241X,Church History and Religious Culture,1871-241X|1871-2428,2,8
 issn:2211-0879,Journal of Dutch Literature,2211-0879|2211-0887,1,8
 issn:1384-105X,Armada,1384-105X,1,8
 issn:1877-7023,Journal of Archaeology in the Low Countries,1877-7023,1,8
+issn:2212-7402,De zeventiende eeuw,2212-7402,1,8
 issn:1750-6980,Memory Studies,1750-6980|1750-6999,1,8
 issn:1947-5020,First World War Studies,1947-5020|1947-5039,1,8
 issn:0261-9288,Immigrants & Minorities,0261-9288|1744-0521,1,8
@@ -1273,6 +1276,7 @@ issn:0048-8046,Revue européenne des sciences sociales (Cahiers Vilfredo Pareto)
 issn:1465-4466,Historical materialism - Research in critical Marxist theory,1465-4466|1569-206X,1,1
 issn:0166-2511,Holland: historisch tijdschrift,0166-2511,1,1
 issn:0268-117X,Seventeenth Century,0268-117X|2050-4616,1,1
+issn:0928-303X,"GEWINA: tijdschrift voor de geschiedenis der geneeskunde, natuurwetenschappen, wiskunde en techniek (Rotterdam)",0928-303X,1,1
 issn:1469-0764,Totalitarian movements and political religions,1469-0764|1743-9647,1,1
 issn:1554-477X,"Journal of Women, Politics & Policy",1554-477X|1554-4788,1,1
 issn:0268-4527,Intelligence & National Security,0268-4527|1743-9019,1,1

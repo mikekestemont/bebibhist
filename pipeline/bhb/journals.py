@@ -153,10 +153,22 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             issn = parent[issn]
         return issn
 
+    # Two ISSNs on one article are one journal's print and online numbers, unless both have articles of their own and
+    # meet on one article only: a renamed journal gets a new ISSN (Crossref lists the old one too), and a matching
+    # fault gives an article another journal's number (one DOI of the Ghent Handelingen also lists the Bruges one).
+    alone, together = Counter(), Counter()
+    for record in articles:
+        if len(record.issn) == 1:
+            alone[record.issn[0]] += 1
+        for issn in record.issn[1:]:
+            together[tuple(sorted((record.issn[0], issn)))] += 1
     votes: dict[str, Counter[str]] = defaultdict(Counter)
     for record in articles:
         if record.issn:
             for issn in record.issn[1:]:
+                pair = tuple(sorted((record.issn[0], issn)))
+                if together[pair] < 2 and alone[pair[0]] and alone[pair[1]]:
+                    continue
                 first, other = root(record.issn[0]), root(issn)
                 parent[max(first, other)] = min(first, other)
             votes[spelling_key(record.host.title)][record.issn[0]] += 1

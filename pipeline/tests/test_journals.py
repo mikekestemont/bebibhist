@@ -68,9 +68,21 @@ def test_spellings_join_by_issn_full_title_variant_and_abbreviation():
 
 
 def test_a_journal_is_named_by_its_lowest_issn_whatever_the_order_found():
-    records = [_article(str(n), "Handelingen van het Genootschap voor Geschiedenis", ["0774-286X", "0770-0822"]) for n in range(3)]
+    records = [_article(str(n), "Revue du Nord", ["1166-486X", "0035-2624"]) for n in range(3)]
     _, mapping = build(records)
-    assert mapping["handelingen van het genootschap voor geschiedenis"] == ("issn:0770-0822", "issn")
+    assert mapping["revue du nord"] == ("issn:0035-2624", "issn")
+
+
+def test_two_journals_with_articles_of_their_own_are_not_joined_by_one_article_with_both_numbers():
+    records = [_article(str(n), "Handelingen van het Genootschap voor Geschiedenis te Brugge", ["0770-0822"]) for n in range(5)]
+    records += [_article(str(10 + n), "Handelingen der Maatschappij voor Geschiedenis en Oudheidkunde te Gent", ["0774-286X"]) for n in range(5)]
+    records.append(_article("20", "Handelingen der Maatschappij voor Geschiedenis en Oudheidkunde te Gent", ["0774-286X", "0770-0822"]))
+    records += [_article(str(30 + n), "Revue du Nord", ["0035-2624"]) for n in range(3)]
+    records.append(_article("40", "Revue du Nord", ["0035-2624", "1166-486X"]))  # an online number of its own only: joined
+    journals, mapping = build(records)
+    assert mapping["handelingen der maatschappij voor geschiedenis en oudheidkunde te gent"] == ("issn:0774-286X", "issn")
+    assert mapping["handelingen van het genootschap voor geschiedenis te brugge"] == ("issn:0770-0822", "issn")
+    assert next(j for j in journals if j["id"] == "issn:0035-2624")["issn"] == "0035-2624|1166-486X"
 
 
 def test_a_catalogue_note_is_left_out_of_the_journal_name():
