@@ -119,6 +119,10 @@ def main(argv: list[str] | None = None) -> None:
     journals_sub = journals.add_subparsers(dest="journals_command", required=True)
     journals_sub.add_parser("apply", help="resolve Ibid., write data/curated/journals.csv and the spelling map, give articles a journal id")
 
+    corr = sub.add_parser("corrections", help="OCR and print corrections (data/curated/corrections.csv, ocr_persee.csv)")
+    corr_sub = corr.add_subparsers(dest="corrections_command", required=True)
+    corr_sub.add_parser("persee", help="write data/curated/ocr_persee.csv from the STRAIVE–Persée comparison of 1960–69 (build/persee/)")
+    corr_sub.add_parser("apply", help="apply both correction files to build/records.jsonl (a build applies them too)")
     citations = sub.add_parser("citations", help="the LLM clean-up pass over printed citations (OpenRouter)")
     citations_sub = citations.add_subparsers(dest="citations_command", required=True)
     cpilot = citations_sub.add_parser("pilot", help="score models and the parser against the DOI and gold answer keys, in batches")
@@ -242,6 +246,9 @@ def main(argv: list[str] | None = None) -> None:
         counts = apply_journals(records, repo_root() / "data" / "curated")
         write_jsonl(path, records)
         print(f"journals: {counts} → {path}")
+        return
+    if args.command == "corrections":
+        _corrections(args.corrections_command)
         return
     if args.command == "citations" and args.citations_command == "pilot":
         _citations_pilot(args.model, args.per_decade, args.seed, args.single, args.reasoning, args.workers, args.provider, args.xml)
@@ -687,6 +694,29 @@ def _identifiers_sample(size: int, seed: int) -> None:
     chosen = [record for decade in sorted(by_decade) for record in rng.sample(by_decade[decade], min(share, len(by_decade[decade])))]
     print(f"{len(chosen)} printed articles and chapters, {share} per decade", flush=True)
     _identifiers_write(chosen, build_dir() / "identifiers" / "print-sample.csv")
+
+
+def _corrections(command: str) -> None:
+    import csv
+
+    from bhb.corrections import apply_corrections, load_corrections, machine_corrections_path
+
+    path = build_dir() / "records.jsonl"
+    records = read_jsonl(path)
+    if command == "persee":
+        from bhb.ocr_compare import compare, correction_rows, vocabulary
+
+        found, tally = compare(records, build_dir() / "persee", vocabulary(record.printed for record in records))
+        rows = correction_rows(found, str(date.today()))
+        with machine_corrections_path().open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, ["id", "wrong", "right", "kind", "checked_by", "date", "note"])
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"{len(rows)} corrections from {tally['paired']:,} paired entries → {machine_corrections_path()}")
+        return
+    applied = apply_corrections(records, load_corrections())
+    write_jsonl(path, records)
+    print(f"{applied} corrections applied → {path}")
 
 
 def _citations_keys(records: dict) -> tuple[dict, dict]:

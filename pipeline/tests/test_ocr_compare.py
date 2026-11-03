@@ -26,3 +26,15 @@ def test_an_ocr_fix_is_kept_only_for_a_rare_word_corrected_to_a_known_one():
                             {"printed": "Bull,", "corrected": "Bull."}]}
     kept = checked_ocr_fixes(answer, "Fysisch kader van het iite van Halle. Gent, Bull, 1967", counts)
     assert kept == [{"printed": "iite", "corrected": "site"}]
+
+
+def test_abbreviations_old_spellings_and_given_names_are_not_corrected_on_counts_alone():
+    from bhb.ocr_compare import Reading, plausible
+
+    text = "Mueller (Harmut). Die Dekanate (arr. de Turnhout), œconomiques. Alired (Alired)."
+    names = Counter({"alfred": 40})
+    at = lambda word: text.index(word)
+    assert not plausible(Reading("Harmut", ["Hannut"], at("Harmut"), at("Harmut") + 6), text, names)
+    assert not plausible(Reading("arr", ["an"], at("arr"), at("arr") + 3), text, names)
+    assert not plausible(Reading("œconomiques", ["économiques"], at("œcon"), at("œcon") + 11), text, names)
+    assert plausible(Reading("Alired", ["Alfred"], text.rindex("Alired"), text.rindex("Alired") + 6), text, names)

@@ -607,6 +607,12 @@ times), becomes one that occurs 3 times or more: 20 of the 82 remain, of which a
 confirmed, 3 of the unresolved and 2 of the "contradicted" right on the page image). The model's OCR fixes are
 therefore proposals for review, not corrections; the 409 decided by the comparison can be applied by rule to
 1960–63 and 1966–69 as `ocr` corrections, marked as machine-derived.
+Applied 3 Nov 2026 (`bhb corrections persee`, `data/curated/ocr_persee.csv`): of the differences the word counts
+decide for Persée, a correction is left out when Persée splits a word STRAIVE prints whole, for a short word before
+a full stop (an abbreviation, "arr."), for a word with œ or æ (an old spelling the print has), and for a given name
+that does not occur as a given name elsewhere ("Mueller (Harmut)" is no "Hannut"); 371 remain, written in STRAIVE's
+typography, and 368 apply (whole words only). A sample of 24 checked on the page images before these rules had 21
+right. The entries are flagged `corrected-ocr-machine`.
 
 Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
 and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards

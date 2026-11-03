@@ -30,3 +30,14 @@ def test_a_row_the_entry_no_longer_matches_is_not_applied():
             {"id": "bhb:1900-1", "wrong": "a", "right": "b", "kind": "ocr"}]
     assert apply_corrections([record], rows) == 0
     assert record.provenance.flags == []
+
+
+def test_a_machine_correction_replaces_whole_words_only_and_is_flagged():
+    from bhb.corrections import apply_corrections
+    from bhb.model import Record
+
+    record = Record(id="bhb:1962-4453", source="print-straive", bgb_year=1962, printed="Michel (J.). Over hel kasteel", title="Over hel kasteel")
+    rows = [{"id": "bhb:1962-4453", "wrong": "hel", "right": "het", "kind": "ocr", "checked_by": "machine: Persée 1960–69 and word counts"}]
+    assert apply_corrections([record], rows) == 1
+    assert record.printed == "Michel (J.). Over het kasteel" and record.title == "Over het kasteel"
+    assert "corrected-ocr-machine" in record.provenance.flags

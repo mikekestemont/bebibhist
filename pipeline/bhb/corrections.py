@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
+import re
 import sys
 from pathlib import Path
 
@@ -31,8 +32,15 @@ def corrections_path() -> Path:
     return repo_root() / "data" / "curated" / "corrections.csv"
 
 
+def machine_corrections_path() -> Path:
+    """OCR corrections found by comparing two digitisations (``bhb corrections persee``), not checked by a person."""
+    return repo_root() / "data" / "curated" / "ocr_persee.csv"
+
+
 def load_corrections(path: Path | None = None) -> list[dict[str, str]]:
-    path = path or corrections_path()
+    """The hand corrections, then the machine-found ones; or the rows of one file."""
+    if path is None:
+        return load_corrections(corrections_path()) + load_corrections(machine_corrections_path())
     if not path.is_file():
         return []
     with path.open(encoding="utf-8", newline="") as handle:
@@ -44,8 +52,12 @@ def load_corrections(path: Path | None = None) -> list[dict[str, str]]:
 
 
 def _replace(value, wrong: str, right: str):
-    """The value with ``wrong`` replaced in every text field, and whether anything changed."""
+    """The value with ``wrong`` replaced in every text field, and whether anything changed. A wrong text that begins
+    and ends with a letter is replaced as a whole word only: "el" → "et" leaves "Michel" alone."""
     if isinstance(value, str):
+        if re.match(r"\w", wrong) and re.search(r"\w$", wrong):
+            new, count = re.subn(rf"(?<!\w){re.escape(wrong)}(?!\w)", lambda _: right, value)
+            return new, count > 0
         return (value.replace(wrong, right), True) if wrong in value else (value, False)
     if isinstance(value, list):
         changed = False
@@ -67,7 +79,8 @@ def _replace(value, wrong: str, right: str):
 
 
 def apply_corrections(records, rows: list[dict[str, str]] | None = None) -> int:
-    """Apply the hand corrections to the records in place; returns how many rows were applied."""
+    """Apply the corrections to the records in place; returns how many rows were applied. A machine-found row
+    (``checked_by`` "machine: …") flags the entry ``corrected-ocr-machine``, so it shows as machine-derived."""
     rows = load_corrections() if rows is None else rows
     by_id = {record.id: record for record in records}
     applied = 0
@@ -86,6 +99,7 @@ def apply_corrections(records, rows: list[dict[str, str]] | None = None) -> int:
         if not changed:
             print(f"correction not applied, {row['id']} no longer holds {row['wrong']!r}", file=sys.stderr)
             continue
-        record.provenance.flags.append(f"corrected-{row['kind']}")
+        machine = (row.get("checked_by") or "").startswith("machine")
+        record.provenance.flags.append(f"corrected-{row['kind']}" + ("-machine" if machine else ""))
         applied += 1
     return applied
