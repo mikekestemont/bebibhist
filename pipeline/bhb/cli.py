@@ -1073,7 +1073,9 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
                     spent["requests"] += sum(1 for reply in replies if not reply.cached)
                 if any((reply.error or "").startswith("HTTP 402") for reply in replies) and not stop.is_set():
                     stop.set()
-                    print("the key has run out of credit: stopping; run again after raising the limit (the cache keeps every answer)", flush=True)
+                    print("OpenRouter refuses payment (HTTP 402): either the key's limit is reached or the account's credit is used up "
+                          "(credit is shared by every key of the account). Stopping; top up or raise the limit and run again — "
+                          "the cache keeps every answer.", flush=True)
                 if done % 200 == 0 or done == len(jobs):
                     rate = done / max(1.0, time.monotonic() - started)
                     print(f"  {label}: {done:,}/{len(jobs):,}, ${spent[label]:.2f}, {(len(jobs) - done) / rate / 60:.0f} min to go", flush=True)
@@ -1140,7 +1142,7 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
     lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
              f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
              f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",
-             f"New requests: {spent['requests']:,}." + (" Stopped: the key ran out of credit." if stop.is_set() else ""),
+             f"New requests: {spent['requests']:,}." + (" Stopped: OpenRouter refused payment (key limit or account credit)." if stop.is_set() else ""),
              "", "Review list (review.csv):", *[f"- {reason}: {n:,}" for reason, n in review.most_common()]]
     (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
