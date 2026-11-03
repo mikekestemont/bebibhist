@@ -31,6 +31,8 @@ A release is made from a full run: `bhb build`, then `bhb similar` (a build drop
 gh release create data-YYYY-MM-DD build/release/records.jsonl.gz build/release/NOTES.md --title "BHB-BGB data YYYY-MM-DD" --notes-file build/release/NOTES.md
 ```
 
+The citation clean-up pass (`bhb/citations.py`, plan §5c) is piloted before it runs in full; set `OPENROUTER_API_KEY` first. `bhb citations pilot --model ID [--model ID …]` sends batches of consecutive entries that hold an entry of the answer key (a Crossref DOI match, or a row of the interns' 1992 sheets), balanced by decade (`--per-decade`), scores the parser and each model per field, and estimates the cost of the full pass; `--single` also sends each keyed entry alone, `--reasoning low` asks for a reasoning effort. `bhb citations translate --model ID` translates a sample of titles per language, plus titles with historical terms, into a sheet for a hand check (`build/citations/translate-*.csv`). Answers are cached in `build/cache/citations/`, keyed on the whole request; reports go to `build/citations/`.
+
 The search benchmark that chose Pagefind over browser SQLite is recorded in `docs/BENCHMARK.md`. The benchmark code itself has been removed.
 
 ## Modules

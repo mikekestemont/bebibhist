@@ -1,19 +1,21 @@
-"""The citation clean-up pass: a language model splits a printed citation into fields (decision of 31 Oct 2026).
+"""The citation clean-up pass: a language model splits printed citations into fields (decision of 31 Oct 2026).
 
 The model reads ``printed`` and returns the record's fields as JSON, under a fixed schema; it copies text as printed
 and lists suspected OCR errors separately, so nothing it proposes replaces the printed text. Requests go through
-OpenRouter, only to providers that neither train on nor retain the data, with the model version and prompt pinned;
-every answer is cached in ``build/cache/citations/``.
+OpenRouter with the model version and prompt pinned; every answer is cached in ``build/cache/citations/``. The data
+are open, so providers that train on prompts are allowed (Mike, 3 Nov 2026); only full or fp8 precision is. EU models
+are preferred, and go to their maker's EU endpoint (Mistral's).
 
-TO DO before the pilot runs (Mike, 1 Nov 2026; `docs/IMPLEMENTATION_PLAN.md` §5c): this module still sends one
-entry a request. It must send batches of about ten consecutive entries of one section, with the entry before them and
-the section heading as context and the rules' hints (Ibid., split volumes, cross-references), check the answers per
-id, and redo a failed batch entry by entry; and the pilot must compare batches with single entries. The answer key
-should come from the full print runs, balanced by decade, with worked examples in the prompt.
+Entries go in batches of about ten consecutive entries of one section (`docs/IMPLEMENTATION_PLAN.md` §5c), with the
+section heading and the entry before them as context and the rules' hints (the journal behind an "Ibid.", the
+local language, the entry a "cf. n°" points to). Every answer is checked: the same ids, in the same order; a batch
+that skips or merges an entry is asked again entry by entry. A collected volume printed with its contents is a batch
+on its own. Titles of entries the pass is not otherwise sent are translated in requests of their own, title only.
 
-Before a full run, ``bhb citations pilot`` measures a model against an answer key: entries matched to a Crossref DOI,
-whose title, authors, journal, volume, issue, pages and year are known independently of our parser. The parser is
-scored on the same key, so the pilot shows per field whether the model is better, and at what cost.
+``bhb citations pilot`` measures a model against an answer key: entries matched to a Crossref DOI, whose title,
+authors, journal, volume, issue, pages and year are known independently of our parser, and the interns' corrected
+sheets of 1992 (books among them). The parser is scored on the same key, so the pilot shows per field whether the
+model is better, and at what cost.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from rapidfuzz import fuzz
@@ -34,67 +36,175 @@ from bhb.textutil import fold
 
 API = "https://openrouter.ai/api/v1/chat/completions"
 REFERER = "https://github.com/mikekestemont/bebibhist"
-# Raised whenever the prompt or the schema changes, so cached answers of an older version are not reused.
-PROMPT_VERSION = "1"
+# Raised whenever the prompt or the schema changes; the cache is keyed on the whole request anyway.
+PROMPT_VERSION = "3"
+# Full or fp8 precision only, and only providers that honour the schema; the data are open, so training is allowed.
+PROVIDER = {"quantizations": ["bf16", "fp16", "fp8"], "require_parameters": True}
+# EU models come first (Mike, 3 Nov 2026): Mistral's own endpoint in the EU, which states no precision but serves its
+# own weights, so the precision filter does not apply to it.
+HOME_PROVIDERS = {"mistralai/": "mistral/eu"}
 
+
+def provider_for(model: str, provider: str | None = None) -> dict:
+    """Routing for a model: one named provider (``deepinfra/fp8``, ``mistral/eu``) without fallbacks, the maker's own
+    EU endpoint for an EU model, or else any provider at full or fp8 precision."""
+    provider = provider or next((home for prefix, home in HOME_PROVIDERS.items() if model.startswith(prefix)), None)
+    if provider:
+        return {"only": [provider], "allow_fallbacks": False, "require_parameters": True}
+    return PROVIDER
+BATCH_SIZE = 10
+
+_TEXT = {"type": "string"}
 _NULLABLE_TEXT = {"type": ["string", "null"]}
-SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["type", "persons", "title", "subtitle", "title_translated", "host", "publishers", "year", "extent",
-                 "series", "note", "language", "ocr_fixes"],
-    "properties": {
-        "type": {"type": "string", "enum": ["article", "chapter", "book", "journal-issue", "review", "other"]},
-        "persons": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["family", "given", "role"],
-            "properties": {"family": {"type": "string"}, "given": _NULLABLE_TEXT,
-                           "role": {"type": "string", "enum": ["author", "editor", "translator"]}}}},
-        "title": {"type": "string"},
-        "subtitle": _NULLABLE_TEXT,
-        "title_translated": _NULLABLE_TEXT,
-        "host": {"type": ["object", "null"], "additionalProperties": False,
-                 "required": ["title", "volume", "issue", "year", "pages"],
-                 "properties": {key: _NULLABLE_TEXT for key in ("title", "volume", "issue", "year", "pages")}},
-        "publishers": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["place", "name"],
-            "properties": {"place": _NULLABLE_TEXT, "name": _NULLABLE_TEXT}}},
-        "year": {"type": ["integer", "null"]},
-        "extent": _NULLABLE_TEXT,
-        "series": {"type": ["object", "null"], "additionalProperties": False, "required": ["title", "number"],
-                   "properties": {"title": {"type": "string"}, "number": _NULLABLE_TEXT}},
-        "note": _NULLABLE_TEXT,
-        "language": {"type": ["string", "null"], "description": "ISO 639-1 code of the title's language"},
-        "ocr_fixes": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["printed", "corrected"],
-            "properties": {"printed": {"type": "string"}, "corrected": {"type": "string"}}}},
-    },
-}
+_PERSON = {"type": "object", "additionalProperties": False, "required": ["family", "given", "role"],
+           "properties": {"family": _TEXT, "given": _NULLABLE_TEXT,
+                          "role": {"type": "string", "enum": ["author", "editor", "translator"]}}}
+_PUBLISHER = {"type": "object", "additionalProperties": False, "required": ["place", "name"],
+              "properties": {"place": _NULLABLE_TEXT, "name": _NULLABLE_TEXT}}
 
-SYSTEM = """You split one entry of the Bibliography of Belgian History (Bibliographie de l'Histoire de Belgique / \
-Bibliografie van de Geschiedenis van België) into fields. Entries are in French, Dutch, German, English or Latin, and \
-were digitised from print with OCR.
+
+def _object(properties: dict, nullable: bool = False) -> dict:
+    return {"type": ["object", "null"] if nullable else "object", "additionalProperties": False,
+            "required": list(properties), "properties": properties}
+
+
+ENTRY = _object({
+    "id": _TEXT,
+    "type": {"type": "string", "enum": ["article", "chapter", "book", "journal-issue", "review", "other"]},
+    "persons": {"type": "array", "items": _PERSON},
+    "title": _TEXT,
+    "subtitle": _NULLABLE_TEXT,
+    "title_translated": _NULLABLE_TEXT,
+    "host": _object({key: _NULLABLE_TEXT for key in ("title", "title_full", "volume", "issue", "year", "pages")}, nullable=True),
+    "publishers": {"type": "array", "items": _PUBLISHER},
+    "year": {"type": ["integer", "null"]},
+    "extent": _NULLABLE_TEXT,
+    "series": _object({"title": _TEXT, "number": _NULLABLE_TEXT}, nullable=True),
+    "note": _NULLABLE_TEXT,
+    "language": {"type": "array", "items": _TEXT, "description": "ISO 639-1 codes of the languages the title is in"},
+    "translations": _object({"nl": _NULLABLE_TEXT, "fr": _NULLABLE_TEXT, "en": _NULLABLE_TEXT}),
+    "editions": {"type": "array", "items": _object({
+        "title": _TEXT, "subtitle": _NULLABLE_TEXT, "editors": {"type": "array", "items": _PERSON},
+        "publishers": {"type": "array", "items": _PUBLISHER}, "year": {"type": ["integer", "null"]},
+        "extent": _NULLABLE_TEXT, "language": {"type": "array", "items": _TEXT}})},
+    "contents": {"type": "array", "items": _object({
+        "persons": {"type": "array", "items": _PERSON}, "title": _TEXT, "pages": _NULLABLE_TEXT, "edition": {"type": "integer"}})},
+    "ocr_fixes": {"type": "array", "items": _object({"printed": _TEXT, "corrected": _TEXT})},
+})
+SCHEMA = _object({"entries": {"type": "array", "items": ENTRY}})
+TITLES = _object({"titles": {"type": "array", "items": _object(
+    {"id": _TEXT, "nl": _NULLABLE_TEXT, "fr": _NULLABLE_TEXT, "en": _NULLABLE_TEXT})}})
+
+SYSTEM = """You split entries of the Bibliography of Belgian History (Bibliographie de l'Histoire de Belgique / \
+Bibliografie van de Geschiedenis van België, 1952–2017) into fields. Entries are in French, Dutch, German, English \
+or Latin, and most were digitised from print with OCR.
+
+You get the section heading, sometimes the entry printed before (context only: do not answer for it), and the \
+entries, each after its id in square brackets, sometimes with hints from earlier processing. Answer with one object \
+per id, in the same order: never skip, merge or split an entry.
 
 Rules:
 - Copy every value exactly as printed: do not translate, expand abbreviations, modernise spelling or fix OCR errors \
 in the fields. Journal names stay abbreviated as printed ("Hand. van de Soc. d'Émulation te Brugge").
-- Names are printed as "Family (Given)"; "e.a." or "et al." adds no person. "(éd.)", "(ed.)", "(red.)", "(dir.)" \
-mark editors. "s.n." is no person.
+- Names are printed as "Family (Given)"; "e.a." or "et al." adds no person. "(éd.)", "(ed.)", "(red.)", "(dir.)", \
+"(uitg.)" mark editors. "s.n." is no person. "Id." or "Idem" in place of a name is the person of the entry before.
 - An article or chapter has a host: the journal or the collected volume ("In:", "Dans:"). Its volume, issue, year \
-and pages go in host; a chapter's volume title goes in host.title.
-- A title in square brackets after the title is a translation: put it in title_translated.
-- A bilingual imprint ("Bruxelles, X; Brussel, Y") gives two publishers.
+and pages go in host; a chapter's volume title goes in host.title. "Ibid." as journal is the journal of the entry \
+before: put that journal's name in host.title, as printed there (a hint may give it).
+- A place followed by a publisher ("Bruxelles, Crédit communal", "Bussum, Uitg. P. Brand") is an imprint, not a \
+host: the entry is a book (or a journal issue), and the imprint goes in publishers. A bilingual imprint \
+("Bruxelles, X; Brussel, Y") gives two publishers.
+- extent is the whole pagination as printed ("xv–293 p.", "2 vol.", "210 pp."), never the format (8°), the \
+illustrations or the price.
+- A series in parentheses ("(Verhandelingen KVAB, 42)") goes in series, its title and number apart.
+- A title in square brackets after the title is the editors' translation: put it in title_translated, never in \
+title or subtitle (a hint may give it).
+- host.title_full is the journal's or volume's name written out in full, in its own language, only when you know \
+the journal and are certain of every word ("Hand. van het Genootsch. voor Gesch. te Brugge" → "Handelingen van het \
+Genootschap voor Geschiedenis te Brugge"); else null. It never replaces host.title.
 - Text after " — " or " - " at the end that is no part of the title (a summary, contents, a comment) goes in note.
 - year is the year of publication as an integer.
-- ocr_fixes lists only words that are clearly OCR errors ("Seivias" for "Scivias", "terrrein"), with the correction; \
-leave it empty when in doubt. Never list a historical or regional spelling."""
+- language lists the languages the title (with subtitle) is written in, as ISO 639-1 codes: two only for a title \
+printed in two languages. The editors' bracketed translation is not a language of publication.
+- translations gives the title (with subtitle, joined by ": ") translated into Dutch, French and English: fill \
+every one of the three that is not a language of the title, for every entry; null only for a language the title is \
+already in. Keep names of persons and places as printed, except well-known places that \
+have a name in that language (Luik/Liège, Gent/Gand, Bergen/Mons). Use the terms of historical scholarship \
+(schepenbank → échevinage / bench of aldermen; mainmorte → dode hand / mortmain).
+- contents: only when the entry lists the contributions of a collected volume, one item each (authors, title, \
+pages, edition: the index of its edition in editions, else 0). editions: only when one entry prints the same volume \
+in two language editions, one item each. Otherwise both are empty.
+- ocr_fixes lists only words that are clearly OCR errors ("Seivias" for "Scivias", "terrrein"), with the \
+correction; leave it empty when in doubt. Never list a historical or regional spelling.
+
+Two worked examples. Entries:
+Section: I. Généralités › C. Travaux d'ensemble
+Entry before (context only): Faider-Feytmans (G.). Adolphe Quetelet et les Beaux-Arts. Bull. de l'Ac. R. de B., \
+Cl. des Beaux-Arts, 1974, 2, pp. 190–199.
+
+[ex-1] Janssen (C.). Carmelkluis en Carmelwereld. [Ermitage de C. et monde du C.]. Bussum, Uitg. P. Brand, 1955, \
+8°, 210 pp., 95 fr. — Esquisse historique de l'Ordre des Frères de N.-D.-du-Mont-Carmel.
+    hint: the editors' bracketed translation: Ermitage de C. et monde du C.
+[ex-2] Roberts-Jones (Philippe). Madou et Quetelet. Ibid., pp. 200–204.
+
+Answer:
+{"entries": [{"id": "ex-1", "type": "book", "persons": [{"family": "Janssen", "given": "C.", "role": "author"}], \
+"title": "Carmelkluis en Carmelwereld", "subtitle": null, "title_translated": "Ermitage de C. et monde du C.", \
+"host": null, "publishers": [{"place": "Bussum", "name": "Uitg. P. Brand"}], "year": 1955, "extent": "210 pp.", \
+"series": null, "note": "Esquisse historique de l'Ordre des Frères de N.-D.-du-Mont-Carmel.", "language": ["nl"], \
+"translations": {"nl": null, "fr": "Ermitage carmélitain et monde carmélitain", "en": "Carmelite hermitage and \
+Carmelite world"}, "editions": [], "contents": [], "ocr_fixes": []}, {"id": "ex-2", "type": "article", "persons": \
+[{"family": "Roberts-Jones", "given": "Philippe", "role": "author"}], "title": "Madou et Quetelet", "subtitle": \
+null, "title_translated": null, "host": {"title": "Bull. de l'Ac. R. de B., Cl. des Beaux-Arts", "title_full": \
+"Bulletin de la Classe des Beaux-Arts de l'Académie royale de Belgique", "volume": null, "issue": "2", "year": \
+"1974", "pages": "200–204"}, "publishers": [], "year": 1974, "extent": null, "series": null, "note": null, \
+"language": ["fr"], "translations": {"nl": "Madou en Quetelet", "fr": null, "en": "Madou and Quetelet"}, \
+"editions": [], "contents": [], "ocr_fixes": []}]}"""
+
+MARKUP = """
+
+The entries come as the digitisation vendor's JATS mark-up of the printed text. The text between the tags is what \
+was printed; the tags are the vendor's first guess and often wrong (an imprint tagged <source>, the format "8°" \
+tagged <issue>, a price tagged <fpage>). Use them as hints only, judge every field from the text, and copy values \
+from the text without tags."""
+
+TRANSLATE = """You translate titles of publications on Belgian history, listed in the Bibliography of Belgian \
+History, for a search engine. For each id, give the title in Dutch (nl), French (fr) and English (en); null for a \
+language the title is already in. Translate faithfully and plainly; do not explain. Keep names of persons and \
+places as printed, except well-known places that have a name in that language (Luik/Liège, Gent/Gand, Bergen/Mons). \
+Use the terms of historical scholarship (costumen → coutumes / customs; schepenbank → échevinage / bench of \
+aldermen; mainmorte → dode hand / mortmain). A bracketed translation by the editors may follow the title: use it as \
+a reference. Answer with one object per id, in the same order."""
 
 
 @dataclass
-class Answer:
-    fields: dict
+class Item:
+    id: str
+    printed: str
+    hints: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Batch:
+    section: str | None
+    before: str | None
+    items: list[Item]
+    markup: bool = False  # the items hold the vendor's JATS mark-up instead of the plain text
+
+
+@dataclass
+class Reply:
+    """One request: its answer and what it cost."""
+    content: dict | None
     model: str
     provider: str | None
-    cost: float | None
+    cost: float
+    tokens_in: int
+    tokens_out: int
+    tokens_reasoning: int
+    seconds: float
+    cached: bool
+    error: str | None = None
 
 
 def _key() -> str:
@@ -104,40 +214,194 @@ def _key() -> str:
     return key
 
 
-def request_body(printed: str, model: str) -> dict:
-    return {
+def batch_message(batch: Batch) -> str:
+    lines = [f"Section: {batch.section or '—'}"]
+    if batch.before:
+        lines.append(f"Entry before (context only): {batch.before}")
+    lines.append("")
+    for item in batch.items:
+        lines.append(f"[{item.id}] {item.printed}")
+        lines.extend(f"    hint: {hint}" for hint in item.hints)
+    return "\n".join(lines)
+
+
+def request_body(system: str, user: str, schema: dict, model: str, reasoning: str | None = None,
+                 name: str = "citations", provider: str | None = None) -> dict:
+    body = {
         "model": model,
         "temperature": 0,
-        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": printed}],
-        "response_format": {"type": "json_schema", "json_schema": {"name": "citation", "strict": True, "schema": SCHEMA}},
-        # Only providers that neither train on nor retain prompts, at full or fp8 precision, that honour the schema.
-        "provider": {"data_collection": "deny", "zdr": True, "quantizations": ["bf16", "fp16", "fp8"], "require_parameters": True},
+        "max_tokens": 16000,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "response_format": {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}},
+        "provider": provider_for(model, provider),
         "usage": {"include": True},
     }
+    if reasoning:
+        body["reasoning"] = {"effort": reasoning}
+    return body
 
 
-def ask(printed: str, model: str, cache: Path) -> Answer:
-    """One citation through the model, from the cache when it was asked before with this model and prompt."""
-    name = hashlib.sha1(f"{model}\n{PROMPT_VERSION}\n{printed}".encode()).hexdigest()
+def call(body: dict, cache: Path) -> Reply:
+    """One request, from the cache when this exact request was sent before."""
+    name = hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     path = cache / f"{name}.json"
-    if path.exists():
+    cached = path.exists()
+    seconds = 0.0
+    if cached:
         data = json.loads(path.read_text(encoding="utf-8"))
     else:
-        body = json.dumps(request_body(printed, model)).encode()
+        encoded = json.dumps(body).encode()
         headers = {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json", "HTTP-Referer": REFERER, "X-Title": "bebibhist"}
+        started = time.monotonic()
+        data = None
         for attempt in range(5):
             try:
-                with urllib.request.urlopen(urllib.request.Request(API, data=body, headers=headers), timeout=120) as response:
+                with urllib.request.urlopen(urllib.request.Request(API, data=encoded, headers=headers), timeout=300) as response:
                     data = json.loads(response.read().decode("utf-8"))
-                break
+                if "choices" in data and (data["choices"][0].get("finish_reason") != "error" or attempt >= 2):
+                    break  # a provider's failure is asked twice more before it counts
             except urllib.error.HTTPError as error:
-                if error.code not in (429, 500, 502, 503, 504) or attempt == 4:
-                    raise
-                time.sleep(3 * (attempt + 1))
-        cache.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data), encoding="utf-8")
-    content = data["choices"][0]["message"]["content"]
-    return Answer(json.loads(content), data.get("model", model), data.get("provider"), (data.get("usage") or {}).get("cost"))
+                detail = error.read().decode("utf-8", "replace")[:300]
+                if error.code not in (408, 429, 500, 502, 503, 504) or attempt == 4:
+                    return Reply(None, body["model"], None, 0.0, 0, 0, 0, time.monotonic() - started, False, f"HTTP {error.code}: {detail}")
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
+                if attempt == 4:
+                    return Reply(None, body["model"], None, 0.0, 0, 0, 0, time.monotonic() - started, False, str(error))
+            time.sleep(3 * (attempt + 1))
+        seconds = time.monotonic() - started
+        if not data or "choices" not in data:
+            return Reply(None, body["model"], None, 0.0, 0, 0, 0, seconds, False, json.dumps(data)[:300])
+        data["_seconds"] = seconds
+        # A provider's failure (Mistral ends a run of blank output with finish_reason "error") is not an answer: it is
+        # not cached, so the next run asks again.
+        if data["choices"][0].get("finish_reason") != "error":
+            cache.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    usage = data.get("usage") or {}
+    reply = Reply(None, data.get("model", body["model"]), data.get("provider"), float(usage.get("cost") or 0.0),
+                  int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0),
+                  int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0),
+                  float(data.get("_seconds", seconds)), cached)
+    message = data["choices"][0].get("message") or {}
+    try:
+        reply.content = json.loads(message.get("content") or "")
+    except json.JSONDecodeError:
+        reply.error = f"no JSON ({data['choices'][0].get('finish_reason')})"
+    return reply
+
+
+def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = None,
+              provider: str | None = None) -> tuple[dict[str, dict], list[Reply]]:
+    """The answers per id for one batch. A batch whose ids come back wrong is asked again entry by entry, each with
+    the entry before it as context; an entry that fails alone too is left out."""
+    system = SYSTEM + MARKUP if batch.markup else SYSTEM
+    reply = call(request_body(system, batch_message(batch), SCHEMA, model, reasoning, provider=provider), cache)
+    replies = [reply]
+    entries = (reply.content or {}).get("entries") or []
+    if [entry.get("id") for entry in entries] == [item.id for item in batch.items]:
+        return {entry["id"]: entry for entry in entries}, replies
+    if reply.content is not None:
+        reply.error = reply.error or "ids do not match"
+    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+        return {}, replies  # a refused request (a parameter the model does not take) fails alone as well
+    answers: dict[str, dict] = {}
+    before = batch.before
+    for item in batch.items:
+        single, more = ask_batch(Batch(batch.section, before, [item], batch.markup), model, cache, reasoning, provider)
+        answers.update(single)
+        replies.extend(more)
+        before = item.printed
+    return answers, replies
+
+
+def ask_titles(items: list[Item], model: str, cache: Path, reasoning: str | None = None,
+               provider: str | None = None) -> tuple[dict[str, dict], Reply]:
+    """Translations of title-only items (``Item.printed`` holds the title), checked per id like a batch."""
+    user = "\n".join(f"[{item.id}] {item.printed}" for item in items)
+    reply = call(request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider), cache)
+    titles = (reply.content or {}).get("titles") or []
+    if [title.get("id") for title in titles] != [item.id for item in items]:
+        reply.error = reply.error or "ids do not match"
+        return {}, reply
+    return {title["id"]: title for title in titles}, reply
+
+
+def markup_of(records: list) -> dict[str, str]:
+    """Per STRAIVE entry, the inner mark-up of its ``<mixed-citation>``, entities resolved, from the raw JATS file."""
+    import html
+
+    wanted: dict[str, dict[str, str]] = {}
+    for record in records:
+        if record.source == "print-straive" and record.provenance.file and record.provenance.xml_id:
+            wanted.setdefault(record.provenance.file, {})[record.provenance.xml_id] = record.id
+    found: dict[str, str] = {}
+    for path, ids in wanted.items():
+        text = Path(path).read_text(encoding="utf-8")
+        for match in re.finditer(r'<ref id="([^"]+)">.*?<mixed-citation[^>]*>(.*?)</mixed-citation>', text, re.S):
+            if match.group(1) in ids:
+                inner = re.sub(r"<([\w-]+)\s[^>]*>", r"<\1>", match.group(2))  # attributes add tokens, not meaning
+                found[ids[match.group(1)]] = re.sub(r"\s+", " ", html.unescape(inner)).strip()
+    return found
+
+
+# --- batches in printed order --------------------------------------------------------------------------------------
+
+_PAGE_RANGE = re.compile(r"\b(?:p|pp|blz|S)\.?\s*\d+\s*[-–]\s*\d+")
+_IBID = re.compile(r"\b(?:Ibid|Ibidem)\b", re.IGNORECASE)
+_CROSS = re.compile(r"\b(?:cf|zie|voir)\.?\s*n[°o]", re.IGNORECASE)
+
+
+def is_collected_volume(printed: str) -> bool:
+    """A volume printed with its contents: three page ranges or more in more than 500 characters (§5c)."""
+    return len(printed) > 500 and len(_PAGE_RANGE.findall(printed)) >= 3
+
+
+def hints_for(record, journals: dict[str, str], by_id: dict) -> list[str]:
+    """What the rules already resolved, as hints: the model decides only where the rules stop."""
+    hints = []
+    if record.journal_id and record.journal_id in journals and _IBID.search(record.printed or ""):
+        hints.append(f'"Ibid." is the journal {journals[record.journal_id]}')
+    if record.title_translated and record.title_translated in (record.printed or ""):
+        hints.append(f"the editors' bracketed translation: {record.title_translated}")
+    if record.language_suggested:
+        hints.append("language (read by a local identifier): " + ", ".join(record.language_suggested))
+    if _CROSS.search(record.printed or ""):
+        for target in record.cross_refs[:3]:
+            other = by_id.get(target)
+            if other is not None and other.printed:
+                hints.append(f"{target.split('-')[-1]} refers to: {other.printed[:160]}")
+    return hints
+
+
+def make_batches(records: list, journals: dict[str, str], size: int = BATCH_SIZE) -> list[Batch]:
+    """Consecutive entries of one section, ``size`` at a time, in printed order; a collected volume alone."""
+    by_id = {record.id: record for record in records}
+    batches: list[Batch] = []
+    current: list = []
+    before = None
+
+    def flush() -> None:
+        nonlocal current
+        if current:
+            batches.append(Batch(" › ".join(current[0].section_path) or None, before.printed if before else None,
+                                 [Item(record.id, record.printed, hints_for(record, journals, by_id)) for record in current]))
+            current = []
+
+    previous = None
+    for record in records:
+        if not record.printed:
+            continue
+        new_section = previous is None or record.section_path != previous.section_path or record.bgb_year != previous.bgb_year
+        if new_section or len(current) >= size or is_collected_volume(record.printed):
+            flush()
+            before = previous if not new_section else None
+        current.append(record)
+        if is_collected_volume(record.printed):
+            flush()
+            before = record
+        previous = record
+    flush()
+    return batches
 
 
 # --- the answer key: entries matched to a Crossref DOI --------------------------------------------------------------
@@ -191,6 +455,7 @@ def fields_of_record(record) -> dict:
     """Our parser's fields, in the same shape as the model's."""
     host = record.host
     return {
+        "type": record.type,
         "title": ": ".join(part for part in (record.title, record.subtitle) if part),
         "persons": [{"family": person.family, "role": person.role} for person in record.persons],
         "host": {"title": host.title, "volume": host.volume, "issue": host.issue, "pages": host.pages} if host else None,
@@ -198,14 +463,37 @@ def fields_of_record(record) -> dict:
     }
 
 
+def tidy(answer: dict) -> dict:
+    """Fixed faults of a model answer, fixed by rule: the editors' bracketed translation put in the subtitle goes to
+    title_translated (Mistral Small 4 does this in about one entry in ten with a translation, hint or not)."""
+    subtitle = (answer.get("subtitle") or "").strip()
+    translated = (answer.get("title_translated") or "").strip()
+    bracketed = subtitle.startswith("[") and subtitle.rstrip(" .").endswith("]")
+    if subtitle and (bracketed or (translated and fold(subtitle.strip("[] .")) == fold(translated.strip("[] .")))):
+        answer = dict(answer, subtitle=None, title_translated=translated or subtitle.strip(" .").strip("[]"))
+    return answer
+
+
 def fields_of_answer(fields: dict) -> dict:
+    """The model's fields in the shape of ``fields_of_record``; an article's year may stand in its host only."""
     host = fields.get("host")
+    year = fields.get("year")
+    if year is None and host and re.fullmatch(r"\d{4}", str(host.get("year") or "").strip()):
+        year = int(host["year"])
     return {
+        "type": fields.get("type"),
         "title": ": ".join(part for part in (fields.get("title"), fields.get("subtitle")) if part),
         "persons": fields.get("persons") or [],
         "host": host,
-        "year": fields.get("year"),
+        "year": year,
     }
+
+
+def combined(model: dict, parser: dict) -> dict:
+    """The model's fields, with the parser's where the model gives none (§5c: rules and the pass together)."""
+    host = dict(parser.get("host") or {})
+    host.update({key: value for key, value in (model.get("host") or {}).items() if value})
+    return {key: model.get(key) or parser.get(key) for key in parser} | {"host": host or None}
 
 
 def score(fields: dict, key: dict) -> dict[str, bool | None]:
@@ -222,3 +510,47 @@ def score(fields: dict, key: dict) -> dict[str, bool | None]:
         "year": fields.get("year") == key["year"] if key["year"] else None,
     }
     return result
+
+
+def score_gold(fields: dict, row) -> dict[str, bool | None]:
+    """Per field against a corrected intern sheet (``bhb.gold.GoldRow``): title with subtitle, the first author's
+    family name, the host as printed, the year, and book or not."""
+    host = (fields.get("host") or {}).get("title") or ""
+    persons = [person for person in fields.get("persons") or [] if person.get("role", "author") == "author"]
+    return {
+        "title": fuzz.ratio(fold(fields.get("title") or ""), fold(row.title)) >= 95 if row.title else None,
+        "authors": bool(persons) and fold(persons[0]["family"]) == fold(row.surname) if row.surname else None,
+        "host": fuzz.ratio(fold(host), fold(row.host_title)) >= 90 if row.host_title else None,
+        "year": str(fields.get("year") or "") == row.year if row.year else None,
+        "book": (fields.get("type") == "book") == (row.kind == "book") if row.kind else None,
+    }
+
+
+def _squeeze(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def copied_values(answer: dict, printed: str) -> tuple[int, int]:
+    """How many of an answer's copied values occur in the printed citation as they stand (case and spacing aside):
+    title, subtitle, host title and pages, family names, places, publishers, extent. A value that does not occur was
+    changed, expanded or made up — the rule says to copy."""
+    text = _squeeze(printed)
+    values = [answer.get("title"), answer.get("subtitle"), answer.get("extent")]
+    values += [(answer.get("host") or {}).get(key) for key in ("title", "pages")]
+    values += [person.get("family") for person in answer.get("persons") or []]
+    values += [publisher.get(key) for publisher in answer.get("publishers") or [] for key in ("place", "name")]
+    values = [_squeeze(value).rstrip(" .") for value in values if value]
+    return sum(1 for value in values if value in text), len(values)
+
+
+def missing_translations(answer: dict) -> int:
+    """Translations the answer leaves out: one per language of nl, fr and en that the title is not already in."""
+    own = set(answer.get("language") or [])
+    translations = answer.get("translations") or {}
+    return sum(1 for code in ("nl", "fr", "en") if code not in own and not translations.get(code))
+
+
+def expansion_right(answer: dict, journal_title: str) -> bool:
+    """Whether the model's written-out journal name is the curated full name (case, accents and punctuation aside)."""
+    full = (answer.get("host") or {}).get("title_full") or ""
+    return fuzz.ratio(fold(full), fold(journal_title)) >= 90

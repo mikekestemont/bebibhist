@@ -556,6 +556,25 @@ values and shown as suggested; a title in two languages gets both.
 **When (Mike, 2 Nov 2026):** the full pass, translations included, waits until after the meeting of 9 November,
 where it is decided together, since it is relatively costly.
 
+**Pilot (3 Nov 2026, `bhb citations pilot`, reports in `build/citations/`).** 217 batches in printed order (1,925
+entries, 328 on an answer key: 288 DOI matches and the 40 corrected intern rows of 1992), balanced by decade.
+Mistral Small 4 (`mistralai/mistral-small-2603`, open weights, through Mistral's EU endpoint), without reasoning,
+prompt v3 (a hint for the editors' bracketed translation, two worked examples) and one rule after it (`tidy`: a
+bracketed translation put in the subtitle goes to `title_translated`): with the parser's value where the model gives
+none, 83.3 % of the DOI-fixed fields right against 82.3 % for the parser alone (title 92.0 against 93.4 %, volume,
+issue and first page at or above the parser), 99.8 % of the entries answered, translations complete (0.01 missing
+per entry), 98.4 % of its copied values found in the printed text, $0.21 per 1,000 entries. Left out: Ministral
+14B (a third of its batches come back with wrong ids), Mistral Large 4 (it always reasons, about 75 times the cost),
+Qwen 3.6 35B (a third of its batches run into the token cap); DeepSeek V4.1 Flash (non-EU) is not better.
+Reasoning ("low") gains only on titles, at three times the cost and with three times the missing translations; the
+vendor's JATS mark-up instead of the plain text helps titles but makes the model invent more values (13.6 % of the
+entries hold a value not in the printed text, against 9.2 %). The model's written-out journal names (`title_full`)
+are too few and too loose to group journals by (15 % of articles, half of them the curated name); the rules keep
+that task. Both answer keys come from entries the parser already gets nearly right (a DOI or a gold row is accepted
+on a matching title), so the pilot shows that the model does not make these worse, not what it adds on the hard
+entries: that needs a hand-checked random sample (about 150 printed entries, by decade and type), which comes next,
+and a check of its OCR fixes against the second digitisation of 1960–63 and 1966–69 (Persée).
+
 Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
 and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards
 sur Léopold Ier & Léopold II …", 1997). The rules (`split_contents`) split only part of them: in that entry three

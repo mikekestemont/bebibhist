@@ -121,10 +121,22 @@ def main(argv: list[str] | None = None) -> None:
 
     citations = sub.add_parser("citations", help="the LLM clean-up pass over printed citations (OpenRouter)")
     citations_sub = citations.add_subparsers(dest="citations_command", required=True)
-    cpilot = citations_sub.add_parser("pilot", help="score a model and the parser against the DOI answer key")
-    cpilot.add_argument("--model", required=True, help="an OpenRouter model id with a pinned version")
-    cpilot.add_argument("--size", type=int, default=500)
+    cpilot = citations_sub.add_parser("pilot", help="score models and the parser against the DOI and gold answer keys, in batches")
+    cpilot.add_argument("--model", action="append", required=True, help="an OpenRouter model id with a pinned version (repeatable)")
+    cpilot.add_argument("--per-decade", type=int, default=30, help="batches with a keyed entry per decade, besides the gold sheets' batches")
+    cpilot.add_argument("--single", action="store_true", help="also send every keyed entry alone, to compare with batches")
+    cpilot.add_argument("--provider", help="one OpenRouter provider without fallbacks (deepinfra/fp8, mistral/eu); Mistral models go to mistral/eu by default")
+    cpilot.add_argument("--reasoning", help="reasoning effort to ask for (none, minimal, low, …); the model's default if omitted")
+    cpilot.add_argument("--xml", action="store_true", help="send the vendor's JATS mark-up of each STRAIVE entry instead of the plain text")
+    cpilot.add_argument("--workers", type=int, default=8)
     cpilot.add_argument("--seed", type=int, default=3)
+    ctrans = citations_sub.add_parser("translate", help="translate a sample of titles into nl, fr and en, title only, for a hand check and a cost")
+    ctrans.add_argument("--model", action="append", required=True)
+    ctrans.add_argument("--per-language", type=int, default=50)
+    ctrans.add_argument("--provider", help="one OpenRouter provider without fallbacks (deepinfra/fp8, mistral/eu); Mistral models go to mistral/eu by default")
+    ctrans.add_argument("--reasoning")
+    ctrans.add_argument("--workers", type=int, default=8)
+    ctrans.add_argument("--seed", type=int, default=4)
 
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
@@ -218,7 +230,10 @@ def main(argv: list[str] | None = None) -> None:
         print(f"journals: {counts} → {path}")
         return
     if args.command == "citations" and args.citations_command == "pilot":
-        _citations_pilot(args.model, args.size, args.seed)
+        _citations_pilot(args.model, args.per_decade, args.seed, args.single, args.reasoning, args.workers, args.provider, args.xml)
+        return
+    if args.command == "citations" and args.citations_command == "translate":
+        _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -654,69 +669,273 @@ def _identifiers_sample(size: int, seed: int) -> None:
     _identifiers_write(chosen, build_dir() / "identifiers" / "print-sample.csv")
 
 
-def _citations_pilot(model: str, size: int, seed: int) -> None:
+def _citations_keys(records: dict) -> tuple[dict, dict]:
+    """The pilot's answer keys: per id the fields a Crossref DOI fixes, and the interns' corrected rows."""
     import csv
-    import random
-    from collections import Counter
 
-    from bhb.citations import ask, fields_of_answer, fields_of_record, key_from_crossref, score
+    from bhb.citations import key_from_crossref
     from bhb.identifiers import candidates
 
-    records = {record.id: record for record in read_jsonl(build_dir() / "records.jsonl")}
     cache = build_dir() / "cache" / "crossref"
-    keyed = []
-    for name in ("print-sample.csv", "pilot.csv", "vsmart.csv"):
+    keys: dict[str, dict] = {}
+    for name in ("print-sample.csv", "pilot.csv", "print-pdf.csv", "print-straive.csv"):
         path = build_dir() / "identifiers" / name
         if not path.exists():
             continue
         for row in csv.DictReader(path.open(encoding="utf-8")):
             record = records.get(row["id"])
-            if row["accepted"] != "1" or record is None or not record.printed or any(entry[0].id == record.id for entry in keyed):
+            if row["accepted"] != "1" or record is None or not record.printed or record.id in keys:
                 continue
-            item = next((i for i in candidates(record, cache, offline=True)["message"]["items"] if i.get("DOI") == row["doi"]), None)
-            if item is None:
-                continue
-            keyed.append((record, key_from_crossref(item)))
-    # The OCR years first: that is where the pass is meant to help.
+            found = candidates(record, cache, offline=True)
+            item = next((i for i in (found or {}).get("message", {}).get("items", []) if i.get("DOI") == row["doi"]), None)
+            if item is not None:
+                keys[record.id] = key_from_crossref(item)
+    index = {(record.bgb_year, record.print_number): record.id for record in records.values() if record.print_number}
+    gold = {index[(row.bgb_year, row.label)]: row for row in load_gold() if (row.bgb_year, row.label) in index}
+    return keys, gold
+
+
+def _citations_pass_size(records: list) -> tuple[int, int]:
+    """Entries the full pass parses (printed, without a DOI or VABB match, or a collected volume) and titles it
+    translates title only (every other entry)."""
+    from bhb.citations import is_collected_volume
+
+    parsed = sum(1 for record in records if record.source.startswith("print") and record.printed and (
+        not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed)))
+    titled = sum(1 for record in records if record.title) - parsed
+    return parsed, titled
+
+
+def _citations_pilot(models: list[str], per_decade: int, seed: int, single: bool, reasoning: str | None, workers: int,
+                     provider: str | None = None, xml: bool = False) -> None:
+    import csv
+    import random
+    import time
+    from collections import Counter, defaultdict
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bhb.textutil import fold
+    from bhb.citations import (PROMPT_VERSION, Batch, Item, ask_batch, combined, copied_values, expansion_right, fields_of_answer,
+                               fields_of_record, make_batches, markup_of, tidy,
+                               missing_translations, provider_for, score, score_gold)
+
+    all_records = read_jsonl(build_dir() / "records.jsonl")
+    records = {record.id: record for record in all_records}
+    keys, gold = _citations_keys(records)
+    journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
+    batches = make_batches([record for record in all_records if record.source.startswith("print")], journals)
+    by_decade: dict[int, list] = defaultdict(list)
+    for batch in batches:
+        if any(item.id in keys or item.id in gold for item in batch.items):
+            by_decade[records[batch.items[0].id].bgb_year // 10 * 10].append(batch)
     rng = random.Random(seed)
-    printed = [entry for entry in keyed if entry[0].source.startswith("print")]
-    catalogue = [entry for entry in keyed if not entry[0].source.startswith("print")]
-    rng.shuffle(printed)
-    rng.shuffle(catalogue)
-    sample = (printed + catalogue)[:size]
-    print(f"answer key: {len(keyed)} entries ({len(printed)} printed); pilot on {len(sample)}", flush=True)
-    tallies = {"parser": Counter(), "model": Counter()}
-    cost = 0.0
-    providers: Counter[str] = Counter()
+    chosen = []
+    for decade in sorted(by_decade):
+        with_gold = [batch for batch in by_decade[decade] if any(item.id in gold for item in batch.items)]
+        rest = [batch for batch in by_decade[decade] if batch not in with_gold]
+        chosen += with_gold + rng.sample(rest, min(per_decade, len(rest)))
+    if xml:
+        marked = markup_of([records[item.id] for batch in chosen for item in batch.items])
+        chosen = [Batch(batch.section, batch.before, [Item(item.id, marked.get(item.id, item.printed), item.hints) for item in batch.items],
+                        any(item.id in marked for item in batch.items)) for batch in chosen]
+    sent = sum(len(batch.items) for batch in chosen)
+    examples = {"bhb:1956-7739", "bhb:1977-29963"}  # the prompt's worked examples are not scored
+    scored = [item.id for batch in chosen for item in batch.items if (item.id in keys or item.id in gold) and item.id not in examples]
+    parsed, titled = _citations_pass_size(all_records)
+    print(f"answer keys: {len(keys)} DOI entries, {len(gold)} gold rows; pilot: {len(chosen)} batches, {sent} entries, "
+          f"{len(scored)} scored; the full pass parses {parsed} entries and translates {titled} titles alone", flush=True)
+
+    def tally(fields_by_id: dict) -> Counter:
+        counts: Counter = Counter()
+        for record_id in scored:
+            fields = fields_by_id.get(record_id)
+            if fields is None:
+                continue
+            for name, ok in (score(fields, keys[record_id]) if record_id in keys else score_gold(fields, gold[record_id])).items():
+                if ok is not None:
+                    counts[(("doi" if record_id in keys else "gold"), name, ok)] += 1
+        return counts
+
+    parser_tally = tally({record_id: fields_of_record(records[record_id]) for record_id in scored})
     out = build_dir() / "citations"
     out.mkdir(parents=True, exist_ok=True)
-    slug = model.replace("/", "_")
-    with (out / f"pilot-{slug}.csv").open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["id", "source", "field", "parser", "model", "printed"])
-        for index, (record, key) in enumerate(sample, 1):
-            answer = ask(record.printed, model, build_dir() / "cache" / "citations")
-            cost += answer.cost or 0.0
-            providers[answer.provider or "?"] += 1
-            ours, theirs = score(fields_of_record(record), key), score(fields_of_answer(answer.fields), key)
-            for field_name in ours:
-                for who, value in (("parser", ours[field_name]), ("model", theirs[field_name])):
-                    if value is not None:
-                        tallies[who][(field_name, value)] += 1
-                if ours[field_name] != theirs[field_name]:
-                    writer.writerow([record.id, record.source, field_name, ours[field_name], theirs[field_name], record.printed])
-            if index % 50 == 0:
-                print(f"  {index}", flush=True)
-    lines = [f"# Citation pilot: {model}", "", f"{len(sample)} entries with a Crossref answer key; cost ${cost:.4f}; providers {dict(providers)}.", "",
-             "| Field | Parser right | Model right | Checked |", "|---|---:|---:|---:|"]
-    for field_name in ("title", "authors", "volume", "issue", "first_page", "year"):
-        checked = tallies["parser"][(field_name, True)] + tallies["parser"][(field_name, False)]
-        if checked:
-            lines.append(f"| {field_name} | {tallies['parser'][(field_name, True)] / checked:.1%} | {tallies['model'][(field_name, True)] / max(1, tallies['model'][(field_name, True)] + tallies['model'][(field_name, False)]):.1%} | {checked} |")
-    report = out / f"pilot-{slug}.md"
-    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    cache = build_dir() / "cache" / "citations"
+    summary = []
+    for model in models:
+        slug = model.replace("/", "_") + f"-v{PROMPT_VERSION}" + (f"-r{reasoning}" if reasoning else "") + ("-xml" if xml else "")
+        started = time.monotonic()
+        with ThreadPoolExecutor(workers) as pool:
+            results = list(pool.map(lambda batch: ask_batch(batch, model, cache, reasoning, provider), chosen))
+        wall = time.monotonic() - started
+        answers = {record_id: tidy(answer) for found, _ in results for record_id, answer in found.items()}
+        replies = [reply for _, more in results for reply in more]
+        errors = Counter(reply.error.split(":")[0] for reply in replies if reply.error)
+        cost = sum(reply.cost for reply in replies)
+        batch_tally = tally({record_id: fields_of_answer(answer) for record_id, answer in answers.items()})
+        both_tally = tally({record_id: combined(fields_of_answer(answer), fields_of_record(records[record_id])) for record_id, answer in answers.items()})
+        single_tally, single_cost, single_entries = Counter(), 0.0, 0
+        if single:
+            jobs = []
+            for batch in chosen:
+                before = batch.before
+                for item in batch.items:
+                    if item.id in keys or item.id in gold:
+                        jobs.append(Batch(batch.section, before, [item], batch.markup))
+                    before = item.printed
+            with ThreadPoolExecutor(workers) as pool:
+                alone = list(pool.map(lambda batch: ask_batch(batch, model, cache, reasoning, provider), jobs))
+            single_tally = tally({record_id: fields_of_answer(answer) for found, _ in alone for record_id, answer in found.items()})
+            single_cost = sum(reply.cost for _, more in alone for reply in more)
+            single_entries = len(jobs)
+        per_entry = cost / max(1, len(answers))
+        disagree = {"type": 0, "language": 0}
+        copied, values, untranslated, ocr = 0, 0, 0, 0
+        expanded = Counter()
+        by_full = {fold(title): journal_id for journal_id, title in journals.items()}
+        with (out / f"answers-{slug}.jsonl").open("w", encoding="utf-8") as handle:
+            for record_id, answer in answers.items():
+                record = records[record_id]
+                found, total = copied_values(answer, record.printed)
+                copied, values = copied + found, values + total
+                untranslated += missing_translations(answer)
+                ocr += len(answer.get("ocr_fixes") or [])
+                full = (answer.get("host") or {}).get("title_full")
+                if record.type == "article" and record.journal_id in journals:
+                    expanded["known"] += 1
+                    expanded["known, written out"] += bool(full)
+                    expanded["known, right"] += bool(full) and expansion_right(answer, journals[record.journal_id])
+                elif record.type == "article" and not record.journal_id:
+                    expanded["no journal id"] += 1
+                    expanded["no journal id, written out"] += bool(full)
+                    expanded["no journal id, a known journal"] += bool(full) and fold(full) in by_full
+                disagree["type"] += answer.get("type") != record.type
+                if record.language_suggested and answer.get("language") is not None:
+                    disagree["language"] += sorted(answer["language"]) != sorted(record.language_suggested)
+                handle.write(json.dumps({"id": record_id, "printed": record.printed, "answer": answer}, ensure_ascii=False) + "\n")
+        lines = [f"# Citation pilot: {model}{' (vendor mark-up)' if xml else ''}", "",
+                 f"{len(chosen)} batches, {len(answers)} of {sent} entries answered; {len(scored)} scored "
+                 f"({sum(1 for i in scored if i in keys)} on a DOI, {sum(1 for i in scored if i in gold)} on the gold sheets).",
+                 f"Reasoning: {reasoning or 'model default'}. Routing: {provider_for(model, provider)}. Providers: {dict(Counter(r.provider for r in replies if not r.cached))}.",
+                 f"Requests: {len(replies)} ({len(replies) - len(chosen)} to redo a batch entry by entry); errors: {dict(errors)}.",
+                 f"Cost: ${cost:.4f}, ${per_entry * 1000:.3f} per 1,000 entries; tokens per entry: "
+                 f"{sum(r.tokens_in for r in replies) / max(1, len(answers)):.0f} in, {sum(r.tokens_out for r in replies) / max(1, len(answers)):.0f} out "
+                 f"({sum(r.tokens_reasoning for r in replies) / max(1, len(answers)):.0f} of them reasoning).",
+                 f"Time: {wall:.0f} s for the batches with {workers} at a time; median request "
+                 f"{sorted(r.seconds for r in replies)[len(replies) // 2]:.1f} s.",
+                 f"Full pass, {parsed:,} entries: about ${per_entry * parsed:,.0f}.",
+                 f"Model and parser disagree on the type of {disagree['type']} entries and the local language on {disagree['language']}.",
+                 f"Copied values found in the printed text: {copied / max(1, values):.1%} of {values}; translations missing: "
+                 f"{untranslated} ({untranslated / max(1, len(answers)):.2f} per entry); OCR fixes proposed: {ocr}.",
+                 f"Journal names written out: {expanded['known, written out']} of {expanded['known']} articles of a known journal, "
+                 f"{expanded['known, right']} of them the curated name; {expanded['no journal id, written out']} of "
+                 f"{expanded['no journal id']} articles without a journal id, {expanded['no journal id, a known journal']} of them a known journal's name.",
+                 "", "| Key | Field | Parser | Model, batches | Model + parser | Model, single | Checked |", "|---|---|---:|---:|---:|---:|---:|"]
+        rates = {}
+        for key_name in ("doi", "gold"):
+            for field_name in ("title", "authors", "host", "volume", "issue", "first_page", "year", "book"):
+                checked = parser_tally[(key_name, field_name, True)] + parser_tally[(key_name, field_name, False)]
+                if not checked:
+                    continue
+                cells = []
+                for counts in (parser_tally, batch_tally, both_tally, single_tally):
+                    right, wrong = counts[(key_name, field_name, True)], counts[(key_name, field_name, False)]
+                    cells.append(f"{right / (right + wrong):.1%}" if right + wrong else "—")
+                rates[(key_name, field_name)] = cells
+                lines.append(f"| {key_name} | {field_name} | {' | '.join(cells)} | {checked} |")
+        if single:
+            lines.append(f"\nSingle entries: {single_entries} requests, ${single_cost:.4f}, "
+                         f"${single_cost / max(1, single_entries) * 1000:.3f} per 1,000 entries.")
+        (out / f"pilot-{slug}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print("\n".join(lines), flush=True)
+        with (out / f"pilot-{slug}.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["id", "key", "field", "parser", "model", "printed"])
+            for record_id in scored:
+                if record_id not in answers:
+                    writer.writerow([record_id, "", "unanswered", "", "", records[record_id].printed])
+                    continue
+                ours = score(fields_of_record(records[record_id]), keys[record_id]) if record_id in keys else score_gold(fields_of_record(records[record_id]), gold[record_id])
+                theirs = score(fields_of_answer(answers[record_id]), keys[record_id]) if record_id in keys else score_gold(fields_of_answer(answers[record_id]), gold[record_id])
+                for field_name in ours:
+                    if ours[field_name] != theirs[field_name]:
+                        writer.writerow([record_id, "doi" if record_id in keys else "gold", field_name, ours[field_name], theirs[field_name], records[record_id].printed])
+        total = sum(batch_tally[k] for k in batch_tally if k[2] and k[0] == "doi")
+        both = sum(both_tally[k] for k in both_tally if k[2] and k[0] == "doi")
+        doi_checked = max(1, sum(n for k, n in batch_tally.items() if k[0] == "doi"))
+        summary.append((model + (f", reasoning {reasoning}" if reasoning else "") + (", mark-up" if xml else ""), total / doi_checked, both / max(1, sum(n for k, n in both_tally.items() if k[0] == "doi")), copied / max(1, values), untranslated / max(1, len(answers)),
+                        len(answers) / sent, per_entry * 1000, per_entry * parsed, wall))
+    lines = ["| Model | DOI fields right | With the parser's where none | Copied as printed | Translations missing per entry | Answered | $ per 1,000 entries | Full pass | Batch time |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    parser_doi = sum(n for k, n in parser_tally.items() if k[2] and k[0] == "doi") / max(1, sum(n for k, n in parser_tally.items() if k[0] == "doi"))
+    lines.append(f"| parser | {parser_doi:.1%} | | | | | | | |")
+    for model, right, both, verbatim, untranslated, answered, per_thousand, full, wall in summary:
+        lines.append(f"| {model} | {right:.1%} | {both:.1%} | {verbatim:.1%} | {untranslated:.2f} | {answered:.1%} | {per_thousand:.3f} | ${full:,.0f} | {wall:.0f} s |")
     print("\n".join(lines))
-    print(f"report → {report}; disagreements → {out / f'pilot-{slug}.csv'}")
+    with (out / "pilot-summary.md").open("a", encoding="utf-8") as handle:
+        handle.write(f"\n## {date.today()} — reasoning {reasoning or 'default'}, {len(chosen)} batches, seed {seed}\n\n" + "\n".join(lines) + "\n")
+
+
+def _citations_translate(models: list[str], per_language: int, seed: int, reasoning: str | None, workers: int,
+                         provider: str | None = None) -> None:
+    import csv
+    import random
+    import re
+    import time
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bhb.citations import Item, ask_titles
+
+    all_records = read_jsonl(build_dir() / "records.jsonl")
+    rng = random.Random(seed)
+    terms = re.compile(r"costume|coutum|échevin|schepen|mainmorte|dode hand|keure|leenhof|cijns|tonlieu|baljuw|bailli|ambacht|métier|gilde", re.IGNORECASE)
+    by_language: dict[str, list] = {}
+    for record in all_records:
+        if record.title and record.language_suggested:
+            language = record.language_suggested[0] if record.language_suggested[0] in ("nl", "fr", "en", "de") else "other"
+            by_language.setdefault(language, []).append(record)
+    chosen = [record for language in sorted(by_language) for record in rng.sample(by_language[language], min(per_language, len(by_language[language])))]
+    seen = {record.id for record in chosen}
+    chosen += rng.sample([record for record in all_records if record.title and record.id not in seen and terms.search(record.title)], per_language)
+    items = [Item(record.id, ": ".join(part for part in (record.title, record.subtitle) if part)
+                  + (f" [{record.title_translated}]" if record.title_translated else "")) for record in chosen]
+    groups = [items[start:start + 25] for start in range(0, len(items), 25)]
+    parsed, titled = _citations_pass_size(all_records)
+    out = build_dir() / "citations"
+    out.mkdir(parents=True, exist_ok=True)
+    cache = build_dir() / "cache" / "citations"
+    for model in models:
+        slug = model.replace("/", "_")
+        started = time.monotonic()
+        with ThreadPoolExecutor(workers) as pool:
+            results = list(pool.map(lambda group: ask_titles(group, model, cache, reasoning, provider), groups))
+        wall = time.monotonic() - started
+        found = {record_id: title for answers, _ in results for record_id, title in answers.items()}
+        replies = [reply for _, reply in results]
+        cost = sum(reply.cost for reply in replies)
+        per_title = cost / max(1, len(found))
+        own, missing = 0, 0
+        with (out / f"translate-{slug}.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["id", "language", "title", "nl", "fr", "en", "ok"])
+            for record, item in zip(chosen, items):
+                answer = found.get(record.id) or {}
+                for code in ("nl", "fr", "en"):
+                    if code in record.language_suggested:
+                        own += answer.get(code) is not None
+                    else:
+                        missing += not answer.get(code)
+                writer.writerow([record.id, "+".join(record.language_suggested), item.printed, answer.get("nl"), answer.get("fr"), answer.get("en"), ""])
+        lines = [f"# Title translations: {model}", "",
+                 f"{len(found)} of {len(items)} titles answered in {len(replies)} requests; errors: {dict(Counter(r.error.split(':')[0] for r in replies if r.error))}.",
+                 f"Cost ${cost:.4f}, ${per_title * 1000:.3f} per 1,000 titles; tokens per title "
+                 f"{sum(r.tokens_in for r in replies) / max(1, len(found)):.0f} in, {sum(r.tokens_out for r in replies) / max(1, len(found)):.0f} out "
+                 f"({sum(r.tokens_reasoning for r in replies) / max(1, len(found)):.0f} reasoning); {wall:.0f} s.",
+                 f"A translation into the title's own language: {own}; a translation missing: {missing}.",
+                 f"Titles translated alone in the full pass: {titled:,}, about ${per_title * titled:,.0f}; every title alone: ${per_title * (parsed + titled):,.0f}.",
+                 f"Hand check: {out / f'translate-{slug}.csv'} (column ok)."]
+        (out / f"translate-{slug}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print("\n".join(lines), flush=True)
 
 
 def _identifiers_write(sample, out: Path, offline: bool = False) -> None:

@@ -10,7 +10,7 @@ Ground rules:
 - Never commit large data (PDFs, SQLite, CSV > 20 MB); see `.gitignore`.
 - Python code lives in the `bhb` package (`pipeline/`), with pytest tests; no notebooks.
 - LLM API calls only for the citation clean-up pass, through OpenRouter (decision of 31 Oct 2026, replacing the ban
-  of 11 Oct): providers that neither train on nor keep the data, pinned model versions, every answer cached, the
+  of 11 Oct): any provider at full or fp8 precision (training on the open data is allowed, 3 Nov 2026), pinned model versions, every answer cached, the
   key in `OPENROUTER_API_KEY` and never in the repository; entries already right, or matched to a DOI or VABB
   record, are not sent for clean-up, but their titles are sent, title only, for the translations into Dutch, French
   and English (decision of 2 Nov 2026; plan §5c). Local open models are allowed for everything else.
