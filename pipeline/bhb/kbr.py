@@ -2,8 +2,8 @@
 §4e).
 
 KBR offers the set ``BelgianDataset`` (about 1.1 million records, Dublin Core) at ``opac.kbr.be/oaiserver.ashx``
-(https://opac.kbr.be/belgian-bibliography.aspx). The harvest is stored page by page, gzipped, in
-``build/external/kbr/`` and can be stopped and resumed: the last resumption token is kept. One request a second.
+(https://opac.kbr.be/belgian-bibliography.aspx). It is harvested by date windows (``bhb.kbr_harvest``), page by page,
+gzipped, into ``build/external/kbr/``.
 
 The books of the bibliography, and the collected volumes of its chapters, are matched to it on the ISBN or on the
 title with an author or the publisher (``match``); for each match the richer ``ermes`` record gives the year and the
@@ -27,65 +27,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bhb.identifiers import USER_AGENT, _full_given, numbers_agree, same_name
+from bhb.kbr_harvest import _RECORD, OAI
 from rapidfuzz.distance import Levenshtein
 
 from bhb.textutil import fold, squash
 
-OAI = "https://opac.kbr.be/oaiserver.ashx"
-_RECORD = re.compile(r"<record>(.*?)</record>", re.S)
-SET = "BelgianDataset"
 INTERVAL = 1.0
 
 
 _ISBN_FIELD = re.compile(r"<dc:identifier>(?:97[89])?\d{9}[\dXx]</dc:identifier>")
-
-
-def kept(page: str) -> str:
-    """The records worth keeping from a page: books (with an ISBN for the identifiers; without one, often a local
-    society's publication, as a candidate for the recent years) and periodicals (for their ISSN). Maps, printed music
-    and the like are left out; OAI-PMH cannot leave them out of the transfer."""
-    records = []
-    for record in _RECORD.findall(page):
-        kind = re.search(r"<dc:type[^>]*>([^<]*)</dc:type>", record)
-        kind = kind.group(1) if kind else ""
-        if kind in ("Livre", "Périodique", "Journal"):
-            records.append(f"<record>{record}</record>")
-    return "\n".join(records)
-
-
-def harvest(folder: Path, progress=None) -> int:
-    """Fetch the set page by page into ``folder``, resuming from the saved token; returns the pages fetched now."""
-    folder.mkdir(parents=True, exist_ok=True)
-    token_file = folder / "resumption-token.txt"
-    pages = sorted(folder.glob("page-*.xml.gz"))
-    token = token_file.read_text(encoding="utf-8").strip() if token_file.exists() else ""
-    if pages and not token:
-        return 0  # complete
-    number = len(pages)
-    fetched = 0
-    while True:
-        params = {"verb": "ListRecords", "resumptionToken": token} if token else {"verb": "ListRecords", "metadataPrefix": "oai_dc", "set": SET}
-        url = f"{OAI}?{urllib.parse.urlencode(params)}"
-        for attempt in range(6):
-            try:
-                with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=120) as response:
-                    text = response.read().decode("utf-8")
-                break
-            except (urllib.error.URLError, TimeoutError):
-                if attempt == 5:
-                    raise
-                time.sleep(10 * (attempt + 1))
-        number += 1
-        fetched += 1
-        (folder / f"page-{number:06d}.xml.gz").write_bytes(gzip.compress(kept(text).encode("utf-8")))
-        found = re.search(r"<resumptionToken[^>]*>([^<]*)</resumptionToken>", text)
-        token = found.group(1).strip() if found else ""
-        token_file.write_text(token, encoding="utf-8")
-        if progress and number % 100 == 0:
-            progress(number)
-        if not token:
-            return fetched
-        time.sleep(INTERVAL)
 
 
 # --- The harvested records ------------------------------------------------------------------------------------------
@@ -131,10 +81,13 @@ def parse_record(record: str) -> Book | None:
 
 
 def books(folder: Path):
-    """Every harvested book."""
-    for path in sorted(folder.glob("page-*.xml.gz")):
+    """Every harvested book, once: a record that changed during the harvest is found again in a later window, and the
+    later page is read first."""
+    seen: set[str] = set()
+    for path in sorted(folder.glob("page-*.xml.gz"), reverse=True):
         for record in _RECORD.findall(gzip.decompress(path.read_bytes()).decode("utf-8")):
-            if (book := parse_record(record)) is not None:
+            if (book := parse_record(record)) is not None and book.number not in seen:
+                seen.add(book.number)
                 yield book
 
 

@@ -366,8 +366,12 @@ While so much still changes this is a goal, not a promise; the steps, from cheap
 
 ## 4e. Next: KBR's Belgian Bibliography for ISBNs and names (Mike, 2 Nov 2026)
 
-The harvest of KBR's `BelgianDataset` (books and periodicals, oai_dc, `bhb identifiers kbr-harvest`) runs until about
-5 Nov. A test on the first 20 % (titles Z to "Ro", the server's order) matched 1,373 books and collected volumes
+The harvest of KBR's `BelgianDataset` (books and periodicals, oai_dc, `bhb identifiers kbr-harvest`) slowed down as it
+went: KBR's server skips to the cursor, so a page took 6 s at the start and over a minute a third of the way in, which
+put the end at two weeks off. On 3 Nov it was started again by date windows (`bhb/kbr_harvest.py`, each window at
+most 10,000 records, so every page lies near the start of its list), on the server, for about a day; the pages of the
+first harvest check it (every book in them must come back). At 33 % of the first harvest the hit rate held at about
+10 matches per 1,000 KBR books, in every stretch: about 10,000 matches expected. A test on the first 20 % (titles Z to "Ro", the server's order) matched 1,373 books and collected volumes
 without an ISBN (same title plus the same author or publisher, years close), 540 of them with an ISBN; a sample of 25
 was right. Extrapolated: about 7,500 matches and 3,000 ISBNs, and a KBR link for the rest. Built on 2 Nov (`bhb identifiers kbr`, `bhb/kbr.py`) and run on the partial harvest; it runs again when the harvest is done:
 
