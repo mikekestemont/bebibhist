@@ -278,6 +278,9 @@ def call(body: dict, cache: Path) -> Reply:
                 detail = error.read().decode("utf-8", "replace")[:300]
                 if error.code not in (408, 429, 500, 502, 503, 504) or attempt == 4:
                     return Reply(None, body["model"], None, 0.0, 0, 0, 0, time.monotonic() - started, False, f"HTTP {error.code}: {detail}")
+                if error.code == 429:  # the provider's rate limit: wait longer each time
+                    time.sleep(min(120, 10 * 2 ** attempt))
+                    continue
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
                 if attempt == 4:
                     return Reply(None, body["model"], None, 0.0, 0, 0, 0, time.monotonic() - started, False, str(error))
@@ -682,6 +685,7 @@ def score_key(answer: dict, row: dict) -> dict[str, bool | None]:
 
 # --- prompt v4: parsing only (translations in requests of their own, collected volumes with the full schema) -------
 
+PARSE_VERSION = "4"
 PARSE_ENTRY = _object({key: value for key, value in ENTRY["properties"].items()
                        if key not in ("translations", "editions", "contents")}
                       | {"host": _object({key: _NULLABLE_TEXT for key in ("title", "volume", "issue", "year", "pages")}, nullable=True)})
@@ -844,3 +848,14 @@ def ask_parse(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
         replies.extend(more)
         before = item.printed
     return answers, replies
+
+
+def credit() -> float | None:
+    """What is left on the OpenRouter key (None when the key has no limit or the question fails)."""
+    try:
+        request = urllib.request.Request("https://openrouter.ai/api/v1/key", headers={"Authorization": f"Bearer {_key()}"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8")).get("data") or {}
+        return data.get("limit_remaining")
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return None

@@ -695,11 +695,12 @@ title (title and subtitle) into **Dutch, French and English**, the languages it 
 reader who searches in English, and Dutch and French connect the two languages of the bibliography both ways. Every
 title is translated, so entries the pass is not otherwise sent (a DOI or VABB match, or already right) go in separate
 requests with the title only, about 180,000 titles and some 10 million output tokens in all. The translations are
-indexed for search and shown under the title, marked as machine translations; a hit found only through one says so.
-Names of persons and places stay as printed (Luik/Liège excepted), and the editors' bracketed translation, where
-there is one, goes along as a reference. Before the full run: a hand check of 50 titles per language pair, with
-historical terms (costumen, échevins, schepenbank, mainmorte) in the sample, and a measure of the index growth against
-the 224 MB now (translations roughly double the indexed title words). The Dutch–French term list of §4f point 9 is
+indexed for search only, not shown (Mike, 3 Nov 2026); a hit found only through one says so. Names of persons and
+places stay as printed (Luik/Liège excepted), and the editors' bracketed translation, where there is one, goes along
+as a reference. Since nobody reads them, the hand check of 50 titles per language pair is dropped; a read of the
+210-title sample (with historical terms) found them good, the glossary in the prompt fixed the term errors it showed
+(*leenhof* as *échevinage*), and a few slips (a place name changed) do little harm to search. Still to measure:
+the index growth against the 224 MB now (translations roughly double the indexed title words). The Dutch–French term list of §4f point 9 is
 then not needed for search; built from the 18,038 printed title pairs, it would only serve as a check on the
 translations. The similar publications (the wand) are then recomputed on the English translations as
 well, so that every title is compared in one language; the share of neighbours in another language is measured before

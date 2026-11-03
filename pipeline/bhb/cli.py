@@ -143,6 +143,11 @@ def main(argv: list[str] | None = None) -> None:
     ckey.add_argument("--reasoning")
     ckey.add_argument("--provider")
     ckey.add_argument("--workers", type=int, default=3)
+    crun = citations_sub.add_parser("run", help="the full pass: parse the printed entries (prompt v4) and translate every title, into build/citations/run/")
+    crun.add_argument("--model", default="mistralai/mistral-small-2603")
+    crun.add_argument("--years", type=int, nargs="*", help="only these print years (a test run)")
+    crun.add_argument("--workers", type=int, default=6)
+    crun.add_argument("--no-translate", action="store_true")
     cocr = citations_sub.add_parser("ocr", help="compare STRAIVE with the Persée digitisation of 1960–69 and score the model's OCR fixes on it")
     cocr.add_argument("--model", default="mistralai/mistral-small-2603")
     cocr.add_argument("--batches", type=int, default=150)
@@ -255,6 +260,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "key":
         _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
+        return
+    if args.command == "citations" and args.citations_command == "run":
+        _citations_run(args.model, args.years, args.workers, not args.no_translate)
         return
     if args.command == "citations" and args.citations_command == "ocr":
         _citations_ocr(args.model, args.batches, args.seed, args.workers)
@@ -1010,6 +1018,132 @@ def _citations_key(models: list[str], variant: str, batch_size: int, split: str,
     print(text)
     with (out / "key-summary.md").open("a", encoding="utf-8") as handle:
         handle.write("\n" + text)
+
+
+def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool) -> None:
+    """The full pass (§5c): the printed entries without a DOI or VABB match, and every collected volume, parsed by
+    prompt v4 in batches of ten with the rules after it; then every title translated, the parsed ones from the
+    model's title. Every answer is cached, so the run resumes where it stopped; it stops when the key runs out.
+    Writes answers.jsonl, translations.jsonl, review.csv and report.md to build/citations/run/ (or run-<years>/);
+    nothing in the records changes yet."""
+    import csv
+    import threading
+    import time
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, checked_ocr_fixes, copied_values, credit,
+                               is_collected_volume, make_batches, tidy)
+    from bhb.ocr_compare import vocabulary
+
+    all_records = read_jsonl(build_dir() / "records.jsonl")
+    records = {record.id: record for record in all_records}
+    wanted = lambda record: not years or record.bgb_year in years
+    to_parse = {record.id for record in all_records if record.source.startswith("print") and record.printed and wanted(record) and (
+        not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed))}
+    journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
+    batches = []
+    for batch in make_batches([record for record in all_records if record.source.startswith("print") and wanted(record)], journals):
+        items = [item for item in batch.items if item.id in to_parse]
+        if items:
+            batches.append(Batch(batch.section, batch.before, items))
+    out = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    out.mkdir(parents=True, exist_ok=True)
+    cache = build_dir() / "cache" / "citations"
+    left = credit()
+    print(f"{len(to_parse):,} entries to parse in {len(batches):,} batches; {model}, prompt v{PARSE_VERSION}; "
+          f"credit left: {'no limit' if left is None else f'${left:.2f}'}", flush=True)
+    stop = threading.Event()
+    lock = threading.Lock()
+    spent = Counter()
+
+    def run(jobs, ask, label):
+        results, started, done = [], time.monotonic(), 0
+        with ThreadPoolExecutor(workers) as pool:
+            futures = {pool.submit(lambda job: None if stop.is_set() else ask(job), job): job for job in jobs}
+            for future in as_completed(futures):
+                result = future.result()
+                done += 1
+                if result is None:
+                    continue
+                results.append((futures[future], result))
+                replies = result[1] if isinstance(result[1], list) else [result[1]]
+                with lock:
+                    spent[label] += sum(reply.cost for reply in replies)
+                    spent["requests"] += sum(1 for reply in replies if not reply.cached)
+                if any((reply.error or "").startswith("HTTP 402") for reply in replies) and not stop.is_set():
+                    stop.set()
+                    print("the key has run out of credit: stopping; run again after raising the limit (the cache keeps every answer)", flush=True)
+                if done % 200 == 0 or done == len(jobs):
+                    rate = done / max(1.0, time.monotonic() - started)
+                    print(f"  {label}: {done:,}/{len(jobs):,}, ${spent[label]:.2f}, {(len(jobs) - done) / rate / 60:.0f} min to go", flush=True)
+        return results
+
+    parsed = run(batches, lambda batch: ask_parse(batch, model, cache), "parse")
+    counts = vocabulary(record.printed for record in all_records)
+    answers = {}
+    for _, (found, _) in parsed:
+        for record_id, answer in found.items():
+            record = records[record_id]
+            answer = tidy(answer, record.printed, record.bgb_year)
+            answer["ocr_fixes"] = checked_ocr_fixes(answer, record.printed, counts)
+            answers[record_id] = answer
+    review = Counter()
+    with (out / "answers.jsonl").open("w", encoding="utf-8") as handle, (out / "review.csv").open("w", encoding="utf-8", newline="") as sheet:
+        writer = csv.writer(sheet)
+        writer.writerow(["id", "reason", "detail", "printed"])
+        for record_id in sorted(to_parse):
+            record = records[record_id]
+            answer = answers.get(record_id)
+            if answer is None:
+                writer.writerow([record_id, "unanswered", "", record.printed]); review["unanswered"] += 1
+                continue
+            handle.write(json.dumps({"id": record_id, "model": model, "prompt": PARSE_VERSION, "answer": answer}, ensure_ascii=False) + "\n")
+            found, total = copied_values(answer, record.printed)
+            reasons = []
+            if found < total:
+                reasons.append(("a value not in the printed text", f"{total - found} of {total}"))
+            if answer.get("type") != record.type:
+                reasons.append(("type differs from the parser", f"{record.type} → {answer.get('type')}"))
+            if record.language_suggested and sorted(answer.get("language") or []) != sorted(record.language_suggested):
+                reasons.append(("language differs from the local step", f"{'+'.join(record.language_suggested)} → {'+'.join(answer.get('language') or [])}"))
+            for fix in answer["ocr_fixes"]:
+                reasons.append(("OCR fix proposed", f"{fix['printed']} → {fix['corrected']}"))
+            for reason, detail in reasons:
+                writer.writerow([record_id, reason, detail, record.printed]); review[reason] += 1
+    translated = {}
+    if translate and not stop.is_set():
+        items = []
+        for record in all_records:
+            if not wanted(record):
+                continue
+            answer = answers.get(record.id)
+            title, subtitle, bracketed = (answer.get("title"), answer.get("subtitle"), answer.get("title_translated")) if answer else \
+                                         (record.title, record.subtitle, record.title_translated)
+            if title:
+                items.append(Item(record.id, ": ".join(part for part in (title, subtitle) if part) + (f" [{bracketed}]" if bracketed else ""),
+                                  list(record.language_suggested)))
+        groups = [items[start:start + 25] for start in range(0, len(items), 25)]
+        print(f"{len(items):,} titles to translate in {len(groups):,} requests", flush=True)
+        done = run(groups, lambda group: ask_titles(group, model, cache), "translate")
+        for _, (found, _) in done:
+            translated.update(found)
+        missing = [item for item in items if item.id not in translated or any(
+            code not in item.hints and not translated[item.id].get(code) for code in ("nl", "fr", "en"))]
+        if missing and not stop.is_set():
+            for _, (found, _) in run([[item] for item in missing], lambda group: ask_titles(group, model, cache), "translate again"):
+                for record_id, title in found.items():
+                    translated[record_id] = {code: (translated.get(record_id) or {}).get(code) or title.get(code) for code in ("nl", "fr", "en")}
+        with (out / "translations.jsonl").open("w", encoding="utf-8") as handle:
+            for record_id, title in translated.items():
+                handle.write(json.dumps({"id": record_id, "model": model, **title}, ensure_ascii=False) + "\n")
+    lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
+             f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
+             f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",
+             f"New requests: {spent['requests']:,}." + (" Stopped: the key ran out of credit." if stop.is_set() else ""),
+             "", "Review list (review.csv):", *[f"- {reason}: {n:,}" for reason, n in review.most_common()]]
+    (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
 
 
 def _citations_ocr(model: str, size: int, seed: int, workers: int) -> None:
