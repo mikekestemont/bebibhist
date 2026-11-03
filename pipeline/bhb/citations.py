@@ -801,15 +801,22 @@ def draft_hint(record) -> str:
     return "draft: " + " | ".join(parts)
 
 
-def checked_ocr_fixes(answer: dict, printed: str) -> list[dict]:
-    """The model's OCR fixes that pass a rule: one word, printed as such, one or two letters changed, no digits."""
+def checked_ocr_fixes(answer: dict, printed: str, counts=None) -> list[dict]:
+    """The model's OCR fixes that pass a rule: one word, printed as such, one or two letters changed, no digits; and,
+    given the bibliography's word counts (``bhb.ocr_compare.vocabulary``), a printed word that hardly occurs
+    elsewhere (fewer than 3 times) corrected to one that does (3 times or more). The count drops fixes of accents or
+    punctuation only and modernised spellings of common words ("Gent" → "Gand"); checked against the Persée reading
+    of the 1960s, it raises the share of right fixes from about half to about five in six."""
     from rapidfuzz.distance import Levenshtein
+
+    from bhb.ocr_compare import key
 
     kept = []
     for fix in answer.get("ocr_fixes") or []:
         wrong, right = (fix.get("printed") or "").strip(), (fix.get("corrected") or "").strip()
         if (wrong and right and wrong != right and " " not in wrong and " " not in right and not re.search(r"\d", wrong + right)
-                and re.search(rf"(?<!\w){re.escape(wrong)}(?!\w)", printed) and Levenshtein.distance(wrong, right) <= 2):
+                and re.search(rf"(?<!\w){re.escape(wrong)}(?!\w)", printed) and Levenshtein.distance(wrong, right) <= 2
+                and (counts is None or (counts[key(wrong)] - 1 < 3 and counts[key(right)] >= 3))):
             kept.append(fix)
     return kept
 

@@ -592,6 +592,22 @@ fixes are kept only when one printed word changes by one or two letters (about t
 against the Persée digitisation is still to do. About 5 % of the entries still hold a value that is not in the
 printed text.
 
+**OCR fixes against a second digitisation (3 Nov 2026, `bhb citations ocr`, `bhb/ocr_compare.py`).** The Persée
+PDF of 1960–69 is converted per year (`build/persee/`) and paired with STRAIVE by print number: 9,618 entries,
+234,020 words. After typography is set aside (’ and ', the superscript ᵉ, hyphens, Greek look-alike letters),
+4,697 words are read differently. Neither reading is taken as the truth: the word that occurs elsewhere in the
+bibliography wins, which decides 409 for Persée (an OCR error in STRAIVE: "Toumai", "Alired", "Gezette") and 1,959
+for STRAIVE (Persée splits and garbles more), and leaves 2,329 undecided (rare names, short words). The page images
+show that agreement is not proof either: both OCRs read "iite" for a broken "site", and the print itself has
+"calde" for "valde". On 1,095 entries of these years, prompt v4 proposed 82 OCR fixes: 20 confirmed by Persée, 28
+where Persée reads as STRAIVE, 34 unresolved; it found 18 of the 55 errors the comparison decides in those entries.
+Many of its fixes are no OCR errors at all (historical spellings modernised, "Eksamen" → "Examen", "Gent" → "Gand",
+punctuation), so a fix is kept only when one printed word, rare elsewhere in the bibliography (fewer than 3
+times), becomes one that occurs 3 times or more: 20 of the 82 remain, of which about five in six are right (12
+confirmed, 3 of the unresolved and 2 of the "contradicted" right on the page image). The model's OCR fixes are
+therefore proposals for review, not corrections; the 409 decided by the comparison can be applied by rule to
+1960–63 and 1966–69 as `ocr` corrections, marked as machine-derived.
+
 Some printed entries hold a whole collected volume with its contents in one paragraph, sometimes twice, for a Dutch
 and a French edition (`bhb:1997-19050`, "Nieuw licht op Leopold I & Leopold II. Het archief Goffinet … Nouveaux regards
 sur Léopold Ier & Léopold II …", 1997). The rules (`split_contents`) split only part of them: in that entry three

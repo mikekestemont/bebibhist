@@ -139,6 +139,11 @@ def main(argv: list[str] | None = None) -> None:
     ckey.add_argument("--reasoning")
     ckey.add_argument("--provider")
     ckey.add_argument("--workers", type=int, default=3)
+    cocr = citations_sub.add_parser("ocr", help="compare STRAIVE with the Persée digitisation of 1960–69 and score the model's OCR fixes on it")
+    cocr.add_argument("--model", default="mistralai/mistral-small-2603")
+    cocr.add_argument("--batches", type=int, default=150)
+    cocr.add_argument("--seed", type=int, default=5)
+    cocr.add_argument("--workers", type=int, default=3)
     ctrans = citations_sub.add_parser("translate", help="translate a sample of titles into nl, fr and en, title only, for a hand check and a cost")
     ctrans.add_argument("--model", action="append", required=True)
     ctrans.add_argument("--per-language", type=int, default=50)
@@ -243,6 +248,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "key":
         _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
+        return
+    if args.command == "citations" and args.citations_command == "ocr":
+        _citations_ocr(args.model, args.batches, args.seed, args.workers)
         return
     if args.command == "citations" and args.citations_command == "translate":
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
@@ -972,6 +980,88 @@ def _citations_key(models: list[str], variant: str, batch_size: int, split: str,
     print(text)
     with (out / "key-summary.md").open("a", encoding="utf-8") as handle:
         handle.write("\n" + text)
+
+
+def _citations_ocr(model: str, size: int, seed: int, workers: int) -> None:
+    """The model's OCR fixes against a second digitisation: STRAIVE and Persée read 1960–63 and 1966–69 apart."""
+    import csv
+    import random
+    from collections import Counter, defaultdict
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bhb.citations import ask_parse, checked_ocr_fixes, make_batches
+    from bhb.ocr_compare import compare, key, persee_entries, vocabulary, words
+
+    all_records = read_jsonl(build_dir() / "records.jsonl")
+    records = {record.id: record for record in all_records}
+    persee_dir = build_dir() / "persee"
+    counts = vocabulary(record.printed for record in all_records)
+    found, tally = compare(all_records, persee_dir, counts)
+    out = build_dir() / "citations"
+    with (out / "persee-differences.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "straive", "persee", "verdict", "pdf_page"])
+        for difference in found:
+            writer.writerow([difference.record_id, difference.straive, difference.persee, difference.verdict, difference.page])
+    by_entry: dict[str, list] = defaultdict(list)
+    for difference in found:
+        by_entry[difference.record_id].append(difference)
+    persee = {}
+    for year in (1960, 1961, 1962, 1963, 1966, 1967, 1968, 1969):
+        for number, (text, page) in persee_entries(persee_dir / f"BGB_{year}.xml").items():
+            persee[(year, number)] = (text, page)
+    paired = {record.id for record in all_records if record.source == "print-straive" and (record.bgb_year, record.print_number) in persee}
+    journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
+    batches = [batch for batch in make_batches([r for r in all_records if r.source.startswith("print")], journals)
+               if all(item.id in paired for item in batch.items)]
+    chosen = random.Random(seed).sample(batches, min(size, len(batches)))
+    cache = build_dir() / "cache" / "citations"
+    with ThreadPoolExecutor(workers) as pool:
+        results = list(pool.map(lambda batch: ask_parse(batch, model, cache), chosen))
+    answers = {record_id: answer for found_, _ in results for record_id, answer in found_.items()}
+    cost = sum(reply.cost for _, replies in results for reply in replies)
+    verdicts = {"proposed": Counter(), "kept by the rule": Counter()}
+    examples = []
+    for record_id, answer in answers.items():
+        record = records[record_id]
+        text, page = persee[(record.bgb_year, record.print_number)]
+        other = {key(word) for word in words(text)}
+        differences = by_entry.get(record_id, [])
+        kept = checked_ocr_fixes(answer, record.printed, counts)
+        for fix in answer.get("ocr_fixes") or []:
+            wrong, right = key(fix.get("printed") or ""), key(fix.get("corrected") or "")
+            if any(wrong and wrong in key(d.straive) and right and key(d.persee).find(right) >= 0 for d in differences):
+                verdict = "confirmed by Persée"
+            elif wrong and wrong in other:
+                verdict = "contradicted: Persée reads the same"
+            else:
+                verdict = "unresolved"
+            verdicts["proposed"][verdict] += 1
+            if fix in kept:
+                verdicts["kept by the rule"][verdict] += 1
+            examples.append([record_id, fix.get("printed"), fix.get("corrected"), verdict, fix in kept, page])
+    errors = [d for record_id in answers for d in by_entry.get(record_id, []) if d.verdict == "persee"]
+    caught = sum(1 for d in errors if any(key(fix.get("printed") or "") and key(fix.get("printed") or "") in key(d.straive)
+                                          for fix in answers[d.record_id].get("ocr_fixes") or []))
+    with (out / "persee-ocr-fixes.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "printed", "corrected", "verdict", "kept_by_rule", "pdf_page"])
+        writer.writerows(examples)
+    lines = [f"# STRAIVE and Persée, 1960–63 and 1966–69 ({date.today()})", "",
+             f"Entries paired by print number: {tally['paired']:,} ({tally['words']:,} words); not in Persée {tally['not in Persée']}, "
+             f"too far apart to compare {tally['too far apart']}.",
+             f"Words read differently: {tally['persee'] + tally['straive'] + tally['undecided']:,}. Decided by the word list for "
+             f"Persée (an OCR error in STRAIVE) {tally['persee']}, for STRAIVE {tally['straive']}, undecided {tally['undecided']:,}.",
+             f"All differences: {out / 'persee-differences.csv'}.", "",
+             f"## The model's OCR fixes ({model}, prompt v4, {len(chosen)} batches, {len(answers)} entries, ${cost:.3f})", "",
+             "| Fix | Proposed | Kept by the rule (with word counts) |", "|---|---:|---:|"]
+    for verdict in ("confirmed by Persée", "contradicted: Persée reads the same", "unresolved"):
+        lines.append(f"| {verdict} | {verdicts['proposed'][verdict]} | {verdicts['kept by the rule'][verdict]} |")
+    lines += ["", f"STRAIVE errors in these entries that the word list decides for Persée: {len(errors)}; the model proposed a fix for {caught}.",
+              f"Fixes: {out / 'persee-ocr-fixes.csv'}."]
+    text = "\n".join(lines) + "\n"
+    (out / "persee-ocr.md").write_text(text, encoding="utf-8")
+    print(text)
 
 
 def _citations_translate(models: list[str], per_language: int, seed: int, reasoning: str | None, workers: int,
