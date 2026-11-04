@@ -107,3 +107,25 @@ def test_a_renamed_journal_keeps_its_old_name_for_the_years_before():
     assert mapping["bijdragen voor de geschiedenis der nederlanden"] == predecessor
     assert mapping["bijdr gesch ned"] == predecessor
     assert mapping["bijdr en meded betreffende de gesch der ned"] == ("issn:0165-0505", "abbreviation")
+
+
+def test_one_ocr_slip_does_not_make_a_journal_name_an_abbreviation():
+    records = [_article(str(n), "La Vie Wallonne") for n in range(30)] + [_article("99", "La. Vie wallonne")]
+    _, mapping = build(records)
+    assert mapping["la vie wallonne"] == ("t:la-vie-wallonne", "full")
+
+
+def test_a_journal_keeps_its_id_when_another_spelling_becomes_its_name():
+    from collections import Counter
+
+    from bhb.journals import keep_ids
+
+    records = [_article(str(n), "L’Intermédiaire") for n in range(20)]
+    records += [_article(str(100 + n), "L’Intermédiaire des généalogistes") for n in range(16)]
+    journals, mapping = build(records)
+    assert mapping["l intermediaire des genealogistes"][0] == "t:l-intermediaire"
+    count = Counter({"l intermediaire": 20, "l intermediaire des genealogistes": 16})
+    previous = {"l intermediaire des genealogistes": "t:l-intermediaire-des-genealogistes"}
+    assert keep_ids(journals, mapping, count, previous) == 1
+    assert mapping["l intermediaire"][0] == "t:l-intermediaire-des-genealogistes"
+    assert [journal["id"] for journal in journals] == ["t:l-intermediaire-des-genealogistes"]

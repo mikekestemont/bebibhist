@@ -186,7 +186,10 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     for spelling, n in count.items():
         if spelling in mapping or spelling in GENERIC or n < FULL_TITLE_MIN:
             continue
-        if not any(re.search(r"\b\w{1,6}\.", form) for form in shown[spelling]):
+        # Written out when abbreviated forms are fewer than one in ten: an OCR slip ("La. Vie wallonne", once among
+        # 482) does not make a journal's name an abbreviation.
+        abbreviated = sum(k for form, k in shown[spelling].items() if re.search(r"\b\w{1,6}\.", form))
+        if abbreviated * 10 < n:
             mapping[spelling] = (_slug(spelling), "full")
     # 4. A full title that is another plus a place, subtitle or volume joins it.
     full = sorted((s for s, (_, rule) in mapping.items() if rule == "full"), key=len)
@@ -251,12 +254,44 @@ def write(journals: list[dict], mapping: dict[str, tuple[str, str]], count: Coun
             writer.writerow([spelling, journal, rule, count[spelling]])
 
 
+def previous_ids(folder: Path) -> dict[str, str]:
+    """Spelling → journal id in the list written last (``journal_spellings.csv``), or {} when there is none."""
+    path = folder / "journal_spellings.csv"
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["spelling"]: row["journal"] for row in csv.DictReader(handle)}
+
+
+def keep_ids(journals: list[dict], mapping: dict[str, tuple[str, str]], count: Counter, previous: dict[str, str]) -> int:
+    """A journal named by a spelling (``t:…``) keeps the id most of its articles had in the previous list, so its
+    page keeps its address when another spelling becomes its most frequent; an ISSN id is stable by itself. Returns
+    how many ids were kept that would have changed."""
+    votes: dict[str, Counter[str]] = defaultdict(Counter)
+    for spelling, (journal, _rule) in mapping.items():
+        if journal.startswith("t:") and previous.get(spelling, "").startswith("t:"):
+            votes[journal][previous[spelling]] += count[spelling]
+    taken = {row["id"] for row in journals}
+    renamed: dict[str, str] = {}
+    for journal, counter in sorted(votes.items(), key=lambda item: -sum(item[1].values())):
+        old = counter.most_common(1)[0][0]
+        if old != journal and old not in taken and old not in renamed.values():
+            renamed[journal] = old
+    for row in journals:
+        row["id"] = renamed.get(row["id"], row["id"])
+    for spelling, (journal, rule) in mapping.items():
+        if journal in renamed:
+            mapping[spelling] = (renamed[journal], rule)
+    return len(renamed)
+
+
 def apply_journals(records, folder: Path) -> dict[str, int]:
     """Resolve "Ibid.", build the journal list and give every article its journal id (``journal_id``)."""
     counts = Counter({"ibid resolved": resolve_ibid(records)})
     journals, mapping = build(records)
     articles = Counter(spelling_key(record.host.title) for record in records
                        if record.role == "entry" and record.type == "article" and record.host and record.host.title)
+    counts["ids kept"] = keep_ids(journals, mapping, articles, previous_ids(folder))
     write(journals, mapping, articles, folder)
     for record in records:
         record.journal_id = None
