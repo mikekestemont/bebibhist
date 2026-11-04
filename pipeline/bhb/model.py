@@ -98,6 +98,9 @@ class Record:
     title: str | None = None
     subtitle: str | None = None
     title_translated: str | None = None
+    # Machine translations of the title (with subtitle) into the languages of nl, fr and en it is not in
+    # (``bhb citations apply``): for search only, never shown.
+    translations: dict[str, str] = field(default_factory=dict)
     persons: list[Person] = field(default_factory=list)
     corporate: list[str] = field(default_factory=list)
     host: Host | None = None

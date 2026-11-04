@@ -706,6 +706,20 @@ translations. The similar publications (the wand) are then recomputed on the Eng
 well, so that every title is compared in one language; the share of neighbours in another language is measured before
 and after. That should make a separate "other languages" block in the wand unnecessary, so none is built now.
 
+**The full pass (4 Nov 2026).** Mistral Small 4 (`mistral-small-2603`, prompt v4), on Mistral's EU endpoint: 129,032
+of 129,220 entries parsed in 17,169 batches ($20.29), 183,501 titles translated ($14.23), $34.52 in all; 188 entries
+unanswered keep the parser's fields. On the 145 entries of the hand-checked key it answered, 97.1 % of the fields are
+right against 84.5 % for the parser, and in all 37 entries where the two give another type the model's is right.
+`bhb citations apply` (after `bhb build`) writes the fields in place of the parser's, flagged `parsed-llm`, with the
+model and prompt in `provenance.parser`. Kept from the parser: the persons where the model gives none (642 entries),
+the year where it gives none, the link from a chapter to its volume's record with the volume's editors, a host found
+through a cross-reference, and the roles the schema lacks (compiler, preface); a collected volume's authors are not
+its chapters' authors, a chapter split from a volume has no extent of its own, a person is named once, and a review
+is an article. The language stays the local step's (724 disagreements on the review list), and the 1,473 OCR fixes
+that pass the word counts stay proposals. Of the parsed entries, 26,191 change type (most "other" that is a book),
+32,116 change title (mostly a subtitle split off) and 4,904 change year. The translations go into the record
+(`translations`) and the search index, after a marker, so a hit found only through one says so; they are not shown. Afterwards (all steps rerun on a fresh build): 15,500 entries typed "other" become 115; 12,248 more books; 17,317 more extents and 12,089 more publishers; 5,127 more articles with a journal id (1,489 journals; place names and volumes the parser took for journals, such as "Brussel" or "Dans", are gone, and journals it missed, such as Le Guetteur wallon, are found); 2,291 more entries with a year. A few matches that hung on the parser's type or volume are lost (51 KBR links, 13 DOIs, 169 ORCIDs). The site grows from 286 to 387 MB (the fragments carry the translations).
+
 ## 6. Not in this phase
 
 Places (first version done 31 Oct), language detection (done 2 Nov, see §5b), embedding-based similar items (done 25 Oct; TF-IDF neighbours are in E8), PDF page links for

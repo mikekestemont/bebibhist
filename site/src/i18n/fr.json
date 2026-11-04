@@ -28,6 +28,8 @@
   "language": "Langue",
   "access": "Accès",
   "openAccess": "Libre accès",
+  "viaTranslation": "trouvé par une traduction automatique du titre",
+  "parsedByModel": "champs lus dans le texte imprimé par un modèle de langue",
   "category": "Classement",
   "suggested": "suggéré",
   "draftLabel": "traduction provisoire",

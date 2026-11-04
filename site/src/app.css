@@ -843,6 +843,8 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .padlock .keyhole { fill: #d9690b; stroke: none; }
 .open-access { margin-left: 0.4rem; cursor: help; white-space: nowrap; }
 .tag-free .padlock { margin-right: 0.3rem; }
+/* A hit found only through its title's machine translation (search only). */
+.via-translation { display: block; margin-top: 0.15rem; font-size: 13px; font-style: italic; color: #5c6166; }
 
 /* "Free to read" beside a DOI: the status only; the link is the DOI's. */
 .tag-free {

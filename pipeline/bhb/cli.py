@@ -148,6 +148,8 @@ def main(argv: list[str] | None = None) -> None:
     crun.add_argument("--years", type=int, nargs="*", help="only these print years (a test run)")
     crun.add_argument("--workers", type=int, default=6)
     crun.add_argument("--no-translate", action="store_true")
+    capply = citations_sub.add_parser("apply", help="write the full pass's fields and title translations into build/records.jsonl (after bhb build)")
+    capply.add_argument("--run", default="run", help="the run's folder under build/citations/")
     cocr = citations_sub.add_parser("ocr", help="compare STRAIVE with the Persée digitisation of 1960–69 and score the model's OCR fixes on it")
     cocr.add_argument("--model", default="mistralai/mistral-small-2603")
     cocr.add_argument("--batches", type=int, default=150)
@@ -263,6 +265,17 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "run":
         _citations_run(args.model, args.years, args.workers, not args.no_translate)
+        return
+    if args.command == "citations" and args.citations_command == "apply":
+        from bhb.citations import apply_citations, load_answers, load_translations
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        run = build_dir() / "citations" / args.run
+        translations = load_translations(run / "translations.jsonl") if (run / "translations.jsonl").exists() else {}
+        counts = apply_citations(records, load_answers(run / "answers.jsonl"), translations)
+        write_jsonl(path, records)
+        print(f"citations: {counts} → {path}")
         return
     if args.command == "citations" and args.citations_command == "ocr":
         _citations_ocr(args.model, args.batches, args.seed, args.workers)

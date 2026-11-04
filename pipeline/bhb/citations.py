@@ -859,3 +859,141 @@ def credit() -> float | None:
         return data.get("limit_remaining")
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
         return None
+
+
+# --- the pass applied to the records (``bhb citations apply``) -----------------------------------------------------
+
+TYPES = {"article", "chapter", "book", "journal-issue", "other"}
+# Roles the parser reads that the schema has no word for; the model calls these persons authors.
+_PARSER_ROLES = {"compiler", "preface", "illustrator"}
+
+
+def load_answers(path: Path) -> dict[str, dict]:
+    """Record id → the line of a run's ``answers.jsonl`` (model, prompt, answer)."""
+    found = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                item = json.loads(line)
+                found[item["id"]] = item
+    return found
+
+
+def load_translations(path: Path) -> dict[str, dict[str, str]]:
+    """Record id → its title's translations from a run's ``translations.jsonl``, by language."""
+    found = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                item = json.loads(line)
+                found[item["id"]] = {code: item[code].strip() for code in ("nl", "fr", "en") if (item.get(code) or "").strip()}
+    return found
+
+
+def _text(value) -> str | None:
+    return (value.strip() or None) if isinstance(value, str) else value
+
+
+def _imprint(publishers):
+    """One imprint from the model's list: a bilingual or shared imprint keeps all its places and names, joined."""
+    from bhb.model import Publisher
+
+    places = list(dict.fromkeys(place for p in publishers or [] if (place := _text(p.get("place")))))
+    names = list(dict.fromkeys(name for p in publishers or [] if (name := _text(p.get("name")))))
+    return Publisher(place="; ".join(places) or None, name="; ".join(names) or None) if places or names else None
+
+
+def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset()) -> None:
+    """Write a model answer into its record. The model's fields replace the parser's: on the hand-checked key 97.1 %
+    of the fields are right against 84.5 %, and every field filled in from the parser makes it worse (§5c). Kept from
+    the parser: the persons where the model gives none (642 entries, nearly all with a printed author), the year
+    where the model gives none, the link to the volume's record (``host.id``) with the volume's
+    editors and subtitle, a host it found through a cross-reference where the model gives none, and the roles it reads
+    that the schema lacks (compiler, preface, illustrator). A collected volume's authors are not its chapters'
+    authors (``contributors``); a chapter split from a volume does not take the volume's extent. The printed text and
+    the language stay; the model's OCR fixes stay proposals (``review.csv``)."""
+    from bhb.model import Host, Person, Series
+
+    answer = item["answer"]
+    flags = record.provenance.flags
+    kind = answer.get("type")
+    if kind == "review":
+        kind = "article" if answer.get("host") else "other"
+    if kind in TYPES:
+        record.type = kind
+    roles = {fold(person.family): person.role for person in record.persons if person.role in _PARSER_ROLES}
+    persons = []
+    for person in answer.get("persons") or []:
+        family = _text(person.get("family"))
+        if not family:
+            continue
+        role = person.get("role") if person.get("role") in ("author", "editor", "translator") else "author"
+        role = roles.get(fold(family), role)
+        if role == "author" and fold(family) in contributors:
+            continue
+        found = Person(family=family, given=_text(person.get("given")), role=role)
+        if all((fold(other.family), other.given, other.role) != (fold(family), found.given, role) for other in persons):
+            persons.append(found)
+    if persons or not record.persons:
+        record.persons = persons
+    record.title = _text(answer.get("title")) or record.title
+    record.subtitle = _text(answer.get("subtitle"))
+    record.title_translated = _text(answer.get("title_translated"))
+    given = {key: _text(value) for key, value in (answer.get("host") or {}).items() if key in ("title", "volume", "issue", "year", "pages")}
+    if any(given.values()):
+        before = record.host
+        record.host = Host(**given)
+        if before:
+            record.host.id, record.host.editors, record.host.subtitle = before.id, before.editors, before.subtitle
+            record.host.publisher = before.publisher
+    elif not (record.host and record.host.id):
+        record.host = None
+    imprint = _imprint(answer.get("publishers"))
+    if record.type == "chapter" and record.host:
+        record.host.publisher = imprint or record.host.publisher or record.publisher
+        record.publisher = None
+    elif record.type == "article":
+        record.publisher = None
+    else:
+        record.publisher = imprint
+    year = answer.get("year")
+    if isinstance(year, int):
+        record.year = year
+        if "year-from-host" in flags:
+            flags.remove("year-from-host")
+    elif record.host and re.fullmatch(r"\d{4}", record.host.year or ""):
+        record.year = int(record.host.year)
+        if "year-from-host" not in flags:
+            flags.append("year-from-host")
+    record.extent = None if "split-from-contents" in flags else _text(answer.get("extent"))
+    series = answer.get("series") or {}
+    record.series = Series(title=_text(series.get("title")), number=_text(series.get("number"))) if _text(series.get("title")) else None
+    record.note = _text(answer.get("note"))
+    record.provenance.parser = f"{item.get('model', '').split('/')[-1]}@v{item.get('prompt', '')}"
+    if "parsed-llm" not in flags:
+        flags.append("parsed-llm")
+
+
+def apply_citations(records, answers: dict[str, dict], translations: dict[str, dict[str, str]]) -> dict[str, int]:
+    """The citation pass written into the records, and every title's translations (for search only)."""
+    from collections import Counter, defaultdict
+
+    counts: Counter[str] = Counter()
+    contributors: dict[str, set[str]] = defaultdict(set)
+    for record in records:
+        if record.host and record.host.id and "split-from-contents" in record.provenance.flags:
+            contributors[record.host.id].update(fold(person.family) for person in record.persons if person.role == "author")
+    for record in records:
+        found = translations.get(record.id)
+        record.translations = dict(found) if found else {}
+        counts["titles translated"] += bool(found)
+        item = answers.get(record.id)
+        if item is None or not record.printed:
+            continue
+        before = (record.type, record.title, record.year)
+        apply_answer(record, item, frozenset(contributors.get(record.id, ())))
+        counts["parsed"] += 1
+        counts["type changed"] += record.type != before[0]
+        counts["title changed"] += record.title != before[1]
+        counts["year changed"] += record.year != before[2]
+    return dict(counts)

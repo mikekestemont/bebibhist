@@ -28,6 +28,8 @@
   "language": "Taal",
   "access": "Toegang",
   "openAccess": "Open access",
+  "viaTranslation": "gevonden via een machinevertaling van de titel",
+  "parsedByModel": "velden door een taalmodel uit de gedrukte tekst gelezen",
   "category": "Classificatie",
   "suggested": "voorgesteld",
   "draftLabel": "voorlopige vertaling",

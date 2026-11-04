@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { citationHtml, contentWords, editDistance, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { citationHtml, contentWords, editDistance, foundThroughTranslation, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
 
 test("a year range matches any of its years, not all of them at once", () => {
   assert.deepEqual(yearFilter(1990, 1992), { any: ["1990", "1991", "1992"] });
@@ -63,4 +63,12 @@ test("a host missing from the export shows in the reader's language, with the re
   const html = citationHtml("Vanthemsche (Guy). Transports. In: [host record not exported], 2008, p. 433-439.", { title: "Transports", host: "[host record not exported]", kind: "chapter" }, "", "", "", "[tijdschrift of boek niet in de export]", "Ontbreekt in de export.");
   assert.ok(html.includes('<span class="derived" title="Ontbreekt in de export.">[tijdschrift of boek niet in de export]</span>'));
   assert.ok(!html.includes("host record not exported"));
+});
+
+test("a hit found only through its title's translation says so", () => {
+  const content = "bhb:1990-1\nDe gewoonte in het leenhof van Brabant\nti_gewoonte ti_leenhof\n⁂\nLa coutume à la cour féodale de Brabant\nti_coutume";
+  assert.equal(foundThroughTranslation(content, "coutume féodale"), true);
+  assert.equal(foundThroughTranslation(content, "leenhof"), false);
+  assert.equal(foundThroughTranslation(content, "Brabant"), false);
+  assert.equal(foundThroughTranslation("bhb:1990-2\nLa coutume", "coutume"), false);
 });

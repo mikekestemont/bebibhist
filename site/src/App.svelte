@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { HOST_MISSING, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -384,6 +384,12 @@
     loading = false;
   }
 
+  /** A hit the query found only in its title's machine translation (indexed for search, never shown) says so. */
+  function viaTranslation(hit: Hit): boolean {
+    if (fieldChoice !== "all" && fieldChoice !== "title") return false;
+    return foundThroughTranslation(hit.content, [query, ...params.getAll("more")].join(" "));
+  }
+
   function scopeOf(search: URLSearchParams): string {
     const copy = new URLSearchParams(search);
     copy.delete("page");
@@ -468,7 +474,7 @@
       [text.issn, (meta.issn || "").split("|").join(", ")],
       [text.kbrRecord, meta.kbr],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
-      [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
+      [text.source, [meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : "", meta.parsedLlm ? text.parsedByModel : ""].filter(Boolean).join(" · ")],
     ];
     return pairs.flatMap(([label, value, italic]) =>
       value
@@ -1005,7 +1011,7 @@
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
-      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}{#if hit.meta.free}{@render openAccess(hit.meta.free)}{/if}</span>
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}{#if hit.meta.free}{@render openAccess(hit.meta.free)}{/if}{#if viaTranslation(hit)}<span class="via-translation">{text.viaTranslation}</span>{/if}</span>
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}

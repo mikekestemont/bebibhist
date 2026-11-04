@@ -28,6 +28,8 @@
   "language": "Language",
   "access": "Access",
   "openAccess": "Open access",
+  "viaTranslation": "found through a machine translation of the title",
+  "parsedByModel": "fields read from the printed text by a language model",
   "category": "Classification",
   "suggested": "suggested",
   "draftLabel": "draft translation",

@@ -40,6 +40,8 @@ const BROAD_WORDINGS = new Set([
 ].map(wording));
 
 const synonyms = await loadSynonyms(synonymsPath);
+/** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
+const TRANSLATED = "⁂";
 const scheme = await loadScheme(schemePath);
 const journals = await loadJournals(journalsPath);
 const language = "und";
@@ -76,10 +78,14 @@ for await (const line of lines) {
     (record.section_path || []).join(" "),
     record.note,
   ].filter(Boolean).join("\n"), synonyms);
-  countWords(content);
+  // Machine translations of the title (``bhb citations apply``), for search only: after the marker, so the page
+  // can tell a hit found only through them, and never shown.
+  const translated = Object.values(record.translations || {}).filter(Boolean).join("\n");
+  countWords(translated ? `${content}\n${translated}` : content);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}`,
+    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${
+      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translated)}` : ""}`,
     language,
     meta: {
       id: record.id,
@@ -103,6 +109,8 @@ for await (const line of lines) {
       fullNames: [...(record.persons || []), ...(record.host?.editors || [])].filter((person) => person.given_full || person.kbr_id)
         .map((person) => [person.given ? `${person.family} (${person.given})` : person.family, person.given_full || "", person.dates || "", person.kbr_id || "", person.name_from || ""].join("\t")).join("|"),
       kbr: record.kbr || "",
+      // The fields were read from the printed text by the citation pass (``bhb citations apply``), not the rules.
+      parsedLlm: (record.provenance?.flags || []).includes("parsed-llm") ? "1" : "",
       subtitle: (record.subtitle || "").slice(0, 300),
       host: (record.host?.title || "").slice(0, 300),
       hostSubtitle: (record.host?.subtitle || "").slice(0, 300),

@@ -1,6 +1,7 @@
 export interface Hit {
   url: string;
   excerpt: string;
+  content?: string;
   meta: {
     id: string;
     formerIds?: string;
@@ -10,6 +11,7 @@ export interface Hit {
     number: string;
     section: string;
     source?: string;
+    parsedLlm?: string;
     categoryFr?: string;
     categoryNl?: string;
     categoryEn?: string;
@@ -361,6 +363,28 @@ export function relaxedQuery(query: string, field: SearchField = "all"): string 
   const kept = words.filter((word) => !FUNCTION_WORDS.has(word));
   if (kept.length === 0 || kept.length === words.length) return null;
   return searchQuery(kept.join(" "), field);
+}
+
+/** Begins the machine-translated titles in a record's indexed content (``scripts/build-index.mjs``). */
+const TRANSLATED = "⁂";
+
+function wordsOf(text: string): string[] {
+  return foldQuery(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+/**
+ * Whether a hit was found only through the machine translation of its title: a word of the query, or a word that
+ * begins with it, is in the translations but nowhere else in the record.
+ */
+export function foundThroughTranslation(content: string | undefined, query: string): boolean {
+  const at = content ? content.indexOf(TRANSLATED) : -1;
+  if (!content || at < 0) return false;
+  const own = wordsOf(content.slice(0, at));
+  const translated = wordsOf(content.slice(at));
+  const has = (words: string[], word: string) => words.some((candidate) => candidate.startsWith(word));
+  return wordsOf(query)
+    .filter((word) => word.length > 2 && !FUNCTION_WORDS.has(word))
+    .some((word) => !has(own, word) && has(translated, word));
 }
 
 type WordFile = { counts: Record<string, [number, string?]>; keys: string[] };

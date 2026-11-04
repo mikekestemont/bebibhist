@@ -127,3 +127,71 @@ def test_a_gloss_after_the_host_is_no_translation_and_a_two_digit_year_is_no_iss
 
 def test_an_article_keeps_no_publisher():
     assert tidy({"type": "article", "title": "x", "publishers": [{"place": "Verviers", "name": None}]})["publishers"] == []
+
+
+def _answer(record_id, **fields):
+    answer = {"id": record_id, "type": "book", "persons": [], "title": None, "subtitle": None, "title_translated": None,
+              "host": None, "publishers": [], "year": None, "extent": None, "series": None, "note": None,
+              "language": ["fr"], "ocr_fixes": []} | fields
+    return {"id": record_id, "model": "mistralai/mistral-small-2603", "prompt": "4", "answer": answer}
+
+
+def test_apply_takes_the_models_fields_and_keeps_the_printed_text():
+    from bhb.citations import apply_citations
+    from bhb.model import Publisher
+
+    printed = "Dupont (M.). Les métiers de Huy. Liège, Éd. du Perron; Luik, Perron, 1998, 210 p. (Varia, 5)."
+    record = Record(id="bhb:1998-1", source="print-straive", bgb_year=1998, printed=printed, type="other",
+                    title="Les métiers de Huy. Liège", persons=[Person(family="Dupont", given="M.")],
+                    host=Host(title="Éd. du Perron"))
+    answer = _answer("bhb:1998-1", persons=[{"family": "Dupont", "given": "M.", "role": "author"}], title="Les métiers de Huy",
+                     publishers=[{"place": "Liège", "name": "Éd. du Perron"}, {"place": "Luik", "name": "Perron"}],
+                     year=1998, extent="210 p.", series={"title": "Varia", "number": "5"})
+    counts = apply_citations([record], {record.id: answer}, {record.id: {"nl": "De ambachten van Hoei", "en": "The trades of Huy"}})
+    assert (record.type, record.title, record.host, record.year, record.extent) == ("book", "Les métiers de Huy", None, 1998, "210 p.")
+    assert record.publisher == Publisher(place="Liège; Luik", name="Éd. du Perron; Perron")
+    assert (record.series.title, record.series.number) == ("Varia", "5")
+    assert record.printed == printed and "parsed-llm" in record.provenance.flags
+    assert record.provenance.parser == "mistral-small-2603@v4"
+    assert record.translations == {"nl": "De ambachten van Hoei", "en": "The trades of Huy"}
+    assert counts["parsed"] == 1 and counts["type changed"] == 1
+
+
+def test_apply_keeps_the_volume_link_and_the_parsers_year_and_roles():
+    from bhb.citations import apply_citations
+
+    volume = Record(id="bhb:1982-7", source="print-straive", bgb_year=1982, printed="Liège et le Royaume. " + "x" * 600,
+                    type="book", title="Liège et le Royaume")
+    chapter = Record(id="bhb:1982-7-c1", source="print-straive", bgb_year=1982, printed="Balace (F.). La barrière belge, pp. 1–8.",
+                     type="chapter", title="La barrière belge", year=1830, persons=[Person(family="Balace", given="F.")],
+                     host=Host(title="Liège et le Royaume", id="bhb:1982-7", editors=[Person(family="Lejeune", role="editor")]))
+    chapter.provenance.flags.append("split-from-contents")
+    preface = Record(id="bhb:1982-8", source="print-straive", bgb_year=1982, printed="Mertens (J.). Gent. Voorwoord Smet (A.).",
+                     type="book", title="Gent", year=1981, persons=[Person(family="Mertens", given="J."), Person(family="Smet", given="A.", role="preface")])
+    answers = {
+        volume.id: _answer(volume.id, title="Liège et le Royaume", persons=[{"family": "Balace", "given": "F.", "role": "author"}]),
+        chapter.id: _answer(chapter.id, type="chapter", title="La barrière belge", persons=[{"family": "Balace", "given": "F.", "role": "author"}],
+                            host={"title": "Liège et le Royaume", "volume": None, "issue": None, "year": "1982", "pages": "1–8"},
+                            publishers=[{"place": "Liège", "name": "C.L.H.A.M."}], extent="186 p."),
+        preface.id: _answer(preface.id, title="Gent", persons=[{"family": "Mertens", "given": "J.", "role": "author"},
+                                                               {"family": "Smet", "given": "A.", "role": "author"}]),
+    }
+    apply_citations([volume, chapter, preface], answers, {})
+    assert volume.persons == []
+    assert (chapter.host.id, chapter.host.editors[0].family, chapter.host.pages) == ("bhb:1982-7", "Lejeune", "1–8")
+    assert (chapter.host.publisher.place, chapter.publisher, chapter.extent) == ("Liège", None, None)
+    assert chapter.year == 1982 and "year-from-host" in chapter.provenance.flags
+    assert preface.year == 1981 and [person.role for person in preface.persons] == ["author", "preface"]
+
+
+def test_apply_keeps_the_parsers_persons_when_the_model_gives_none_and_names_a_person_once():
+    from bhb.citations import apply_citations
+
+    alone = Record(id="bhb:1970-1", source="print-straive", bgb_year=1970, printed="Hadermann-Misguisch (Lydie). Les du Quesnoy.",
+                   type="book", title="Les du Quesnoy", persons=[Person(family="Hadermann-Misguisch", given="Lydie")])
+    twice = Record(id="bhb:1984-2", source="print-straive", bgb_year=1984, printed="Louckx (F.). Een. Louckx (F.). Twee.", type="book")
+    louckx = {"family": "Louckx", "given": "F.", "role": "author"}
+    apply_citations([alone, twice], {alone.id: _answer(alone.id, title="Les du Quesnoy"),
+                                     twice.id: _answer(twice.id, title="Een", persons=[louckx, louckx])}, {})
+    assert [person.family for person in alone.persons] == ["Hadermann-Misguisch"]
+    assert [person.family for person in twice.persons] == ["Louckx"]
