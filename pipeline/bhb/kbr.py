@@ -33,6 +33,8 @@ from rapidfuzz.distance import Levenshtein
 from bhb.textutil import fold, squash
 
 INTERVAL = 1.0
+# Belgian publishers print ISBNs from the early 1970s; before that a record with one is a later reprint.
+ISBN_FROM = 1972
 
 
 _ISBN_FIELD = re.compile(r"<dc:identifier>(?:97[89])?\d{9}[\dXx]</dc:identifier>")
@@ -229,7 +231,8 @@ def _check(target: Target, book: Book, whole: bool) -> str | None:
 def match(records, books_found) -> tuple[list[KbrMatch], dict[str, int]]:
     """Match the bibliography's books and volumes to KBR's books. One pass over the harvest: only the books whose
     title or ISBN some target has are kept. A target with several KBR books that fit and different ISBNs is left
-    out (editions, volumes)."""
+    out (editions, volumes), unless only one of them has an ISBN, the target is of the ISBN era and the years agree:
+    then KBR holds one book more than once."""
     from collections import Counter, defaultdict
 
     wanted = targets(records)
@@ -262,8 +265,12 @@ def match(records, books_found) -> tuple[list[KbrMatch], dict[str, int]]:
         exact = [fit for fit in fits if fit[0] == "isbn"]
         fits = exact or fits
         if len({tuple(book.isbn) for _, book in fits}) > 1:
+            with_isbn = [fit for fit in fits if fit[1].isbn]
             if target.year and len({tuple(book.isbn) for _, book in fits if book.shelf_year == target.year}) == 1:
                 fits = [fit for fit in fits if fit[1].shelf_year == target.year]
+            elif (target.year and target.year >= ISBN_FROM and len({tuple(book.isbn) for _, book in with_isbn}) == 1
+                  and all(book.shelf_year is None or abs(book.shelf_year - target.year) <= 1 for _, book in with_isbn)):
+                fits = with_isbn  # one book, held more than once: the copies without an ISBN are no other edition
             else:
                 counts["several editions (left out)"] += 1
                 continue

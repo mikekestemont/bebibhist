@@ -64,6 +64,15 @@ def test_several_editions_with_different_isbns_are_left_out():
     assert not matches and counts["several editions (left out)"] == 1
 
 
+def test_copies_without_an_isbn_are_no_other_edition():
+    copy = Book("1", "Vilvoorde in de Tweede Wereldoorlog", ["Calderon, Adelijn"], [], [], None)
+    with_isbn = Book("2", "Vilvoorde in de Tweede Wereldoorlog", ["Calderon, Adelijn"], [], ["9072547276"], 1995)
+    matches, _ = match([_book()], [copy, with_isbn])
+    assert [found.number for found in matches] == ["2"]
+    matches, counts = match([_book(year=1965)], [copy, Book("2", copy.title, copy.creators, [], ["9072547276"], None)])
+    assert not matches and counts["several editions (left out)"] == 1
+
+
 def test_a_record_and_its_ermes_details():
     record = ("<header/><metadata><oai_dc:dc><dc:title>De staten van goed / Marcel Smessaert</dc:title><dc:type>Livre</dc:type>"
               "<dc:creator>Smessaert, Marcel</dc:creator><dc:identifier>https://uurl.kbr.be/bib/42</dc:identifier>"
