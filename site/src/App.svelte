@@ -339,9 +339,10 @@
     const askedText = [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ");
     const inside = params.get("in");
     const field = searchField(fieldChoice);
+    const translations = withTranslations();
     const within = inside ? `hk_${inside}` : "";
-    const asked = [askedText ? searchQuery(askedText, field) : "", within].filter(Boolean).join(" ") || null;
-    const relaxed = askedText ? relaxedQuery(askedText, field) : null;
+    const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
+    const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
     // A word that is not in the index finds nothing: say so at once rather than let Pagefind answer it with every
     // word sharing its prefix.
@@ -384,9 +385,27 @@
     loading = false;
   }
 
+  /** Whether the search crosses languages: all text and title search the titles' machine translations too. */
+  function translatable(): boolean {
+    return fieldChoice === "all" || fieldChoice === "title";
+  }
+
+  function withTranslations(): boolean {
+    return params.get("tr") !== "off";
+  }
+
+  function setTranslations(on: boolean) {
+    const next = new URLSearchParams(params);
+    if (on) next.delete("tr");
+    else next.set("tr", "off");
+    next.delete("page");
+    if (!next.get("q") && query) next.set("q", query);
+    go("/search", next);
+  }
+
   /** A hit the query found only in its title's machine translation (indexed for search, never shown) says so. */
   function viaTranslation(hit: Hit): boolean {
-    if (fieldChoice !== "all" && fieldChoice !== "title") return false;
+    if (!translatable() || !withTranslations()) return false;
     return foundThroughTranslation(hit.content, [query, ...params.getAll("more")].join(" "));
   }
 
@@ -790,6 +809,7 @@
     if (sort) next.set("sort", sort);
     if (per) next.set("per", per);
     if (fieldChoice && fieldChoice !== "all") next.set("field", fieldChoice);
+    if (params.get("tr")) next.set("tr", params.get("tr")!);
     go("/search", next);
   }
 
@@ -1204,6 +1224,12 @@
       <form class="within" onsubmit={addWithin}>
         <input bind:value={withinBox} type="search" aria-label={text.within} placeholder={text.within} />
       </form>
+      {#if query.trim() && translatable()}
+        <label class="translations-switch" title={text.searchTranslationsNote}>
+          <input type="checkbox" checked={withTranslations()} onchange={(event) => setTranslations(event.currentTarget.checked)} />
+          {text.searchTranslations}
+        </label>
+      {/if}
       {#if params.getAll("place").length}
         <ul class="chips refine">
           {#each params.getAll("place") as key (key)}

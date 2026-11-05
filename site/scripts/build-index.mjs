@@ -42,6 +42,8 @@ const BROAD_WORDINGS = new Set([
 const synonyms = await loadSynonyms(synonymsPath);
 /** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
 const TRANSLATED = "⁂";
+/** Joins the French and Dutch halves of a printed heading. */
+const DASH = /\s+[—–-]\s+/;
 const scheme = await loadScheme(schemePath);
 const journals = await loadJournals(journalsPath);
 const language = "und";
@@ -52,6 +54,7 @@ if (!index) {
 }
 
 const containers = await countContainers(recordsPath);
+const merged = await mergedHeadings(recordsPath);
 let indexed = 0;
 let skipped = 0;
 const input = createReadStream(recordsPath, { encoding: "utf8" });
@@ -77,15 +80,24 @@ for await (const line of lines) {
     nameLine(record.host?.editors),
     (record.section_path || []).join(" "),
     record.note,
+    // Words the citation pass read as OCR errors, corrected: for search only, never shown.
+    (record.ocr_corrected || []).join(" "),
   ].filter(Boolean).join("\n"), synonyms);
   // Machine translations of the title (``bhb citations apply``), for search only: after the marker, so the page
   // can tell a hit found only through them, and never shown.
-  const translated = Object.values(record.translations || {}).filter(Boolean).join("\n");
+  // Only the words the record does not already have, each once: names, dates and places stay as printed in a
+  // translation, and repeated they would rank a title about Kestemont above the titles by him.
+  const translations = Object.values(record.translations || {}).filter(Boolean).join("\n");
+  const translated = newWords(translations, content);
+  const translatedTitle = newWords(translations, record.title || "");
   countWords(translated ? `${content}\n${translated}` : content);
+  const own = stripMarks(content).slice(0, 4000);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${stripMarks(content).slice(0, 4000)}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${
-      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translated)}` : ""}`,
+    // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
+    // translations out and still count its hits exactly (the switch "also search machine translations").
+    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
+      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}`,
     language,
     meta: {
       id: record.id,
@@ -98,7 +110,7 @@ for await (const line of lines) {
       section: (record.section_path || []).slice(-1)[0] || "",
       source: record.source || "",
       ...categoryMeta(record, scheme),
-      ...specificMeta(record, scheme),
+      ...specificMeta(record, scheme, merged),
       authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
       editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
       // ORCID iDs (machine-derived), per name as the name line shows it: "Name (Given)\tiD\tsource|…".
@@ -269,6 +281,13 @@ function yearOf(value) {
 function fieldTokens(record) {
   const authors = (record.persons || []).map((person) => [person.family, person.given, person.given_full].filter(Boolean).join(" ")).join(" ");
   return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
+}
+
+/** The folded words of ``text`` that ``own`` lacks, each once, joined by spaces. */
+function newWords(text, own) {
+  const seen = new Set(fold(own).match(/[\p{L}\p{N}]+/gu) || []);
+  const words = fold(text).match(/[\p{L}\p{N}]+/gu) || [];
+  return words.filter((word) => !seen.has(word) && seen.add(word)).join(" ");
 }
 
 function prefixed(tag, text) {
@@ -505,7 +524,7 @@ function wording(text) {
  * The finest subject an entry has, in each language: the last part of its BHB code's label, or else of the printed
  * heading it stands under. Empty when that only repeats a broad subject area.
  */
-function specificMeta(record, labels) {
+function specificMeta(record, labels, merged = new Map()) {
   const coded = (record.categories || []).filter((item) => item.code && labels[item.code]);
   const primary = coded.find((item) => item.primary) || coded.sort((left, right) => right.code.length - left.code.length)[0];
   if (primary) {
@@ -517,7 +536,8 @@ function specificMeta(record, labels) {
     // A code with a broad wording says nothing finer; one without any wording (II.B.) leaves the printed heading.
     if (parts.fr) return {};
   }
-  const heading = (record.section_path || []).slice(-1)[0] || "";
+  const printed = (record.section_path || []).slice(-1)[0] || "";
+  const heading = merged.get(printed) || printed;
   const [fr, nl] = halves(heading.replace(/^[\s(]*(?:[0-9]+|[a-zA-Z]|[IVXLC]+)[.)]\s*/, "").replace(/\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)/g, "").trim());
   if (!fr || BROAD_WORDINGS.has(wording(fr)) || BROAD_WORDINGS.has(wording(nl))) return {};
   return { specificFr: fr, specificNl: nl || fr, specificEn: fr, specificFrom: "printed", specificMachine: "" };
@@ -527,10 +547,51 @@ function lastPart(label) {
   return (label || "").split(" / ").slice(-1)[0].trim();
 }
 
-/** A printed heading gives French and Dutch, joined by a dash: "Les arts — De kunsten". */
+/**
+ * A printed heading gives French and Dutch, joined by a dash: "Les arts — De kunsten". Some (1993) pair them part
+ * by part: "Les élections - verkiezingen; les partis - de partijen".
+ */
 function halves(heading) {
-  const split = heading.split(/\s+[—–-]\s+/);
-  return split.length === 2 ? [split[0].trim().replace(/[.;,]$/, ""), split[1].trim().replace(/[.;,]$/, "")] : [heading.replace(/[.;,]$/, ""), ""];
+  const tidy = (text) => text.trim().replace(/[.;,]$/, "");
+  const split = heading.split(DASH);
+  if (split.length === 2) return [tidy(split[0]), tidy(split[1])];
+  const pairs = heading.split(/;\s*/).map((part) => part.split(DASH));
+  if (pairs.length > 1 && pairs.every((pair) => pair.length === 2)) {
+    return [tidy(pairs.map((pair) => pair[0]).join("; ")), tidy(pairs.map((pair) => pair[1]).join("; "))];
+  }
+  return [tidy(heading), ""];
+}
+
+/**
+ * Headings of two levels printed as one ("b. Flandre - Vlaanderen La dynastie; … - De dynastie; …", mostly the
+ * first subheading of a section in BGB 2008), mapped to the finer level: what follows the longest heading that is
+ * printed on its own elsewhere (another year, another level), or else an end that is, when it begins with a capital.
+ */
+async function mergedHeadings(path) {
+  const bare = (heading) => heading.replace(/^[\s(]*(?:[0-9]+|[a-zA-Z]|[IVXLC]+)[.)]\s*/, "").replace(/\s+/g, " ").trim();
+  const known = new Set();
+  const long = new Set();
+  const lines = readline.createInterface({ input: createReadStream(path, { encoding: "utf8" }), crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    for (const heading of JSON.parse(line).section_path || []) {
+      const parts = heading.split(DASH).length;
+      if (parts === 2) known.add(bare(heading).replace(/[.;,]$/, ""));
+      else if (parts > 2) long.add(heading);
+    }
+  }
+  const found = new Map();
+  for (const heading of long) {
+    const text = bare(heading);
+    let best = "";
+    for (let at = text.indexOf(" "); at > 0; at = text.indexOf(" ", at + 1)) {
+      const head = text.slice(0, at).replace(/[.;,]$/, "");
+      const tail = text.slice(at + 1);
+      if (/^\p{Lu}/u.test(tail) && (known.has(head) || (!best && known.has(tail.replace(/[.;,]$/, ""))))) best = tail;
+    }
+    if (best) found.set(heading, best);
+  }
+  return found;
 }
 
 function categoryMeta(record, labels) {

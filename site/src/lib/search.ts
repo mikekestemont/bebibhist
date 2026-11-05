@@ -300,7 +300,10 @@ let preloading: Promise<void> = Promise.resolve();
  * "beguinages" sorts between two chunks. Pagefind then loads neither, falls back to a short prefix ("b") and
  * returns tens of thousands of hits; once the right chunk is in memory, the word is found. 788 words were
  * affected (abbaye, travaux, Tollebeek …). Preloading the chunks of each word's shorter prefixes puts that
- * chunk in memory first. Pagefind 1.5 fixes this, but also makes every metadata field searchable.
+ * chunk in memory first. A word also matches the longer words it begins with, and Pagefind loads only the chunk of
+ * the word itself: "abbaye" ends one chunk and "abbayes" begins the next, which halved the hits (2,477 of 4,515). The
+ * word with "zz" after it sorts after those longer words, so its chunk is loaded too. Pagefind 1.5 fixes this, but
+ * also makes every metadata field searchable.
  */
 function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
   const prefixes: string[] = [];
@@ -308,6 +311,10 @@ function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
     // A field word ("au_vanthemse") stops at its tag and two letters: "au" or "au_" would load the chunks of every
     // author name, about ten in a row before an author search.
     const shortest = /^[a-z]{2}_/.test(word) ? 5 : 2;
+    if (word.length >= shortest && !preloaded.has(`${word}zz`)) {
+      preloaded.add(`${word}zz`);
+      prefixes.push(`${word}zz`);
+    }
     for (let size = word.length - 1; size >= shortest; size -= 1) {
       const prefix = word.slice(0, size);
       if (!preloaded.has(prefix)) {
@@ -329,11 +336,14 @@ export function foldQuery(query: string): string {
 
 export type SearchField = "all" | "author" | "title" | "host" | "series";
 
-/** A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would drop every Laure. */
-export function searchQuery(query: string, field: SearchField = "all"): string {
+/**
+ * A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would drop every Laure. Without
+ * ``translations``, all text and title search the record's own words only, which the index repeats with a tag.
+ */
+export function searchQuery(query: string, field: SearchField = "all", translations = true): string {
   const words = foldQuery(query).replace(/-/g, " ").split(/\s+/).filter(Boolean);
-  if (field === "all") return words.join(" ");
-  const tag = field === "author" ? "au" : field === "title" ? "ti" : field === "series" ? "se" : "in";
+  if (field === "all" && translations) return words.join(" ");
+  const tag = field === "all" ? "og" : field === "author" ? "au" : field === "title" ? (translations ? "ti" : "ot") : field === "series" ? "se" : "in";
   return words.map((word) => `${tag}_${word}`).join(" ");
 }
 
@@ -357,12 +367,12 @@ const FUNCTION_WORDS = new Set(
  * The query without its function words, or null when nothing would change. An author search keeps them, since
  * de, van and le belong to the surname; so does a quoted query, and one made only of function words.
  */
-export function relaxedQuery(query: string, field: SearchField = "all"): string | null {
+export function relaxedQuery(query: string, field: SearchField = "all", translations = true): string | null {
   if (field === "author" || query.includes('"')) return null;
   const words = foldQuery(query).toLowerCase().replace(/-/g, " ").split(/\s+/).filter(Boolean);
   const kept = words.filter((word) => !FUNCTION_WORDS.has(word));
   if (kept.length === 0 || kept.length === words.length) return null;
-  return searchQuery(kept.join(" "), field);
+  return searchQuery(kept.join(" "), field, translations);
 }
 
 /** Begins the machine-translated titles in a record's indexed content (``scripts/build-index.mjs``). */

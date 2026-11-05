@@ -101,6 +101,9 @@ class Record:
     # Machine translations of the title (with subtitle) into the languages of nl, fr and en it is not in
     # (``bhb citations apply``): for search only, never shown.
     translations: dict[str, str] = field(default_factory=dict)
+    # Words of the printed text the citation pass read as OCR errors, corrected ("Dcndcrmonde" → "Dendermonde"):
+    # for search only, never shown; the printed text stays as it is. About one in eight is wrong.
+    ocr_corrected: list[str] = field(default_factory=list)
     persons: list[Person] = field(default_factory=list)
     corporate: list[str] = field(default_factory=list)
     host: Host | None = None

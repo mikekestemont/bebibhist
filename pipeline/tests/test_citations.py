@@ -195,3 +195,33 @@ def test_apply_keeps_the_parsers_persons_when_the_model_gives_none_and_names_a_p
                                      twice.id: _answer(twice.id, title="Een", persons=[louckx, louckx])}, {})
     assert [person.family for person in alone.persons] == ["Hadermann-Misguisch"]
     assert [person.family for person in twice.persons] == ["Louckx"]
+
+
+def test_a_university_press_printed_after_its_town_is_named_in_full():
+    from bhb.citations import name_university_press
+    from bhb.model import Publisher
+
+    cases = [
+        (Publisher("Amsterdam", "University Press"), "Amsterdam University Press"),
+        (Publisher("Princeton (N.J.)", "Univ. Press"), "Princeton University Press"),
+        (Publisher("Toronto", "University Press"), "University of Toronto Press"),
+        (Publisher("Leuven", "Universitaire Pers"), "Universitaire Pers Leuven"),
+        (Publisher("Nancy", "Presses univ."), "Presses universitaires de Nancy"),
+        (Publisher("Angers", "Presses universitaires"), "Presses universitaires d’Angers"),
+    ]
+    for publisher, name in cases:
+        assert name_university_press(publisher)
+        assert publisher.name == name
+    for publisher in (Publisher("Gent", "Univ."), Publisher(None, "University Press"), Publisher("Leuven; Assen", "University Press; Van Gorcum")):
+        assert not name_university_press(publisher)
+
+
+def test_apply_keeps_the_ocr_fixes_for_search_and_the_printed_text_as_it_is():
+    from bhb.citations import apply_citations
+
+    record = Record(id="bhb:1998-1", source="print-straive", bgb_year=1998, printed="Smet (A.). Dcndcrmonde in de 18de eeuw. Gent, 1998.")
+    answer = _answer("bhb:1998-1", type="book", title="Dcndcrmonde in de 18de eeuw")
+    answer["answer"]["ocr_fixes"] = [{"printed": "Dcndcrmonde", "corrected": "Dendermonde"}]
+    apply_citations([record], {"bhb:1998-1": answer}, {})
+    assert record.ocr_corrected == ["Dendermonde"]
+    assert "Dcndcrmonde" in record.printed and record.title == "Dcndcrmonde in de 18de eeuw"

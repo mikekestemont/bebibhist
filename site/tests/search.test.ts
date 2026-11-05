@@ -22,6 +22,13 @@ test("a field search prefixes every word, and a hyphen does not exclude a word",
   assert.equal(searchQuery("béguinages"), "beguinages");
 });
 
+test("without the translations, all text and title search the record's own words only", () => {
+  assert.equal(searchQuery("droit coutumier", "all", false), "og_droit og_coutumier");
+  assert.equal(searchQuery("gewoonterecht", "title", false), "ot_gewoonterecht");
+  assert.equal(searchQuery("Tollebeek", "author", false), "au_Tollebeek");
+  assert.equal(relaxedQuery("guibert de gembloux", "all", false), "og_guibert og_gembloux");
+});
+
 test("content words are folded and leave out function words", () => {
   assert.deepEqual(contentWords("Les béguinages de Gand"), ["beguinages", "gand"]);
 });

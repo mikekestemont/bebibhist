@@ -29,6 +29,8 @@
   "access": "Accès",
   "openAccess": "Libre accès",
   "viaTranslation": "trouvé par une traduction automatique du titre",
+  "searchTranslations": "Chercher aussi dans les traductions automatiques des titres",
+  "searchTranslationsNote": "Chaque titre est traduit automatiquement en néerlandais, français et anglais, pour la recherche seulement ; les traductions ne sont pas affichées ni vérifiées à la main.",
   "parsedByModel": "champs lus dans le texte imprimé par un modèle de langue",
   "category": "Classement",
   "suggested": "suggéré",

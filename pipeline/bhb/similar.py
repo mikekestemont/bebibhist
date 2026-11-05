@@ -1,7 +1,10 @@
 """Similar publications: one sentence embedding per entry, and its nearest neighbours.
 
-The text is the title, the subtitle and the translated title. Authors and the host are left out, so
-that neighbours share a subject rather than a person or a journal. Vectors are cached per record and
+The text is the title, the subtitle and the translated title, followed by the title's machine translation into
+English, so that titles in Dutch and French meet in one language (on the whole bibliography, neighbours in the
+other language rose from 14.3 % to 18.0 %, and neighbours under the same printed section from 57.7 % to 59.3 %;
+English alone gave 22.4 % but 57.4 %). Authors and the host are left out, so that neighbours share a subject
+rather than a person or a journal. Vectors are cached per record and
 text, so a rebuild only encodes what changed. The idea and set-up follow Enrique Manjavacas's BNTL
 search engine (https://github.com/emanjavacas/bntl); the neighbours here are precomputed for a
 static site.
@@ -57,6 +60,13 @@ def embed_text(record: Record) -> str | None:
     return text
 
 
+def search_text(record: Record) -> str | None:
+    """``embed_text`` followed by the title's English machine translation, when it has one."""
+    text = embed_text(record)
+    english = squash(record.translations.get("en") or "").rstrip(" .")
+    return f"{text}. {english}" if text and english else text
+
+
 def same_work_key(text: str) -> str:
     """Two records with the same folded text are the same work, or say nothing about each other."""
     return fold(text)
@@ -67,6 +77,7 @@ class Vectors:
     ids: list[str]
     texts: list[str]
     matrix: np.ndarray  # float32, L2-normalised, one row per id
+    keys: list[str] | None = None  # same_work_key of each record's own text; of ``texts`` when None
 
 
 def encode(
@@ -75,10 +86,13 @@ def encode(
     cache: Path | None = None,
     batch_size: int = 128,
     log=print,
+    text_of=None,
 ) -> Vectors:
-    pairs = [(record.id, text) for record in records if (text := embed_text(record))]
-    ids = [record_id for record_id, _ in pairs]
+    text_of = text_of or search_text
+    pairs = [(record, text) for record in records if embed_text(record) and (text := text_of(record))]
+    ids = [record.id for record, _ in pairs]
     texts = [text for _, text in pairs]
+    keys = [same_work_key(embed_text(record)) for record, _ in pairs]
     digests = [_digest(model_name, text) for text in texts]
     cached = _load_cache(cache) if cache else {}
     missing = [index for index, digest in enumerate(digests) if digest not in cached]
@@ -103,7 +117,7 @@ def encode(
         if cache:
             _save_cache(cache, cached)
     matrix = np.stack([cached[digest] for digest in digests]).astype(np.float32) if digests else np.zeros((0, 0), np.float32)
-    return Vectors(ids, texts, matrix)
+    return Vectors(ids, texts, matrix, keys)
 
 
 def neighbours(vectors: Vectors, k: int = DEFAULT_K, chunk: int = 1024) -> dict[str, list[tuple[str, float]]]:
@@ -112,7 +126,7 @@ def neighbours(vectors: Vectors, k: int = DEFAULT_K, chunk: int = 1024) -> dict[
     Candidates are the best by embedding and the best by TF-IDF, so three titles on Guibert of Gembloux
     find each other although the embedding alone puts other subjects closer.
     """
-    keys = [same_work_key(text) for text in vectors.texts]
+    keys = vectors.keys or [same_work_key(text) for text in vectors.texts]
     matrix = vectors.matrix
     total = matrix.shape[0]
     wanted = min(total - 1, k * 5)
@@ -268,7 +282,7 @@ def write_report(path: Path, records: list[Record], vectors: Vectors, found: dic
     lines = [
         "# Similar publications",
         "",
-        f"Model: `{model_name}`. Text: title, subtitle, translated title. Entries with neighbours: {len(found)}.",
+        f"Model: `{model_name}`. Text: title, subtitle, translated title, English machine translation. Entries with neighbours: {len(found)}.",
         "No cosine floor yet: every record keeps its top neighbours, so the floor can be set from this check.",
         "",
         "| Cosine | 1st neighbour | last neighbour |",

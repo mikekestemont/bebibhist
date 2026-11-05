@@ -2,7 +2,7 @@ import numpy as np
 
 from bhb.io_utils import record_from_dict
 from bhb.model import Host, Person, Record
-from bhb.similar import Vectors, apply, embed_text, neighbours
+from bhb.similar import Vectors, apply, embed_text, neighbours, search_text
 
 
 def _record(record_id: str, title: str | None, **extra) -> Record:
@@ -87,3 +87,9 @@ def test_a_shared_rare_name_lifts_a_neighbour_above_a_closer_subject():
     # r2 is closer in meaning (cosine), but r1 shares the rare words Guibert and Gembloux.
     assert found["r0"][0][0] == "r1"
     assert found["r0"][0][1] > float(matrix[0] @ matrix[1])
+
+
+def test_the_wand_compares_a_title_with_its_english_translation_added():
+    record = _record("bhb:2000-6", "Het gewoonterecht van Munkzwalm", translations={"fr": "Le droit coutumier de Munkzwalm", "en": "The customary law of Munkzwalm."})
+    assert search_text(record) == "Het gewoonterecht van Munkzwalm. The customary law of Munkzwalm"
+    assert search_text(_record("bhb:2000-7", "Customary law in Flanders")) == "Customary law in Flanders"

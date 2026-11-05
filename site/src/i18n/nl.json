@@ -29,6 +29,8 @@
   "access": "Toegang",
   "openAccess": "Open access",
   "viaTranslation": "gevonden via een machinevertaling van de titel",
+  "searchTranslations": "Ook zoeken in machinevertalingen van de titels",
+  "searchTranslationsNote": "Elke titel is machinaal vertaald naar het Nederlands, Frans en Engels, alleen om te zoeken; de vertalingen worden niet getoond en zijn niet met de hand nagekeken.",
   "parsedByModel": "velden door een taalmodel uit de gedrukte tekst gelezen",
   "category": "Classificatie",
   "suggested": "voorgesteld",

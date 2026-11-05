@@ -10,6 +10,7 @@ const LIMIT_MS = 20000;
 const checks = [
   { name: "a word between two index chunks (béguinages)", hash: "#/search?q=b%C3%A9guinages", count: [1900, 2400], first: /b[ée]guin|begijn/i },
   { name: "another such word (abbaye, also through the title translations)", hash: "#/search?q=abbaye", count: [3800, 5200] },
+  { name: "without the title translations (gewoonterecht)", hash: "#/search?q=gewoonterecht&tr=off", count: [5, 12] },
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },

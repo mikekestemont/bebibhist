@@ -505,7 +505,7 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
     within that journal's years; otherwise it stays a journal of its own, linked to its successor. Check the other
     ISSN-anchored journals for the same merge (a title change or a fusion), and give the predecessor its own ISSN
     where it has one.
-18. (Low priority, Mike, 2 Nov 2026: not now.) **Variant names of persons in titles** ("Godelieve" / "Godeliph" of Gistel): a list of name variants, added at
+18. (Dropped, Mike, 5 Nov 2026: too much hand work for what it gives.) **Variant names of persons in titles** ("Godelieve" / "Godeliph" of Gistel): a list of name variants, added at
     indexing as the place synonyms are, starting with saints and rulers; Wikidata gives many of the variants.
 19. **Historical territories on the map**: their borders changed over time; start with the dioceses, whose borders
     were steadier, after the foreign places.

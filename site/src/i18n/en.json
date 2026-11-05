@@ -29,6 +29,8 @@
   "access": "Access",
   "openAccess": "Open access",
   "viaTranslation": "found through a machine translation of the title",
+  "searchTranslations": "Also search machine translations of the titles",
+  "searchTranslationsNote": "Every title is machine-translated into Dutch, French and English for search only; the translations are not shown or checked by hand.",
   "parsedByModel": "fields read from the printed text by a language model",
   "category": "Classification",
   "suggested": "suggested",

@@ -76,6 +76,7 @@ def record_from_dict(data: dict) -> Record:
         subtitle=data.get("subtitle"),
         title_translated=data.get("title_translated"),
         translations=dict(data.get("translations") or {}),
+        ocr_corrected=list(data.get("ocr_corrected") or []),
         persons=persons,
         corporate=list(data.get("corporate") or []),
         host=host,

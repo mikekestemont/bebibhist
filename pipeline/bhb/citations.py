@@ -903,6 +903,41 @@ def _imprint(publishers):
     return Publisher(place="; ".join(places) or None, name="; ".join(names) or None) if places or names else None
 
 
+# A university press printed after its town, in the bibliography's style ("Amsterdam, University Press"): the
+# press is named in full ("Amsterdam University Press"), the place stays. Bare "Univ." is left: it may be the
+# university itself.
+_UNIVERSITY_PRESS = [
+    (re.compile(r"(?:university|univ\.?|u\.)\s*(?:press|pr|p)\.?", re.I), "{place} University Press"),
+    (re.compile(r"(?:universitaire|univ\.?)\s*pers\.?", re.I), "Universitaire Pers {place}"),
+    (re.compile(r"presses\s+univ(?:ersitaires|\.)?", re.I), "Presses universitaires {de}{place}"),
+]
+
+# Presses whose name does not follow "{place} University Press", by the folded place as printed.
+_PRESS_NAMES = {
+    "toronto": "University of Toronto Press",
+    "chicago": "University of Chicago Press",
+    "louvain": "Leuven University Press",
+    "leuven-louvain": "Leuven University Press",
+    "leicester-london": "Leicester University Press",
+    "lexington/kentucky": "University Press of Kentucky",
+    "brussel": "Brussels University Press",
+}
+
+
+def name_university_press(publisher) -> bool:
+    """Name a bare university press after its place, in place; true when it did."""
+    if not publisher or not publisher.name or not publisher.place or ";" in publisher.place + publisher.name:
+        return False
+    place = re.sub(r"\s*\(.*?\)", "", publisher.place).strip(" .,")
+    for pattern, form in _UNIVERSITY_PRESS:
+        if place and pattern.fullmatch(publisher.name.strip(" .,")):
+            de = "d’" if fold(place)[:1] in "aeiouy" else "de "
+            english = form.startswith("{place} University")
+            publisher.name = (english and _PRESS_NAMES.get(fold(place))) or form.format(place=place, de=de)
+            return True
+    return False
+
+
 def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset()) -> None:
     """Write a model answer into its record. The model's fields replace the parser's: on the hand-checked key 97.1 %
     of the fields are right against 84.5 %, and every field filled in from the parser makes it worse (§5c). Kept from
@@ -911,7 +946,7 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     editors and subtitle, a host it found through a cross-reference where the model gives none, and the roles it reads
     that the schema lacks (compiler, preface, illustrator). A collected volume's authors are not its chapters'
     authors (``contributors``); a chapter split from a volume does not take the volume's extent. The printed text and
-    the language stay; the model's OCR fixes stay proposals (``review.csv``)."""
+    the language stay; the model's OCR fixes are not applied to the text (``apply_citations`` keeps them for search)."""
     from bhb.model import Host, Person, Series
 
     answer = item["answer"]
@@ -988,12 +1023,23 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
         record.translations = dict(found) if found else {}
         counts["titles translated"] += bool(found)
         item = answers.get(record.id)
-        if item is None or not record.printed:
-            continue
-        before = (record.type, record.title, record.year)
-        apply_answer(record, item, frozenset(contributors.get(record.id, ())))
-        counts["parsed"] += 1
-        counts["type changed"] += record.type != before[0]
-        counts["title changed"] += record.title != before[1]
-        counts["year changed"] += record.year != before[2]
+        if item is not None and record.printed:
+            before = (record.type, record.title, record.year)
+            apply_answer(record, item, frozenset(contributors.get(record.id, ())))
+            record.ocr_corrected = [fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
+            counts["parsed"] += 1
+            counts["OCR fixes for search"] += len(record.ocr_corrected)
+            counts["type changed"] += record.type != before[0]
+            counts["title changed"] += record.title != before[1]
+            counts["year changed"] += record.year != before[2]
+        counts["university press named"] += name_presses(record)
     return dict(counts)
+
+
+def name_presses(record) -> bool:
+    """``name_university_press`` on the record's imprint and its volume's, flagged "publisher-named"."""
+    named = name_university_press(record.publisher)
+    named |= name_university_press(record.host.publisher if record.host else None)
+    if named and "publisher-named" not in record.provenance.flags:
+        record.provenance.flags.append("publisher-named")
+    return named
