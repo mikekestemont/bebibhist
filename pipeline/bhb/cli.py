@@ -122,7 +122,8 @@ def main(argv: list[str] | None = None) -> None:
     corr = sub.add_parser("corrections", help="OCR and print corrections (data/curated/corrections.csv, ocr_persee.csv)")
     corr_sub = corr.add_subparsers(dest="corrections_command", required=True)
     corr_sub.add_parser("persee", help="write data/curated/ocr_persee.csv from the STRAIVE–Persée comparison of 1960–69 (build/persee/)")
-    corr_sub.add_parser("apply", help="apply both correction files to build/records.jsonl (a build applies them too)")
+    corr_sub.add_parser("names", help="write data/curated/ocr_names.csv: names misread by OCR, from the names' spellings and KBR's authors (build/external/kbr/)")
+    corr_sub.add_parser("apply", help="apply the correction files to build/records.jsonl (a build applies them too)")
     citations = sub.add_parser("citations", help="the LLM clean-up pass over printed citations (OpenRouter)")
     citations_sub = citations.add_subparsers(dest="citations_command", required=True)
     cpilot = citations_sub.add_parser("pilot", help="score models and the parser against the DOI and gold answer keys, in batches")
@@ -274,6 +275,10 @@ def main(argv: list[str] | None = None) -> None:
         run = build_dir() / "citations" / args.run
         translations = load_translations(run / "translations.jsonl") if (run / "translations.jsonl").exists() else {}
         counts = apply_citations(records, load_answers(run / "answers.jsonl"), translations)
+        # The model read the text before the corrections of the build: its fields get them again.
+        from bhb.corrections import apply_corrections
+
+        counts["corrections applied again"] = apply_corrections(records, again=True)
         write_jsonl(path, records)
         print(f"citations: {counts} → {path}")
         return
@@ -720,10 +725,25 @@ def _identifiers_sample(size: int, seed: int) -> None:
 def _corrections(command: str) -> None:
     import csv
 
-    from bhb.corrections import apply_corrections, load_corrections, machine_corrections_path
+    from bhb.corrections import apply_corrections, load_corrections, machine_corrections_path, name_corrections_path
 
     path = build_dir() / "records.jsonl"
     records = read_jsonl(path)
+    if command == "names":
+        from bhb.name_ocr import kbr_families, proposals
+
+        found = proposals(records, kbr_families(build_dir() / "external" / "kbr"), str(date.today()))
+        # A build has already corrected the names of the rows in the file; the printed citation still holds them.
+        by_id = {record.id: record for record in records}
+        kept = [row for row in load_corrections(name_corrections_path())
+                if row["id"] in by_id and row["wrong"] in (by_id[row["id"]].printed or "")]
+        rows = sorted({(row["id"], row["wrong"]): row for row in kept + found}.values(), key=lambda row: row["id"])
+        with name_corrections_path().open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, ["id", "wrong", "right", "kind", "checked_by", "date", "note"])
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"{len(rows)} names misread by OCR → {name_corrections_path()}")
+        return
     if command == "persee":
         from bhb.ocr_compare import compare, correction_rows, vocabulary
 

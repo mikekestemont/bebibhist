@@ -35,10 +35,12 @@ _HEADER = re.compile(
     re.IGNORECASE,
 )
 _PAGE_MARK = re.compile(r"^\d+\*$")
+# A line of the index of names or places that follows the last entry: "Abbeloos (Jan-Frederik): 62743, 62774".
+_INDEX_LINE = re.compile(r"^[^:]{2,80}:\s*\d{5}(?:,\s*\d{5})*,?$")
 _FOOTNOTE = re.compile(r"^\(\d{1,2}\)\s+\S")
-_HEADING = re.compile(
-    r"^(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)])\s+\S"
-)
+# Below the lettered headings, 2008 prints "(1) …" and "(a) …", as the 2005–2007 volumes do.
+_NUMBER = r"(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)]|\(\d{1,2}\)|\([a-z]\))"
+_HEADING = re.compile(rf"^{_NUMBER}\s+\S")
 
 
 @dataclass
@@ -94,7 +96,10 @@ def segment(lines: list[PdfLine], labels: list[str] | None = None) -> list[Block
     start = _bibliography_start(lines)
     blocks: list[Block] = []
     skipping_note = False
-    for line in lines[start:]:
+    body = lines[start:]
+    for index, line in enumerate(body):
+        if all(_INDEX_LINE.match(item.text) for item in body[index : index + 3]):
+            break
         if _ENTRY.match(line.text):
             skipping_note = False
             match = _ENTRY.match(line.text)
@@ -102,14 +107,20 @@ def segment(lines: list[PdfLine], labels: list[str] | None = None) -> list[Block
             number = match.group(1) + (match.group(2) or "").lower()
             blocks.append(Block("entry", match.group(3), line.page, number, lines=[match.group(3)]))
             continue
+        # A heading wraps after the dash between its French and Dutch halves.
+        if blocks and blocks[-1].kind == "heading" and blocks[-1].text.endswith("-"):
+            blocks[-1].lines.append(line.text)
+            blocks[-1].text = _join(blocks[-1].lines)
+            continue
+        # A "(2) …" sub-heading looks like a footnote, so the heading test comes first.
+        if _is_heading(line.text, known) or (blocks and blocks[-1].kind == "heading" and _is_bare_heading(line.text, known)):
+            skipping_note = False
+            blocks.append(Block("heading", line.text, line.page, lines=[line.text]))
+            continue
         if _FOOTNOTE.match(line.text) and blocks and blocks[-1].kind == "entry":
             skipping_note = True
             continue
-        if skipping_note and not _is_heading(line.text, known):
-            continue
-        skipping_note = False
-        if _is_heading(line.text, known):
-            blocks.append(Block("heading", line.text, line.page, lines=[line.text]))
+        if skipping_note:
             continue
         if not blocks:
             continue
@@ -141,7 +152,7 @@ def _is_heading(text: str, labels: list[str]) -> bool:
         return False
     if len(text) >= 220 or not labels or re.search(r"\.{4,}", text):
         return False
-    label = fold(re.sub(r"^(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)])\s*", "", text, count=1))
+    label = fold(re.sub(rf"^{_NUMBER}\s*", "", text, count=1))
     if len(label) < 4:
         return False
     # token_set_ratio is 100 when the line merely contains a short label.
@@ -151,6 +162,16 @@ def _is_heading(text: str, labels: list[str]) -> bool:
     matches.sort(key=lambda item: len(item[0].split()), reverse=True)
     candidate = len(label.split())
     return any(candidate <= len(matched.split()) + 3 for matched, _score, _index in matches)
+
+
+def _is_bare_heading(text: str, labels: list[str]) -> bool:
+    """An unnumbered heading right under another ("Généralités - Algemeenheden"): the whole line is a known label.
+
+    A line that goes on with a lowercase word ("van de politiek") is the heading above it, wrapped.
+    """
+    if not text[:1].isupper() or _ENTRY.match(text) or len(text) >= 160 or re.search(r"\.{4,}", text):
+        return False
+    return process.extractOne(fold(text), labels, scorer=fuzz.ratio, score_cutoff=92) is not None
 
 
 @lru_cache(maxsize=1)
@@ -179,12 +200,7 @@ def known_heading_labels() -> list[str]:
         raw = matches[0].read_text(encoding="utf-8", errors="replace")
         for title in re.findall(r"<title>(.*?)</title>", raw, flags=re.S):
             text = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", title))).strip()
-            body = re.sub(
-                r"^(?:[IVX]{1,4}\.|[A-Z]\.|\d{1,2}[.)]|[a-z][.)])\s*",
-                "",
-                text,
-                count=1,
-            )
+            body = re.sub(rf"^{_NUMBER}\s*", "", text, count=1)
             add(body)
             for piece in re.split(r"[—–]|-", body):
                 add(piece)

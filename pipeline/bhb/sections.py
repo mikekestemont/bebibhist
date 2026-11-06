@@ -52,7 +52,12 @@ _POINTER_NUMBER = re.compile(r"\d{3,6}(?:\s*(?:bis|ter|quater))?", re.IGNORECASE
 
 
 def is_part_heading(text: str) -> bool:
-    """True when the heading is only a known part title, in either language."""
+    """True when the heading is only a known part title, in either language.
+
+    A leading "(1)" or "(a)" numbers a sub-heading ("(1) Généralités - Algemeenheden"); it is not a footnote mark.
+    """
+    if re.match(r"^\((?:\d{1,2}|[a-z])\)\s", text):
+        return False
     body = _FOOTNOTE.sub(" ", text)
     body = _LEADING_NUMBER.sub("", body, count=1)
     chunks = [fold(piece) for piece in re.split(r"[—–]|-", body) if fold(piece)]

@@ -157,6 +157,55 @@ def test_2008_rejects_a_citation_that_only_looks_like_a_heading():
     assert [block.number for block in blocks if block.kind == "entry"] == ["60343", "60344", "60345"]
 
 
+def test_2008_sub_headings_are_their_own_level_and_the_index_ends_the_entries():
+    labels = [
+        fold(text)
+        for text in (
+            "Histoire des institutions et histoire politique - Geschiedenis van de instellingen en van de politiek",
+            "Les institutions: genèse et fonctionnement - De instellingen: wording en werking",
+            "Généralités; la royauté - Algemene werken; het koningschap",
+            "Histoire culturelle - Cultuurgeschiedenis",
+            "Généralités - Algemeenheden",
+            "Les médias - De media",
+            "Héraldique, Sigillographie, Numismatique - Wapenkunde, Zegelkunde, Penningkunde",
+        )
+    ]
+    lines = [
+        PdfLine(1, "D. Héraldique, Sigillographie, Numismatique -"),
+        PdfLine(1, "Wapenkunde, Zegelkunde, Penningkunde"),
+        PdfLine(1, "60500 Auteur. Titre. Bruxelles, 2008, 10 p."),
+        PdfLine(2, "a. Histoire des institutions et histoire politique - Geschiedenis van de instellingen en"),
+        PdfLine(2, "van de politiek"),
+        PdfLine(2, "(1) Les institutions: genèse et fonctionnement - De instellingen: wording en werking"),
+        PdfLine(2, "(a) Généralités; la royauté - Algemene werken; het koningschap"),
+        PdfLine(2, "62383 Deneckere (Gita). Coburg. Gent, 2008, 12 p."),
+        PdfLine(3, "e. Histoire culturelle - Cultuurgeschiedenis"),
+        PdfLine(3, "(1) Généralités - Algemeenheden"),
+        PdfLine(3, "63385 Gola (Sabina). La cultura italiana in Belgio. Bruxelles, 2008, 20 p."),
+        PdfLine(3, "(4) Les médias - De media"),
+        PdfLine(3, "63400 Derde. Titre. Leuven, 2008, 8 p."),
+        PdfLine(4, "Abbeloos (Jan-Frederik): 62743, 62774"),
+        PdfLine(4, "Abicht (Ludo): 63194"),
+        PdfLine(4, "Absillis (Kevin): 60286, 63696, 63729"),
+    ]
+    blocks = segment(lines, labels)
+    headings = [(block.level, block.text) for block in blocks if block.kind == "heading"]
+    assert [text for _, text in headings] == [
+        "D. Héraldique, Sigillographie, Numismatique - Wapenkunde, Zegelkunde, Penningkunde",
+        "a. Histoire des institutions et histoire politique - Geschiedenis van de instellingen en van de politiek",
+        "(1) Les institutions: genèse et fonctionnement - De instellingen: wording en werking",
+        "(a) Généralités; la royauté - Algemene werken; het koningschap",
+        "e. Histoire culturelle - Cultuurgeschiedenis",
+        "(1) Généralités - Algemeenheden",
+        "(4) Les médias - De media",
+    ]
+    # As in 2005–2007, "(1)" and "(a)" sit one level below the lettered heading, siblings of each other.
+    assert [level for level, _ in headings[1:]] == [4, 5, 5, 4, 5, 5]
+    entries = [block for block in blocks if block.kind == "entry"]
+    assert [block.number for block in entries] == ["60500", "62383", "63385", "63400"]
+    assert entries[-1].text == "Derde. Titre. Leuven, 2008, 8 p."
+
+
 def test_vsmart_pairs_repeatable_fields_and_codes(tmp_path: Path):
     folder = tmp_path / "exports"
     folder.mkdir()
@@ -415,6 +464,23 @@ def test_article_title_tagged_as_source_with_the_journal_untagged(tmp_path: Path
     record = load_jats(path, "print-straive")[0]
     assert (record.type, record.title, record.host.title, record.host.volume) == ("article", "Schilde", "Antwerpiensia", "24")
     assert "journal-from-untagged-text" in record.provenance.flags
+
+
+def test_a_journal_title_cut_after_a_preposition_is_finished_from_the_print(tmp_path: Path):
+    path = tmp_path / "BGB_1989.xml"
+    path.write_text(
+        """<?xml version="1.0"?><article><back><ref-list><title>I. Algemeen</title>
+        <ref id="ref1815"><label>52364</label><mixed-citation publication-type="journal"><person-group person-group-type="author"><string-name><surname>Arcq</surname> (<given-names>Etienne</given-names>)</string-name>.</person-group> <article-title>L&#x2019;Association belge des banques</article-title>. <source>Courrier hebdomadaire du</source> <volume>CRISP</volume>, <year>1244&#x2013;1245</year>, <year>1989</year>, 73 p.</mixed-citation></ref>
+        <ref id="ref1816"><label>52365</label><mixed-citation publication-type="journal"><person-group person-group-type="author"><string-name><surname>Macken</surname> (<given-names>R.</given-names>)</string-name>.</person-group> <article-title>Les sources d&#x2019;Henri de Gand</article-title>. <source>Rev. philosophique de</source> Louvain, <volume>LXXXVI</volume>, <year>1978</year>, pp. <fpage>5</fpage>&#x2013;<lpage>28</lpage>.</mixed-citation></ref>
+        <ref id="ref1817"><label>52366</label><mixed-citation publication-type="journal"><person-group person-group-type="author"><string-name><surname>Lemeunier</surname> (<given-names>A.</given-names>)</string-name>.</person-group> <article-title>Le château de Marchin</article-title>. <source>March in</source>, <year>1972</year>, pp. <fpage>9</fpage>&#x2013;<lpage>17</lpage>.</mixed-citation></ref>
+        </ref-list></back></article>""",
+        encoding="utf-8",
+    )
+    crisp, louvain, marchin = load_jats(path, "print-straive")
+    assert (crisp.host.title, crisp.host.volume) == ("Courrier hebdomadaire du CRISP", None)
+    assert "journal-title-completed" in crisp.provenance.flags
+    assert (louvain.host.title, louvain.host.volume) == ("Rev. philosophique de Louvain", "LXXXVI")
+    assert marchin.host.title == "March in"
 
 
 def _volume(tmp_path: Path, year: int, citation: str) -> Path:

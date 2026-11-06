@@ -7,6 +7,8 @@ it against the printed volume, when. Two kinds:
   it, the printed citation included, since the volume itself has the right form.
 - ``print``: the volume itself is wrong. The printed citation stays as printed; only the parsed fields (title, name,
   year) are corrected.
+- ``name``: a person's name misread by OCR, found by machine (``bhb corrections names``, ``bhb/name_ocr.py``). Only
+  the people's names are corrected; the printed citation stays as printed.
 
 The row keeps the wrong reading, and the raw files are never changed, so nothing is lost. A row whose wrong text the
 entry no longer holds (a new delivery fixed it, or the id changed) is reported, not applied.
@@ -22,7 +24,7 @@ from pathlib import Path
 
 from bhb.paths import repo_root
 
-KINDS = ("ocr", "print")
+KINDS = ("ocr", "print", "name")
 # Fields that are identifiers or links, not text: never rewritten.
 _SKIP = {"id", "provenance", "similar", "similar_scores", "place_ids", "place_suggested", "bhb_codes", "categories",
          "orcid", "orcid_from", "kbr_id", "name_from", "journal_id"}
@@ -37,10 +39,16 @@ def machine_corrections_path() -> Path:
     return repo_root() / "data" / "curated" / "ocr_persee.csv"
 
 
+def name_corrections_path() -> Path:
+    """Names misread by OCR, found by machine (``bhb corrections names``), not checked by a person."""
+    return repo_root() / "data" / "curated" / "ocr_names.csv"
+
+
 def load_corrections(path: Path | None = None) -> list[dict[str, str]]:
     """The hand corrections, then the machine-found ones; or the rows of one file."""
     if path is None:
-        return load_corrections(corrections_path()) + load_corrections(machine_corrections_path())
+        return (load_corrections(corrections_path()) + load_corrections(machine_corrections_path())
+                + load_corrections(name_corrections_path()))
     if not path.is_file():
         return []
     with path.open(encoding="utf-8", newline="") as handle:
@@ -78,9 +86,11 @@ def _replace(value, wrong: str, right: str):
     return value, False
 
 
-def apply_corrections(records, rows: list[dict[str, str]] | None = None) -> int:
+def apply_corrections(records, rows: list[dict[str, str]] | None = None, again: bool = False) -> int:
     """Apply the corrections to the records in place; returns how many rows were applied. A machine-found row
-    (``checked_by`` "machine: …") flags the entry ``corrected-ocr-machine``, so it shows as machine-derived."""
+    (``checked_by`` "machine: …") flags the entry ``corrected-ocr-machine``, so it shows as machine-derived.
+    ``again`` applies them once more after a step that rewrote the fields from the uncorrected text (the citation
+    pass): a row with nothing left to correct is then not reported."""
     rows = load_corrections() if rows is None else rows
     by_id = {record.id: record for record in records}
     applied = 0
@@ -93,13 +103,19 @@ def apply_corrections(records, rows: list[dict[str, str]] | None = None) -> int:
         printed = record.printed
         if row["kind"] == "print":
             record.printed = None
-        _, changed = _replace(record, row["wrong"], row["right"])
+        if row["kind"] == "name":
+            _, changed = _replace(record.persons, row["wrong"], row["right"])
+        else:
+            _, changed = _replace(record, row["wrong"], row["right"])
         if row["kind"] == "print":
             record.printed = printed
         if not changed:
-            print(f"correction not applied, {row['id']} no longer holds {row['wrong']!r}", file=sys.stderr)
+            if not again:
+                print(f"correction not applied, {row['id']} no longer holds {row['wrong']!r}", file=sys.stderr)
             continue
         machine = (row.get("checked_by") or "").startswith("machine")
-        record.provenance.flags.append(f"corrected-{row['kind']}" + ("-machine" if machine else ""))
+        flag = f"corrected-{row['kind']}" + ("-machine" if machine else "")
+        if flag not in record.provenance.flags:
+            record.provenance.flags.append(flag)
         applied += 1
     return applied

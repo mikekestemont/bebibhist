@@ -464,14 +464,14 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
    titles"); (a) is dropped. A separate "In other languages" block in the wand was considered and dropped
    (Mike, 2 Nov 2026): it would turn nothing into a little for "gewoonterecht" (2 relevant titles in 11) but stays noisy, and the
    wand recomputed on the translations should make it unnecessary.
-10. **Matches through the printed heading.** "banken" finds entries under the heading "Betalingsmiddelen en banken"
+10. (Note dropped, Mike, 6 Nov 2026: we should not start explaining everything.) **Matches through the printed heading.** "banken" finds entries under the heading "Betalingsmiddelen en banken"
     whose title does not name banks (`bhb:1964-7470`). This is intended, but the result should say why it matched
     ("found in the section heading"). Check also the 1964 heading tree: "d) Les villes" under "Moyens de payements
     et banques" looks misplaced.
 
 **C. Display**
 
-11. **Two-digit years (1952–1959).** 3,163 entries print the year as "52". The stored year is 1952 where the parser
+11. **Done 6 Nov 2026** (in the result line, "51 [1951]"). **Two-digit years (1952–1959).** 3,163 entries print the year as "52". The stored year is 1952 where the parser
     found it; show it in the list as "52 [1952]" (the bracket marks a supplied value, the printed text is untouched)
     and in the details row. About 12,500 printed entries still have no year at all (1950s: 10 %, 2000s: 15 %), mostly
     contributions whose volume is a cross-reference (point 5).
@@ -479,10 +479,13 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
     "*Courrier hebdomadaire du* CRISP" (`bhb:1989-52364`, the journal cut at "du"), "*Banques et entreprises*" typed
     as a book while it is a chapter of *La Wallonie, le Pays et les hommes* (`bhb:1976-27919`). Fix these two
     patterns by rule (a journal title does not end on a preposition; "Title. Book, II, place, year, pp." is a
-    chapter); the rest goes to the LLM pass (§5c).
+    chapter); the rest goes to the LLM pass (§5c). **Done 6 Nov 2026:** a journal title cut after a preposition is
+    finished from the print (30 articles, the *Courrier hebdomadaire du CRISP* among them); the chapter was fixed by
+    the LLM pass.
 13. **OCR in names** ("Zuznkir" for Zumkir, `bhb:1952-3797`). Propose a correction, flagged, where a name occurs
     once, is one or two edits from a frequent name with the same initial, and the KBR authorities (§4e) or the LLM
-    pass agree.
+    pass agree. **Done 6 Nov 2026:** `bhb corrections names` (`bhb/name_ocr.py`), 236 names in
+    `data/curated/ocr_names.csv`, with KBR's authors as the check; the printed citation stays.
 14. ~~A "report an error" link~~ Dropped (Mike, 2 Nov 2026): a mailto link would be simple, but nobody is
     available to read and check the reports. Corrections go to `data/curated/corrections.csv` by hand.
 

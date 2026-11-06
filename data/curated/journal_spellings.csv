@@ -56,6 +56,7 @@ leodium,t:leodium,full,224
 calmpthoutania,t:calmpthoutania,full,224
 le guetteur wallon,t:le-guetteur-wallon,full,223
 curtenberg,t:curtenberg,full,223
+courrier hebdomadaire du crisp,issn:0008-9664,issn,221
 taxandria,t:taxandria,full,221
 pays de namur,t:pays-de-namur,full,219
 het ezendropke,t:het-ezendropke,full,213
@@ -65,7 +66,6 @@ terre de durbuy,t:terre-de-durbuy,full,203
 geschichtliches eupen,t:geschichtliches-eupen,full,200
 iepers kwartier,t:iepers-kwartier,full,199
 eigen schoon en de brabander brussel,t:eigen-schoon-en-de-brabander,variant,199
-courrier hebdomadaire du crisp,issn:0008-9664,issn,198
 ten mandere,t:ten-mandere,full,197
 eigen schoon en brabander,t:eigen-schoon-en-brabander,full,193
 triverius,t:triverius,full,191
@@ -753,7 +753,6 @@ de witte raaf,t:de-witte-raaf,full,24
 bijdr gesch ned,t:bijdragen-voor-de-geschiedenis-der-nederlanden,predecessor,24
 ann du cercle hutois des sc et beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,abbreviation,24
 revue benedictine maredsous,issn:0035-0893,issn,23
-courrier hebdomadaire du,issn:0008-9664,issn,23
 tijdschrift voor sociale geschiedenis amsterdam,issn:0303-9935,issn,23
 jaarboek voor nederlandse boekgeschiedenis,issn:1381-0065,issn,23
 de gulden passer antwerpen,issn:0777-5067,issn,23
@@ -1212,6 +1211,7 @@ le souvenir perwezien bulletin du cercle historique et archeologique de perwez e
 deutsches archiv fur erforschung des mittelalters,issn:0012-1223,issn,9
 bull comm royale histoire,issn:0001-415X,issn,9
 rev d h moderne et contemporaine,issn:0048-8003,issn,9
+courrier hebd du crisp,issn:0008-9664,issn,9
 hand der mij voor gesch en oudheidk te gent nieuwe reeks,issn:0774-286X,issn,9
 gent,issn:1370-7477,issn,9
 histoire et mesure paris,issn:0982-1783,issn,9
@@ -1320,7 +1320,6 @@ bull comm r de toponymie et de dialectologie,issn:0774-8396,issn,7
 courrier hebdomadaire du c r i s p,issn:0008-9664,issn,7
 social compass,issn:0037-7686,issn,7
 rev belge de philol et d h belg ts voor filologie en gesch,issn:0035-0818,issn,7
-courrier hebd du crisp,issn:0008-9664,issn,7
 the art bulletin,issn:0004-3079,issn,7
 annales de demographie historique,issn:0066-2062,issn,7
 archeol in vlaanderen,issn:0778-2837,issn,7
@@ -1739,6 +1738,7 @@ ann e s c,issn:0395-2649,issn,3
 norois poitiers,issn:0029-182X,issn,3
 bull de la cl des sc de l ac r de b,issn:0001-4141,issn,3
 deutsches arch fur erforschung des mittelalters,issn:0012-1223,issn,3
+rech economiques de louvain,issn:0770-4518,issn,3
 history in africa,issn:0361-5413,issn,3
 bull de l ac r de b cl des beaux arts,issn:0378-0716,issn,3
 ac r de b bull de la cl des beaux arts,issn:0378-0716,issn,3
@@ -2041,8 +2041,8 @@ journal of religion in africa leiden,issn:0022-4200,issn,2
 ann des hist vereins fur der niederrhein,issn:0341-289X,issn,2
 viator medieval and renaissance studies berkeley los angeles,issn:0083-5897,issn,2
 journal of medieval h amsterdam,issn:0304-4181,issn,2
-rech economiques de,issn:0770-4518,issn,2
 hommes terres nord,issn:0018-439X,issn,2
+rev philosophique de louvain,issn:0035-3841,issn,2
 rev belg de musicologie,issn:0771-6788,issn,2
 international journal of the sociology of language the hague,issn:0165-2516,issn,2
 textile history,issn:0040-4969,issn,2
@@ -2058,7 +2058,6 @@ histor z,issn:0018-2613,issn,2
 espace population societe villeneuve d ascq,issn:0755-7809,issn,2
 ac r de b bull de la classe des beaux arts,issn:0378-0716,issn,2
 hand genootschap gesch soc d emulation,issn:0770-0822,issn,2
-courrier hebd du,issn:0008-9664,issn,2
 historical journal of film radio television,issn:0143-9685,issn,2
 mitteilungen des instit fur oesterreichische geschichtsforschung,issn:0073-8484,issn,2
 french historical studies,issn:0016-1071,issn,2
@@ -2622,7 +2621,7 @@ louis vos bijdr en meded betreffende de gesch der ned,issn:0165-0505,issn,1
 ac r de b bull ci des l,issn:0001-4133,issn,1
 evangelische theologie munchen,issn:2198-0470,issn,1
 bull de l instit de rech economiques,issn:0770-4518,issn,1
-revue theoiogique de,issn:0080-2654,issn,1
+revue theoiogique de louvain,issn:0080-2654,issn,1
 the journal of educational aministration and history,issn:0022-0620,issn,1
 rev belg de philol el d h,issn:0035-0818,issn,1
 handel kon comm van gesch,issn:0001-415X,issn,1
@@ -2639,7 +2638,6 @@ history of religions,issn:0018-2710,issn,1
 jahrbuch fur gesch und staat wirtschaft und gesellschaft lateinamericas bd xiii koln,issn:1438-4752,issn,1
 ann du midi,issn:0003-4398,issn,1
 ann economie socl civilisations,issn:0395-2649,issn,1
-rev philosophique de,issn:0035-3841,issn,1
 publ du centre europeen d et burgondomedianes,issn:1016-4286,issn,1
 ac r de belg bull de la comm r d h cxliii,issn:0001-415X,issn,1
 z der savigny stiftung fur rechtgesch germanistische abteilung,issn:0323-4045,issn,1
@@ -2842,7 +2840,6 @@ actes de la rech en sc sociales paris,issn:0335-5322,issn,1
 history and technology an international journal,issn:0734-1512,issn,1
 ac r de b bulletin de la cl des l et des sc mor et pol 6e serie,issn:0001-4133,issn,1
 le medieviste et l ordinateur,issn:0223-3843,issn,1
-rev philosophique de louvain,issn:0035-3841,issn,1
 the history of the family an international quarterly,issn:1081-602X,issn,1
 journal of the american musicological soc,issn:0003-0139,issn,1
 rev de l h de droit,issn:0040-7585,issn,1
@@ -3553,7 +3550,6 @@ bull de l instit b de rome,issn:2031-7190,abbreviation,1
 au pays de riezes et de sarts,t:au-pays-des-riezes-et-des-sarts,abbreviation,1
 hand van de kon gesch en oudh kr te kortrijk,t:handelingen-van-de-koninklijke-geschied-en-oudheidkundige-kr,abbreviation,1
 ann de demographie historique,issn:0066-2062,abbreviation,1
-rech economiques de louvain,issn:0770-4518,abbreviation,1
 rev b d hist contemp,issn:0035-0869,abbreviation,1
 bull de l instit archeol du luxembourg arlon,t:bulletin-trimestriel-de-l-institut-archeologique-du-luxembou,abbreviation,1
 rev b de numismatique,t:revue-belge-de-numismatique-et-de-sigillographie,abbreviation,1

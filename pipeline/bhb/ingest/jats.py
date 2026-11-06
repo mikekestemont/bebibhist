@@ -427,6 +427,13 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
         record.type = "other"
 
     first_source = sources[0] if sources else None
+    # A journal title does not end on a preposition: "<source>Courrier hebdomadaire du</source> <volume>CRISP</volume>",
+    # "<source>Rech. économiques de</source> Louvain". The printed words up to the comma finish it.
+    if first_source and (rest := _title_rest(first_source, printed)):
+        first_source = f"{first_source} {rest}"
+        if volume == rest:
+            volume = None
+        record.provenance.flags.append("journal-title-completed")
     if record.type in {"article", "chapter"}:
         record.title = _join(chapter_title or article_title) or first_source
         record.host = Host(
@@ -484,6 +491,17 @@ def _from_tags(record: Record, citation: etree._Element, printed: str) -> tuple[
 
 SHORT_YEARS = (1952, 1953, 1954)
 _SHORT_YEAR_TEXT = re.compile(r",\s*(\d{2})\s*,\s*(?:\d{1,2}\s*°|pp?\.|\d+\s*(?:p|blz)\.)")
+
+
+_DANGLING = re.compile(r"\b(?:du|de|des|d'|van|voor|der|of|for)\s*$", re.IGNORECASE)
+
+
+def _title_rest(source: str, printed: str) -> str | None:
+    """The printed words that finish a source cut after a preposition, up to the next comma, or None."""
+    if not _DANGLING.search(source):
+        return None
+    match = re.search(re.escape(source) + r"\s+([^,;()]{2,40}?)\s*,", printed)
+    return match.group(1).strip() if match else None
 
 
 def _short_year(bgb_year: int, volume: str | None, issue: str | None, printed: str) -> tuple[int | None, str | None, str | None]:
