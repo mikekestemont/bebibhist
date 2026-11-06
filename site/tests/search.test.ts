@@ -57,6 +57,15 @@ test("a journal title is italic after the article's title", () => {
   assert.match(html, /Schilde\. <em>Antwerpiensia<\/em>, 24/);
 });
 
+test("a two-digit year of the 1950s gets the full year in brackets, marked as supplied", () => {
+  const citation = "Geldolf (W.). Een vredescongres te Brussel 103 jaar geleden. Nieuw Vlaams Tijdschrift, VI, 51, p. 185–195.";
+  const html = citationHtml(citation, { title: "Een vredescongres te Brussel 103 jaar geleden", host: "Nieuw Vlaams Tijdschrift", kind: "article", pubyear: "1951" }, "", "", "", "", "", "Aangevuld");
+  assert.match(html, /VI, 51 <span class="derived" title="Aangevuld">\[1951\]<\/span>, p\. 185/);
+  // The full year printed, or the two digits standing twice, leave the line as printed.
+  assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Revue, 51, 1951, p. 3.", { pubyear: "1951" }), /\[1951\]/);
+  assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Revue, 51, 51, p. 3.", { pubyear: "1951" }), /\[1951\]/);
+});
+
 test("an article's subtitle stays roman; only the journal is italic", () => {
   const html = citationHtml(
     "Kestemont (Mike). Collaborative authorship in the twelfth century: A stylometric study. In: Literary and Linguistic Computing, 30, 2015.",

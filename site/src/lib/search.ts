@@ -177,6 +177,7 @@ export function citationHtml(
   hostNote = "",
   hostMissing = "",
   hostMissingNote = "",
+  shortYearNote = "",
 ): string {
   const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
@@ -185,6 +186,7 @@ export function citationHtml(
     const note = escapeHtml(yearNote);
     html = html.replace(meta.pubyear, `<span class="derived" title="${note}">${meta.pubyear}</span>`);
   }
+  html = withFullYear(html, meta.pubyear, shortYearNote);
   // The book's title and subtitle are italic wherever they stand after "In:", also after its editors
   // ("In: Deploige (Jeroen), Deneckere (Gita). Mystifying the Monarch").
   // A journal title stands after the article's title, without "In:".
@@ -214,6 +216,19 @@ export function citationHtml(
     }
   }
   return html;
+}
+
+/**
+ * The volumes of the 1950s print the year in two digits ("Nieuw Vlaams Tijdschrift, VI, 51, p. 185–195"): the full
+ * year follows in brackets, marked as supplied, where those two digits stand alone once in the line.
+ */
+function withFullYear(html: string, year: string | undefined, note: string): string {
+  if (!year || !/^19[0-5]\d$/.test(year) || yearIn(html, year)) return html;
+  const short = new RegExp(`(?<=,\\s)${year.slice(2)}(?=\\s*[,.;]|$)`, "g");
+  const found = [...html.matchAll(short)];
+  if (found.length !== 1 || found[0].index === undefined) return html;
+  const at = found[0].index + 2;
+  return `${html.slice(0, at)} <span class="derived" title="${escapeHtml(note)}">[${year}]</span>${html.slice(at)}`;
 }
 
 /** The volume goes before the pages, as in a printed chapter line, and is marked as supplied. */

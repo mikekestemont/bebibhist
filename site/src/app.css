@@ -170,7 +170,7 @@ main .search { margin: 1.6rem 0; }
 
 .layout {
   display: grid;
-  grid-template-columns: 17.5rem minmax(0, 1fr);
+  grid-template-columns: 23.5rem minmax(0, 1fr);
   gap: 1.75rem;
   align-items: start;
 }
@@ -762,7 +762,9 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 /* The same notation for a suggested classification in running text. */
 .text-suggested { font-style: italic; color: #5b7a5c; border-bottom: 1px dashed #7d977e; cursor: help; }
 .source-note { color: #6b6e73; font-size: 14px; }
-.legal .legend:nth-of-type(2) { margin-right: auto; }
+.legal .legend:nth-of-type(3) { margin-right: auto; }
+.note-mark { margin-left: 0.1rem; cursor: help; }
+.legal .note-mark { cursor: default; }
 .legal .legend .tag { font-size: 12px; padding: 0 0.35rem; }
 /* On the dark footer bar the samples keep their shape (dashed, italic, ›) in light colours. */
 .legal .legend .tag-suggested { color: #fff; border-color: rgba(255, 255, 255, 0.85); }

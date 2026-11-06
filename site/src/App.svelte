@@ -493,7 +493,7 @@
       [text.issn, (meta.issn || "").split("|").join(", ")],
       [text.kbrRecord, meta.kbr],
       [text.type, meta.kind ? text.types[meta.kind as keyof typeof text.types] || meta.kind : ""],
-      [text.source, [meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : "", meta.parsedLlm ? text.parsedByModel : ""].filter(Boolean).join(" · ")],
+      [text.source, meta.source ? text.sources[meta.source as keyof typeof text.sources] || meta.source : ""],
     ];
     return pairs.flatMap(([label, value, italic]) =>
       value
@@ -505,6 +505,8 @@
             orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
             fullNames: label === text.author || label === text.hostEditors ? fullNamesOf(meta) : undefined,
             derived: derivedNote(label, meta),
+            // The fields read by the language model: a mark after the source, explained in the footer.
+            marked: label === text.source && meta.parsedLlm ? text.parsedByModel : undefined,
             container: containerLink(label, meta) || (label === text.journal ? journalLink(meta) : undefined) || (label === text.series ? seriesLink(meta) : undefined),
             // The series link covers the series' name only; its number follows as text.
             ...(label === text.series && meta.seriesTitle ? { value: meta.seriesTitle, suffix: meta.seriesNumber ? `, ${meta.seriesNumber}` : "" } : {}),
@@ -889,7 +891,7 @@
   </div>
 {/snippet}
 
-{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
+{#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; marked?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
       <span class="tag tag-free" title={row.free}>{@render padlock()}{text.freeToRead}</span>{/if}
@@ -909,7 +911,7 @@
   {:else if row.derived}
     <span class="derived" title={row.derived}>{row.value}</span>
   {:else}
-    {row.value}
+    {row.value}{#if row.marked}<sup class="note-mark" title={row.marked}>*</sup>{/if}
   {/if}
 {/snippet}
 
@@ -1031,7 +1033,7 @@
   <article class="result">
     <button type="button" class="result-toggle" aria-expanded={open} onclick={() => { openId = open ? "" : hit.meta.id; }}>
       {@render typeIcon(hit.meta.kind)}
-      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}{#if hit.meta.free}{@render openAccess(hit.meta.free)}{/if}{#if viaTranslation(hit)}<span class="via-translation">{text.viaTranslation}</span>{/if}</span>
+      <span class="citation">{@html citationHtml(hit.meta.citation || hit.meta.title, hit.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote, text.yearFromShort)}{#if hit.meta.free}{@render openAccess(hit.meta.free)}{/if}{#if viaTranslation(hit)}<span class="via-translation">{text.viaTranslation}</span>{/if}</span>
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}
@@ -1122,7 +1124,7 @@
       <h1>
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
       </h1>
-      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</p>
+      <p class="citation">{@html citationHtml(record.meta.citation || record.meta.title, record.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote, text.yearFromShort)}</p>
       <div class="record-export">{@render wand(record)}{@render exporter(record)}</div>
       {#if rows(record).length}
         <dl class="fields">
@@ -1304,7 +1306,7 @@
     <p><a href="#/search?{sessionStorage.getItem("bhb-search") || ""}">{text.back}</a></p>
     <h1>{text.similar}</h1>
     {#if similarSource}
-      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote)}</a></p>
+      <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote, text.yearFromShort)}</a></p>
     {/if}
     {#if loading && similarHits.length === 0}
       <p>{text.loading}</p>
@@ -1468,6 +1470,7 @@
   <div class="legal">
     <span class="legend"><span class="tag tag-suggested">{text.suggestedSample}</span> {text.suggestedLegend}</span>
     <span class="legend"><span class="tag tag-narrow">{text.narrowerSample}</span> {text.narrowerLegend}</span>
+    <span class="legend"><sup class="note-mark">*</sup> = {text.parsedByModel}</span>
     <span>{text.copyright}</span>
     <a href="#/about" aria-current={path === "/about" ? "true" : undefined}>{text.about}</a>
     <a href={text.privacyUrl}>{text.privacy}</a>
