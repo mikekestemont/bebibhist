@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { decodePoints, matchQuery, shardOf, tokens, undelta } from "../src/lib/topics.ts";
+import { decodePoints, matchQuery, regionWord, shardOf, tokens, undelta } from "../src/lib/topics.ts";
 
 test("words are folded and function words left out, in the four languages", () => {
   assert.deepEqual(tokens("Les béguinages de Gand en het Begijnhof"), ["beguinages", "gand", "begijnhof"]);
@@ -39,4 +39,11 @@ test("the points file decodes to its columns, the cells on an even byte", () => 
   assert.ok(Math.abs(points.x[1] - 0.5) < 0.001);
   assert.deepEqual([...points.year], [190, 0, 225]);
   assert.deepEqual([...points.cell], [5, 599, 0]);
+});
+
+test("a region's search word has one length, so none begins another", () => {
+  assert.equal(regionWord("r2.10"), "rg_2010");
+  assert.equal(regionWord("r1.1"), "rg_1001");
+  assert.ok(!regionWord("r1.10").startsWith(regionWord("r1.1")));
+  assert.equal(regionWord("r3.599"), "rg_3599");
 });

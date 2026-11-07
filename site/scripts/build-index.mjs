@@ -100,7 +100,7 @@ for await (const line of lines) {
     url: `#/record/${encodeURIComponent(record.id)}`,
     // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
     // translations out and still count its hits exactly (the switch "also search machine translations").
-    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
+    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
       translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}`,
     language,
     meta: {
@@ -243,8 +243,6 @@ function filters(record) {
   if (record.period?.length) values.period = record.period;
   if (record.place_ids?.length) values.place = record.place_ids;
   if (record.journal_id) values.journal = [record.journal_id];
-  // The entry's regions on the map of subjects, at every level, so a region opens as a search (#/search?topic=…).
-  if (topicChains.has(record.topic)) values.topic = topicChains.get(record.topic);
   values.theme = record.theme?.length ? record.theme : ["unclassified"];
   if (record.language_suggested?.length) values.language = [...new Set(record.language_suggested.map(languageFacet))];
   // Free to read (OpenAlex or Persée, through the DOI): a filter of one value.
@@ -345,6 +343,17 @@ function containerOf(record, counts) {
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
 /** Subject area → period → decade of publication, with counts; the same values as the Pagefind filters. */
+/** The words that mark the entry's regions on the map of subjects, at every level, so a region opens as a search
+ * (#/search?topic=…). Words, not a filter: Pagefind counts every filter value on every search, and 744 more values
+ * made all searches slower (7 Nov 2026). The same format as ``regionWord`` in src/lib/topics.ts. */
+function regionWords(record) {
+  const chain = topicChains.get(record.topic) || [];
+  return chain.map((id) => {
+    const [level, number] = id.replace(/^r/, "").split(".");
+    return ` rg_${level}${number.padStart(3, "0")}`;
+  }).join("");
+}
+
 /** Finest region of the map of subjects → its region at every level, coarsest first (`bhb topicmap names`). */
 async function loadTopicChains(path) {
   let regions;

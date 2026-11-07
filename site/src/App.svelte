@@ -4,6 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
+  import { regionWord } from "./lib/topics";
   import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -312,8 +313,6 @@
     if (places.length) filters.place = places;
     const journal = params.get("journal");
     if (journal) filters.journal = [journal];
-    const topic = params.get("topic");
-    if (topic) filters.topic = [topic];
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
@@ -391,7 +390,9 @@
     const inside = params.get("in");
     const field = searchField(fieldChoice);
     const translations = withTranslations();
-    const within = inside ? `hk_${inside}` : "";
+    // Within a volume, or within a region of the map of subjects: words the index adds to those records.
+    const topic = params.get("topic");
+    const within = [inside ? `hk_${inside}` : "", topic ? regionWord(topic) : ""].filter(Boolean).join(" ");
     const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
     const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;

@@ -108,3 +108,10 @@ export function matchQuery(query: string, shards: Map<string, Record<string, num
   }
   return found;
 }
+
+/** The word that marks a region's publications in the search index: "rg_" with the level and a three-digit number,
+ * all of one length, since a word also finds the longer words it begins with (r1.1 would find r1.10 to r1.19). */
+export function regionWord(id: string): string {
+  const [level, number] = id.replace(/^r/, "").split(".");
+  return `rg_${level}${number.padStart(3, "0")}`;
+}
