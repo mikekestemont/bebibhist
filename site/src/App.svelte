@@ -355,7 +355,17 @@
       return;
     }
     if (path === "/topics") {
-      TopicMap ??= (await import("./TopicMap.svelte")).default;
+      try {
+        TopicMap ??= (await import("./TopicMap.svelte")).default;
+        sessionStorage.removeItem("bhb-reloaded");
+      } catch {
+        // A page opened before a new release asks for the map's code under its old name, which is gone: load the
+        // page again, once, to get the new names.
+        if (!sessionStorage.getItem("bhb-reloaded")) {
+          sessionStorage.setItem("bhb-reloaded", "1");
+          location.reload();
+        }
+      }
       loading = false;
       return;
     }
@@ -914,7 +924,9 @@
         engine = loaded;
         return refresh();
       })
-      .catch(() => {
+      .catch((error) => {
+        // For developers: a local site without its index needs `npm run index` (and a build) in site/.
+        console.error("Pagefind index not loaded (locally: npm run index in site/)", error);
         missing = true;
         loading = false;
       });

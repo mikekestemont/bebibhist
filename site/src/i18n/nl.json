@@ -94,7 +94,7 @@
   },
   "empty": "Geen resultaten voor deze zoekactie.",
   "loading": "Bezig met zoeken…",
-  "missing": "De zoekindex is nog niet gebouwd. In de map site: npm run index",
+  "missing": "De zoekfunctie kon niet geladen worden. Herlaad de pagina; lukt het dan nog niet, probeer het later opnieuw.",
   "back": "Terug naar de resultaten",
   "recordLink": "Volledige beschrijving",
   "inVolume": "In:",

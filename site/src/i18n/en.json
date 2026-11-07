@@ -94,7 +94,7 @@
   },
   "empty": "No results for this search.",
   "loading": "Searching…",
-  "missing": "The search index has not been built. In the site directory: npm run index",
+  "missing": "The search could not be loaded. Reload the page; if that does not help, try again later.",
   "back": "Back to results",
   "recordLink": "Full record",
   "inVolume": "In:",

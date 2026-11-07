@@ -94,7 +94,7 @@
   },
   "empty": "Aucun résultat pour cette recherche.",
   "loading": "Recherche en cours…",
-  "missing": "L’index de recherche n’est pas construit. Dans le dossier site : npm run index",
+  "missing": "La recherche n’a pas pu être chargée. Rechargez la page ; si cela ne suffit pas, réessayez plus tard.",
   "back": "Retour aux résultats",
   "recordLink": "Notice complète",
   "inVolume": "Dans :",
