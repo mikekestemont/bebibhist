@@ -8,7 +8,14 @@
 const PINCH_BOOST = 6;
 const WHEEL_BOOST = 1.8;
 
-export function installGestures(canvas: HTMLCanvasElement): () => void {
+/** Parts of the map frame that keep their own wheel and touch: the panel scrolls, the controls are controls. */
+const OWN = ".topics-panel, .topics-search, .topics-bottom, .topics-zoom";
+
+/** Gestures anywhere over ``area`` (the map's frame, names included) move the map drawn on ``canvas``. */
+export function installGestures(canvas: HTMLCanvasElement, area: HTMLElement): () => void {
+  const own = (event: Event) => (event.target as Element | null)?.closest?.(OWN) !== null;
+  // A name on the map is a button: one finger on it taps it, two fingers pinch the map.
+  const onName = (event: Event) => (event.target as Element | null)?.closest?.(".topics-label") !== null;
   const ours = new WeakSet<Event>();
   // The camera reads the pointer from offsetX and offsetY, which a browser does not set relative to the canvas for
   // an event made in code; they are set here, or the zoom would centre on the wrong point.
@@ -29,7 +36,7 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
     send(new MouseEvent(type, { clientX: x, clientY: y, button: 0, buttons: pressed ? 1 : 0, bubbles: true, cancelable: true }));
 
   const onWheel = (event: WheelEvent) => {
-    if (ours.has(event)) return;
+    if (ours.has(event) || own(event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const boost = event.ctrlKey ? PINCH_BOOST : WHEEL_BOOST;
@@ -42,10 +49,12 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
   // Safari: gesturechange carries the pinch's scale since it began.
   let gestureScale = 1;
   const onGestureStart = (event: Event) => {
+    if (own(event)) return;
     event.preventDefault();
     gestureScale = 1;
   };
   const onGestureChange = (event: Event) => {
+    if (own(event)) return;
     event.preventDefault();
     const { scale, clientX, clientY } = event as Event & { scale: number; clientX: number; clientY: number };
     zoom(scale / gestureScale, clientX, clientY);
@@ -67,6 +76,7 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
     pressed = false;
   };
   const onTouchStart = (event: TouchEvent) => {
+    if (own(event) || (onName(event) && event.touches.length === 1)) return;
     event.preventDefault();
     if (event.touches.length === 1) {
       // The camera pans by the pointer's move since its last frame: it must first see the finger where it lands,
@@ -81,6 +91,7 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
     }
   };
   const onTouchMove = (event: TouchEvent) => {
+    if (!one && !two) return;
     event.preventDefault();
     if (one && event.touches.length === 1) {
       one = { x: event.touches[0].clientX, y: event.touches[0].clientY };
@@ -94,6 +105,7 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
     }
   };
   const onTouchEnd = (event: TouchEvent) => {
+    if (!one && !two) return;
     event.preventDefault();
     if (one && !event.touches.length) {
       // A tap ends before the delayed press: press now, so the release and the click follow it.
@@ -106,20 +118,20 @@ export function installGestures(canvas: HTMLCanvasElement): () => void {
   };
 
   const options = { capture: true, passive: false } as const;
-  canvas.addEventListener("wheel", onWheel, options);
-  canvas.addEventListener("gesturestart", onGestureStart, options);
-  canvas.addEventListener("gesturechange", onGestureChange, options);
-  canvas.addEventListener("touchstart", onTouchStart, options);
-  canvas.addEventListener("touchmove", onTouchMove, options);
-  canvas.addEventListener("touchend", onTouchEnd, options);
-  canvas.addEventListener("touchcancel", onTouchEnd, options);
+  area.addEventListener("wheel", onWheel, options);
+  area.addEventListener("gesturestart", onGestureStart, options);
+  area.addEventListener("gesturechange", onGestureChange, options);
+  area.addEventListener("touchstart", onTouchStart, options);
+  area.addEventListener("touchmove", onTouchMove, options);
+  area.addEventListener("touchend", onTouchEnd, options);
+  area.addEventListener("touchcancel", onTouchEnd, options);
   return () => {
-    canvas.removeEventListener("wheel", onWheel, options);
-    canvas.removeEventListener("gesturestart", onGestureStart, options);
-    canvas.removeEventListener("gesturechange", onGestureChange, options);
-    canvas.removeEventListener("touchstart", onTouchStart, options);
-    canvas.removeEventListener("touchmove", onTouchMove, options);
-    canvas.removeEventListener("touchend", onTouchEnd, options);
-    canvas.removeEventListener("touchcancel", onTouchEnd, options);
+    area.removeEventListener("wheel", onWheel, options);
+    area.removeEventListener("gesturestart", onGestureStart, options);
+    area.removeEventListener("gesturechange", onGestureChange, options);
+    area.removeEventListener("touchstart", onTouchStart, options);
+    area.removeEventListener("touchmove", onTouchMove, options);
+    area.removeEventListener("touchend", onTouchEnd, options);
+    area.removeEventListener("touchcancel", onTouchEnd, options);
   };
 }

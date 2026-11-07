@@ -182,7 +182,7 @@
     const region = start.get("region");
     if (region && byId.has(region)) openRegion(region);
     addEventListener("resize", onResize);
-    removeGestures = installGestures(canvas);
+    removeGestures = installGestures(canvas, frame);
   });
 
   onDestroy(() => {
