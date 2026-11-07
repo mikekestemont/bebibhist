@@ -19,6 +19,7 @@ site/public/places.json
 site/public/places-prototype.json
 site/public/words/
 site/public/known/
+site/public/topics/
 site/dist/
 
 # Students' bulky intermediate outputs (reproducible; archived elsewhere)

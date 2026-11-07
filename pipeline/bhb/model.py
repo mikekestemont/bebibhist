@@ -151,6 +151,9 @@ class Record:
     # Languages of publication (ISO 639-1) a machine read in the title (``bhb language apply``), the main title's
     # first; a second one only for a title in two languages, never for the editors' bracketed translation.
     language_suggested: list[str] = field(default_factory=list)
+    # The entry's place on the topic map, in the unit square, and its finest region there (``bhb topicmap``).
+    topic_xy: list[float] = field(default_factory=list)
+    topic: str | None = None
     # Ids this entry had in earlier builds (a repaired printed number), so old links still find it (``bhb/ids.py``).
     former_ids: list[str] = field(default_factory=list)
 

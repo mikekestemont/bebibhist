@@ -66,6 +66,10 @@
   let mapPlaces = $derived(placesForMap((place) => place.lon !== null && place.lat !== null && place.level !== "area"));
   let mapElsewhere = $derived(placesForMap((place) => place.lon === null || place.level === "area"));
   let mapHover = $state<MapPlace | null>(null);
+  // The map of subjects (TopicMap.svelte), loaded with its WebGL library only when the page is first opened.
+  let TopicMap = $state<any>(null);
+  // Region names of the map of subjects, for the search's region filter chip.
+  let topicNames = $state<Record<string, { nl: string; fr: string; en: string }>>({});
   let mapBase = $state<{ country: string; regions: string[]; arrondissements: string[]; credit: string } | null>(null);
   // Historical boundaries per period (public/map-periods.json): territories in one year, dioceses in one century.
   type MapShape = { d: string; fr?: string; nl?: string; en?: string; x?: number; y?: number };
@@ -308,6 +312,8 @@
     if (places.length) filters.place = places;
     const journal = params.get("journal");
     if (journal) filters.journal = [journal];
+    const topic = params.get("topic");
+    if (topic) filters.topic = [topic];
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
@@ -348,6 +354,12 @@
       loading = false;
       return;
     }
+    if (path === "/topics") {
+      TopicMap ??= (await import("./TopicMap.svelte")).default;
+      loading = false;
+      return;
+    }
+    if (params.get("topic") && !Object.keys(topicNames).length) void loadTopicNames();
     if (path === "/browse") {
       await loadBrowse();
       loading = false;
@@ -569,6 +581,22 @@
     const title = meta.kind === "book" ? meta.title : meta.host;
     if (!(meta.kind === "chapter" && label === text.host) && label !== text.contents) return undefined;
     return `#/search?in=${meta.container}&inTitle=${encodeURIComponent(title || "")}`;
+  }
+
+  async function loadTopicNames() {
+    try {
+      const list: { id: string; name?: { nl: string; fr: string; en: string } }[] = await fetch(new URL(`${import.meta.env.BASE_URL}topics/regions.json`, document.baseURI).href).then((response) => response.json());
+      topicNames = Object.fromEntries(list.filter((region) => region.name).map((region) => [region.id, region.name!]));
+    } catch {
+      topicNames = {};
+    }
+  }
+
+  function removeTopic() {
+    const next = new URLSearchParams(params);
+    next.delete("topic");
+    next.delete("page");
+    go("/search", next);
   }
 
   function removeJournal() {
@@ -1134,6 +1162,7 @@
   </button>
   <div class="site-menu" class:open={menuOpen} id="site-menu" bind:this={menuPanel}>
     <a class="browse-link" href="#/browse" aria-current={path === "/browse" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.browse}</a>
+    <a class="browse-link" href="#/topics" aria-current={path === "/topics" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.topics}</a>
     <a class="browse-link" href="#/map" aria-current={path === "/map" ? "true" : undefined} onclick={() => { menuOpen = false; }}>{text.map}</a>
     <nav class="langs">
       {#each ["fr", "nl", "en"] as code}
@@ -1273,6 +1302,11 @@
           <li><button type="button" onclick={removeJournal} title={text.journalGrouped}>{text.journalChip} <em>{params.get("journalTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
         </ul>
       {/if}
+      {#if params.get("topic")}
+        <ul class="chips refine">
+          <li><button type="button" onclick={removeTopic}>{text.topicsChip} <em>{topicNames[params.get("topic") || ""]?.[lang] || "…"}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+        </ul>
+      {/if}
       {#if params.get("in")}
         <ul class="chips refine">
           <li><button type="button" onclick={removeInside}>{text.inVolume} <em>{params.get("inTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
@@ -1347,6 +1381,12 @@
       {/each}
     {/if}
   </main>
+{:else if path === "/topics"}
+  {#if TopicMap}
+    <TopicMap {text} {lang} initial={params} />
+  {:else}
+    <main class="wrap"><p>{text.topicsLoading}</p></main>
+  {/if}
 {:else if path === "/map"}
   <main class="wrap map-page">
     <h1>{text.map}</h1>

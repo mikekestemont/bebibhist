@@ -17,6 +17,9 @@ classify = ["scikit-learn>=1.4"]
 language = ["lingua-language-detector>=2.1"]
 embed = ["sentence-transformers>=3.0", "torch>=2.4", "numpy>=1.26", "scikit-learn>=1.4"]
 lock = ["pip-tools>=7.4"]
+# The map of subjects (bhb topicmap): UMAP, and the local model that names its regions (Apple silicon only, so
+# outside requirements.lock).
+topicmap = ["umap-learn==0.5.9.post2", "mlx-lm==0.32.2", "scikit-learn>=1.4"]
 
 [project.scripts]
 bhb = "bhb.cli:main"

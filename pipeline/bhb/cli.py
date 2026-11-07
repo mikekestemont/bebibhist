@@ -82,6 +82,12 @@ def main(argv: list[str] | None = None) -> None:
     places_sub = places.add_subparsers(dest="places_command", required=True)
     places_sub.add_parser("apply", help="write the indexed places into build/records.jsonl")
 
+    topicmap = sub.add_parser("topicmap", help="the topic map: layout, named regions, positions in the records")
+    topicmap_sub = topicmap.add_subparsers(dest="topicmap_command", required=True)
+    topicmap_sub.add_parser("layout", help="place every entry (UMAP) and cut the map into regions: build/topicmap/layout.npz")
+    topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
+    topicmap_sub.add_parser("apply", help="write each entry's position and region into build/records.jsonl")
+
     language = sub.add_parser("language", help="language of publication from the title (needs the language extra)")
     language_sub = language.add_subparsers(dest="language_command", required=True)
     language_sub.add_parser("apply", help="write suggested languages into build/records.jsonl")
@@ -287,6 +293,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "translate":
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
+        return
+    if args.command == "topicmap":
+        _topicmap(args.topicmap_command)
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -507,6 +516,44 @@ def _load_built_records() -> list[Record]:
     if not path.is_file():
         raise SystemExit("build/records.jsonl is missing; run bhb build first")
     return read_jsonl(path)
+
+
+def _topicmap(command: str) -> None:
+    import json
+
+    import numpy as np
+
+    from bhb import topicmap
+
+    folder = build_dir() / "topicmap"
+    folder.mkdir(parents=True, exist_ok=True)
+    layout_path, regions_path = folder / "layout.npz", folder / "regions.json"
+    curated = repo_root() / "data" / "curated" / "topic_regions.json"
+    path = build_dir() / "records.jsonl"
+    if command == "layout":
+        records = read_jsonl(path)
+        ids, xy = topicmap.layout(records, build_dir() / "vectors" / "BAAI__bge-m3.npz")
+        member, regions = topicmap.regions(xy)
+        np.savez(layout_path, ids=np.array(ids), xy=xy, member=member)
+        regions_path.write_text(json.dumps([region.__dict__ for region in regions]), encoding="utf-8")
+        print(f"topicmap: {len(ids)} entries placed, {len(regions)} regions → {layout_path}")
+        return
+    saved = np.load(layout_path, allow_pickle=False)
+    ids, xy, member = [str(i) for i in saved["ids"]], saved["xy"], saved["member"]
+    regions = [topicmap.Region(**row) for row in json.loads(regions_path.read_text(encoding="utf-8"))]
+    if command == "names":
+        records = read_jsonl(path)
+        texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
+        names = topicmap.name_regions(ids, xy, member, regions, texts, topicmap.Namer(folder / "names-cache.jsonl"))
+        fixed = topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
+        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}")
+        return
+    if command == "apply":
+        records = read_jsonl(path)
+        count = topicmap.apply(records, ids, xy, member, max(region.level for region in regions))
+        write_jsonl(path, records)
+        print(f"topicmap: {count} entries placed → {path}")
 
 
 def _similar(model_name: str | None, k: int | None, batch_size: int, records_path: Path | None) -> None:
