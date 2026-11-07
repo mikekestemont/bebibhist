@@ -66,7 +66,7 @@ def write_skos(
         "",
         f"{uri('scheme', 'bhb')} a skos:ConceptScheme ;",
         '    dcterms:title "Bibliographie de l\'Histoire de Belgique — classement"@fr, "Bibliografie van de Geschiedenis van België — indeling"@nl ;',
-        '    dcterms:license <https://creativecommons.org/licenses/by-nc/4.0/> .',
+        '    dcterms:license <https://creativecommons.org/licenses/by-nc-sa/4.0/> .',
         "",
     ]
     for facet, title in (("period", "periods"), ("theme", "themes")):

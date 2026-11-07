@@ -19,6 +19,8 @@ const journalsPath = new URL("../../data/curated/journals.csv", import.meta.url)
 const placesPath = new URL("../public/places.json", import.meta.url).pathname;
 // Entries per place, for the map and the place names on the site.
 const placeCounts = new Map();
+// Entries per place and period, for the map's choice of period: place → period → count.
+const placePeriods = new Map();
 // Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
 const browse = {};
 const wordsPath = new URL("../public/words", import.meta.url).pathname;
@@ -196,7 +198,7 @@ if (wasm.size < 1000) {
 await ensureEntry(outputPath, indexed);
 await writeKnownWords(`${outputPath}/index`, knownPath);
 await writeFile(browsePath, JSON.stringify(browse));
-await writePlaces(placesPath, placeCounts);
+await writePlaces(placesPath, placeCounts, placePeriods);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
 
@@ -346,8 +348,9 @@ async function loadJournals(path) {
   return new Map(rows.slice(1).map((row) => [row[column.id], row[column.title]]));
 }
 
-/** Every place the entries mention, with its names, its level and coordinates from the gazetteer, and its count. */
-async function writePlaces(path, counts) {
+/** Every place the entries mention, with its names, its level and coordinates from the gazetteer, its count, and
+ * its count per period (``p``, only the periods with entries). */
+async function writePlaces(path, counts, periods) {
   const rows = parseCsv(await readFile(gazetteerPath, "utf8"));
   const column = Object.fromEntries(rows[0].map((name, index) => [name, index]));
   const gazetteer = new Map(rows.slice(1).map((row) => [`nis:${row[column.nis]}`, row]));
@@ -358,17 +361,23 @@ async function writePlaces(path, counts) {
       places[key] = {
         fr: row[column.label_fr], nl: row[column.label_nl], de: row[column.label_de], en: row[column.label_en],
         level: row[column.level], lon: Number(row[column.lon]) || null, lat: Number(row[column.lat]) || null, n,
+        p: periods.get(key) || {},
       };
     } else {
       const name = key.replace(/^name:/, "");
-      places[key] = { fr: name, nl: name, de: name, en: name, level: "printed", lon: null, lat: null, n };
+      places[key] = { fr: name, nl: name, de: name, en: name, level: "printed", lon: null, lat: null, n, p: periods.get(key) || {} };
     }
   }
   await writeFile(path, JSON.stringify(places));
 }
 
 function countBrowse(values) {
-  for (const place of values.place || []) placeCounts.set(place, (placeCounts.get(place) || 0) + 1);
+  for (const place of values.place || []) {
+    placeCounts.set(place, (placeCounts.get(place) || 0) + 1);
+    const byPeriod = placePeriods.get(place) || {};
+    for (const period of values.period || []) byPeriod[period] = (byPeriod[period] || 0) + 1;
+    placePeriods.set(place, byPeriod);
+  }
   const year = Number(values.pubyear?.[0]);
   const decade = year ? String(Math.floor(year / 10) * 10) : "";
   for (const theme of values.theme || []) {

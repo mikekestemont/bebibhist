@@ -18,8 +18,8 @@ from bhb.model import Record
 
 NS = "http://www.loc.gov/mods/v3"
 XLINK = "http://www.w3.org/1999/xlink"
-DATA_LICENCE = "CC BY-NC 4.0"
-DATA_LICENCE_URL = "https://creativecommons.org/licenses/by-nc/4.0/"
+DATA_LICENCE = "CC BY-NC-SA 4.0"
+DATA_LICENCE_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/"
 ROLES = {
     "author": "aut",
     "editor": "edt",

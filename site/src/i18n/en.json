@@ -114,7 +114,7 @@
   "notFound": "This record is not in the index.",
   "beta": "Beta — printed volumes 1952–2008; partial export 2009–2017.",
   "team": "Project officer: Sofie Onghena (State Archives) · Digital architect: Mike Kestemont (University of Antwerp) · Scientific steering committee: Luc François (UGent), Michèle Galand (ULB, † 2026), Guy Vanthemsche (VUB) and Karel Velle (UGent).",
-  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Royal Commission of History. CC BY-NC 4.0.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Royal Commission of History. CC BY-NC-SA 4.0.",
   "commission": "Royal Commission of History",
   "address": [
     "Palace of the Academies",
@@ -144,8 +144,9 @@
       "paragraphs": [
         "The volumes for 1952–2017 were published each year in the <em>Revue belge de philologie et d’histoire</em> / <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. This site includes those printed volumes: the years 1952–2007 as transcribed into XML in 2023, and 1964, 1965 and 2008 taken from the journal PDF.",
         "From 2009 the entries are also typed into the library catalogue of the State Archives of Belgium. This site holds a partial export of that catalogue for 2009–2017. Later years are not here yet.",
-        "The bibliography is offered under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). If you reuse it, credit the Royal Commission of History. Commercial use is not permitted.",
-        "DOIs, ISBNs and ISSNs were found automatically, by title, author and year, in <a href=\"https://www.crossref.org/\">Crossref</a> and in the open data of the <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) and <a href=\"https://openlibrary.org/\">Open Library</a>. They are marked as such and have not been checked by hand."
+        "The bibliography is offered under CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike 4.0 International, https://creativecommons.org/licenses/by-nc-sa/4.0/). If you reuse it, credit the Royal Commission of History and share what you derive from it under the same licence. For commercial use, ask the Commission: it decides case by case.",
+        "DOIs, ISBNs and ISSNs were found automatically, by title, author and year, in <a href=\"https://www.crossref.org/\">Crossref</a> and in the open data of the <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) and <a href=\"https://openlibrary.org/\">Open Library</a>. They are marked as such and have not been checked by hand.",
+        "The map uses present-day boundaries from <a href=\"https://www.geoboundaries.org/\">geoBoundaries</a> (Eurostat, CC BY 4.0). The historical territories are Rombert Stapel’s (International Institute of Social History), <a href=\"https://doi.org/10.34894/PB9AT3\"><em>Mint Authorities of the Low Countries</em></a> (DataverseNL, CC BY-NC-SA 4.0), and the dioceses come from Rowan Dorin et al., <a href=\"https://purl.stanford.edu/rh195hm5975\"><em>Digital Atlas of Dioceses and Ecclesiastical Provinces in Late Medieval Europe (1200–1500)</em></a> (Stanford, CC BY 3.0). We simplified them for display."
       ]
     },
     {
@@ -166,7 +167,8 @@
     {
       "title": "People",
       "paragraphs": [
-        "Project officer: Sofie Onghena (State Archives). Digital architect: Prof. Mike Kestemont (University of Antwerp).",
+        "Sofie Onghena (State Archives) is the bibliography’s editor: she compiles its volumes and enters its records in the State Archives’ catalogue. This site owes much to her work.",
+        "Digital architect: Prof. Mike Kestemont (University of Antwerp).",
         "The scientific steering committee consists of Prof. Luc François (UGent), Prof. Michèle Galand (ULB, † 2026), Prof. Guy Vanthemsche (VUB) and Prof. em. Karel Velle (UGent).",
         "The scientific advisory committee consists of prof. dr. Paul Bertrand (UCL), prof. dr. Eric Bousmar (FUSL), Bart Cosyns (UGent), prof. dr. Georges Declercq (VUB), prof. dr. Michel de Waha (ULB), prof. dr. Sébastien Dubois (ARA - AGR), prof. dr. Catherine Lanneau (ULg), prof. dr. Isabelle Parmentier (UNamur), prof. dr. Philippe Raxhon (ULg), prof. dr. Peter Stabel (UA), prof. dr. Erik Thoen (UGent), Marie Van Eeckenrode (UCL – ARA), prof. dr. Dries Vanysacker (KULeuven)."
       ]
@@ -244,6 +246,12 @@
   "mapHint": "Point at a circle to see the place.",
   "mapTop": "Most indexed places",
   "mapElsewhere": "Regions, provinces and places abroad",
+  "mapAllPeriods": "All publications",
+  "mapTerritories": "Territories around {y}",
+  "mapDioceses": "Dioceses around {y}",
+  "mapLayerNote": "Approximate boundaries; places stay at their present-day location.",
+  "mapNoLayer": "No historical map for this period: present-day boundaries.",
+  "mapCreditPast": "Historical boundaries",
   "zoomIn": "Zoom in",
   "zoomOut": "Zoom out",
   "zoomReset": "Whole map",

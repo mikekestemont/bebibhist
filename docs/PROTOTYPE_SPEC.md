@@ -35,7 +35,7 @@ Commission royale d'Histoire*, **KCG-CRH**, https://commissionroyalehistoire.be)
 ### 1.2 Goal
 
 One **free, static, modern search website** over the *whole* bibliography (retro-digitised print volumes + the
-digital-born records), hosted on GitHub Pages, built locally, plus an **archival dataset** (MODS XML, CC BY-NC 4.0).
+digital-born records), hosted on GitHub Pages, built locally, plus an **archival dataset** (MODS XML, CC BY-NC-SA 4.0).
 This brief covers the **prototype** that will be demonstrated to the Commission.
 
 ### 1.3 History (why things look the way they do)
@@ -55,7 +55,7 @@ This brief covers the **prototype** that will be demonstrated to the Commission.
 |---|---|
 | Hosting | GitHub Pages, repository under Mike's GitHub account; no server, no paid services. |
 | Builds | Run locally (macOS, Apple Silicon). Python ≥ 3.10 is available (`python3`, miniconda). |
-| Licence | Data **CC BY-NC 4.0 with attribution, on the whole bibliography** (every year, the site, every download). Commercial use is not permitted. Code MIT. |
+| Licence | Data **CC BY-NC-SA 4.0 with attribution, on the whole bibliography** (every year, the site, every download). Commercial use only with the Commission's consent, case by case; derived data under the same licence. Code MIT. |
 | LLM APIs | **Not to be used** in the prototype. Local open models (embeddings) are fine. Since 31 Oct 2026 one exception: the citation clean-up pass through OpenRouter (`AGENTS.md`). |
 | Archival format | **MODS 3.8 XML**, one file per BGB year, written by the pipeline. |
 | Search engine | **Pagefind.** The P1 benchmark rejected live SQLite-over-HTTP (`sql.js-httpvfs`): see `docs/BENCHMARK.md`. |
@@ -453,10 +453,10 @@ French, Dutch and English are equal. The header toggle (FR / NL / EN) switches e
 7. **About** (`#/about`): what the bibliography is, the Commission, editors, **coverage table** (per BGB year: entries
    in this beta, source, completeness remark: "2009–2017: partial export from the ARA database; 2018 →: not yet
    included; full data in the ARA catalogue (link)"), methods (OCR by STRAIVE, parsing, automatic period facet and
-   similarity), the CC BY-NC 4.0 attribution for the bibliography as a whole, how to cite the dataset, contact.
+   similarity), the CC BY-NC-SA 4.0 attribution for the bibliography as a whole, how to cite the dataset, contact.
 8. **Open data** (`#/data`): download links (MODS per year as zip, CSV, RIS, BibTeX), the same attribution, schema notes.
 9. **Attribution on every page.** The footer (the copied Commission footer) also carries one line for the bibliography
-   as a whole: the dataset title, the Commission, and CC BY-NC 4.0. The same credit is in every download (CSV header
+   as a whole: the dataset title, the Commission, and CC BY-NC-SA 4.0. The same credit is in every download (CSV header
    comment, RIS/BibTeX note, MODS `accessCondition`). There is no year or source under a different licence.
 
 ### 6.4 Design

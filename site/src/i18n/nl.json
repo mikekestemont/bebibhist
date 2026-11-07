@@ -114,7 +114,7 @@
   "notFound": "Dit lemma staat niet in de index.",
   "beta": "Bèta — gedrukte delen 1952–2008; gedeeltelijke export 2009–2017.",
   "team": "Projectmedewerker: Sofie Onghena (Algemeen Rijksarchief) · Digitaal architect: Mike Kestemont (Universiteit Antwerpen) · Wetenschappelijke stuurgroep: Luc François (UGent), Michèle Galand (ULB, † 2026), Guy Vanthemsche (VUB) en Karel Velle (UGent).",
-  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Koninklijke Commissie voor Geschiedenis. CC BY-NC 4.0.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Koninklijke Commissie voor Geschiedenis. CC BY-NC-SA 4.0.",
   "commission": "Koninklijke Commissie voor Geschiedenis",
   "address": [
     "Paleis der Academiën",
@@ -144,8 +144,9 @@
       "paragraphs": [
         "De delen 1952–2017 verschenen jaarlijks in het <em>Belgisch Tijdschrift voor Filologie en Geschiedenis</em>. Deze site neemt die gedrukte delen op: de jaren 1952–2007 zoals ze in 2023 in XML zijn gezet, en 1964, 1965 en 2008 uit de PDF van het tijdschrift.",
         "Vanaf 2009 staan de lemma’s ook in de bibliotheekcatalogus van het Rijksarchief. Deze site bevat een gedeeltelijke export van die catalogus voor 2009–2017. Latere jaren zitten hier nog niet in.",
-        "De bibliografie wordt aangeboden onder CC BY-NC 4.0 (Naamsvermelding-NietCommercieel 4.0 Internationaal, https://creativecommons.org/licenses/by-nc/4.0/). Bij hergebruik vermeldt u de Koninklijke Commissie voor Geschiedenis. Commercieel gebruik is niet toegestaan.",
-        "DOI's, ISBN's en ISSN's werden automatisch gevonden, op titel, auteur en jaar, in <a href=\"https://www.crossref.org/\">Crossref</a> en in de open data van het <a href=\"https://www.ecoom.be/nl/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) en <a href=\"https://openlibrary.org/\">Open Library</a>. Ze zijn als zodanig gemarkeerd en niet met de hand gecontroleerd."
+        "De bibliografie wordt aangeboden onder CC BY-NC-SA 4.0 (Naamsvermelding-NietCommercieel-GelijkDelen 4.0 Internationaal, https://creativecommons.org/licenses/by-nc-sa/4.0/). Bij hergebruik vermeldt u de Koninklijke Commissie voor Geschiedenis en deelt u wat u ervan afleidt onder dezelfde licentie. Voor commercieel gebruik vraagt u de Commissie, die geval per geval beslist.",
+        "DOI's, ISBN's en ISSN's werden automatisch gevonden, op titel, auteur en jaar, in <a href=\"https://www.crossref.org/\">Crossref</a> en in de open data van het <a href=\"https://www.ecoom.be/nl/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) en <a href=\"https://openlibrary.org/\">Open Library</a>. Ze zijn als zodanig gemarkeerd en niet met de hand gecontroleerd.",
+        "De kaart gebruikt de huidige grenzen van <a href=\"https://www.geoboundaries.org/\">geoBoundaries</a> (Eurostat, CC BY 4.0). De historische gebieden komen van Rombert Stapel (Internationaal Instituut voor Sociale Geschiedenis), <a href=\"https://doi.org/10.34894/PB9AT3\"><em>Mint Authorities of the Low Countries</em></a> (DataverseNL, CC BY-NC-SA 4.0), de bisdommen van Rowan Dorin e.a., <a href=\"https://purl.stanford.edu/rh195hm5975\"><em>Digital Atlas of Dioceses and Ecclesiastical Provinces in Late Medieval Europe (1200–1500)</em></a> (Stanford, CC BY 3.0). Wij hebben ze vereenvoudigd voor de weergave."
       ]
     },
     {
@@ -166,7 +167,8 @@
     {
       "title": "Medewerkers",
       "paragraphs": [
-        "Projectmedewerker: Sofie Onghena (Algemeen Rijksarchief). Digitaal architect: prof. dr. Mike Kestemont (Universiteit Antwerpen).",
+        "Sofie Onghena (Algemeen Rijksarchief) is de redactrice van de bibliografie: zij stelt de jaargangen samen en voert de beschrijvingen in de catalogus van het Rijksarchief in. Deze site heeft veel aan haar werk te danken.",
+        "Digitaal architect: prof. dr. Mike Kestemont (Universiteit Antwerpen).",
         "De wetenschappelijke stuurgroep bestaat uit prof. dr. Luc François (UGent), prof. dr. Michèle Galand (ULB, † 2026), prof. dr. Guy Vanthemsche (VUB) en prof. em. dr. Karel Velle (UGent).",
         "De wetenschappelijke adviescommissie bestaat uit prof. dr. Paul Bertrand (UCL), prof. dr. Eric Bousmar (FUSL), Bart Cosyns (UGent), prof. dr. Georges Declercq (VUB), prof. dr. Michel de Waha (ULB), prof. dr. Sébastien Dubois (ARA - AGR), prof. dr. Catherine Lanneau (ULg), prof. dr. Isabelle Parmentier (UNamur), prof. dr. Philippe Raxhon (ULg), prof. dr. Peter Stabel (UA), prof. dr. Erik Thoen (UGent), Marie Van Eeckenrode (UCL – ARA), prof. dr. Dries Vanysacker (KULeuven)."
       ]
@@ -244,6 +246,12 @@
   "mapHint": "Wijs een cirkel aan om de plaats te zien.",
   "mapTop": "Meest geïndexeerde plaatsen",
   "mapElsewhere": "Streken, provincies en plaatsen in het buitenland",
+  "mapAllPeriods": "Alle publicaties",
+  "mapTerritories": "Gebieden rond {y}",
+  "mapDioceses": "Bisdommen rond {y}",
+  "mapLayerNote": "Grenzen bij benadering; de plaatsen staan op hun huidige ligging.",
+  "mapNoLayer": "Geen historische kaart voor deze periode: huidige grenzen.",
+  "mapCreditPast": "Historische grenzen",
   "zoomIn": "Inzoomen",
   "zoomOut": "Uitzoomen",
   "zoomReset": "Hele kaart",

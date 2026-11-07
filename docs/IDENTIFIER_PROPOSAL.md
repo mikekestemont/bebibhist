@@ -179,7 +179,7 @@ matched sources differ, as proposals for the citation clean-up pass.
 - Exports (BibTeX, RIS, MODS) carry the identifiers; MODS as `<identifier type="doi">` and so on.
 - Abstracts are **not shown** in the first version. They may feed search and similar publications at build time. Showing
   them is decided after checking the terms of the sources (Crossref and OpenAlex pass on publisher abstracts; the
-  copyright stays with the rights holder, and our data licence is CC BY-NC).
+  copyright stays with the rights holder, and our data licence is CC BY-NC-SA).
 
 ## 7. Effort and stop points
 

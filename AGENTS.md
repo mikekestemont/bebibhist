@@ -16,4 +16,4 @@ Ground rules:
   and English (decision of 2 Nov 2026; plan §5c). Local open models are allowed for everything else.
 - Record decisions you take on your own in `docs/DECISIONS.md` (one line each, with rationale).
 - Keep the printed citation text intact; flag machine-derived values.
-- The data are CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/). The code stays MIT.
+- The data are CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). The code stays MIT.

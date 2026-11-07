@@ -4,7 +4,7 @@
   import fr from "./i18n/fr.json";
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
-  import { HOST_MISSING, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -47,24 +47,32 @@
   let menuButton: HTMLButtonElement;
   let menuPanel: HTMLDivElement;
   // Places of the printed indexes (1993–2007), with names and coordinates from the gazetteer: places.json.
-  type PlaceInfo = { fr: string; nl: string; de: string; en: string; level: string; lon: number | null; lat: number | null; n: number };
+  type PlaceInfo = { fr: string; nl: string; de: string; en: string; level: string; lon: number | null; lat: number | null; n: number; p?: Record<string, number> };
   type MapPlace = PlaceInfo & { key: string };
   let placeInfo = $state<Record<string, PlaceInfo>>({});
   let placesLoading: Promise<void> | null = null;
-  let mapPlaces = $derived(
-    Object.entries(placeInfo)
-      .filter(([, place]) => place.lon !== null && place.lat !== null && place.level !== "area")
-      .map(([key, place]) => ({ ...place, key }))
-      .sort((a, b) => b.n - a.n),
-  );
-  let mapElsewhere = $derived(
-    Object.entries(placeInfo)
-      .filter(([, place]) => place.lon === null || place.level === "area")
-      .map(([key, place]) => ({ ...place, key }))
-      .sort((a, b) => b.n - a.n),
-  );
+  // The period chosen on the map (#/map?period=medieval): the counts of that period, and its historical layer.
+  const MAP_PERIODS = ["ancient", "medieval", "burgundian", "early-modern", "contemporary"];
+  let mapPeriod = $derived(path === "/map" && MAP_PERIODS.includes(params.get("period") || "") ? params.get("period")! : "");
+  let mapLayerKind = $derived(params.get("layer") === "dioceses" ? "dioceses" : "territories");
+  /** The places with their count in the chosen period (every entry when none is chosen), most frequent first. */
+  function placesForMap(keep: (place: PlaceInfo) => boolean): MapPlace[] {
+    return Object.entries(placeInfo)
+      .filter(([, place]) => keep(place))
+      .map(([key, place]) => ({ ...place, key, n: mapPeriod ? place.p?.[mapPeriod] || 0 : place.n }))
+      .filter((place) => place.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }
+  let mapPlaces = $derived(placesForMap((place) => place.lon !== null && place.lat !== null && place.level !== "area"));
+  let mapElsewhere = $derived(placesForMap((place) => place.lon === null || place.level === "area"));
   let mapHover = $state<MapPlace | null>(null);
   let mapBase = $state<{ country: string; regions: string[]; arrondissements: string[]; credit: string } | null>(null);
+  // Historical boundaries per period (public/map-periods.json): territories in one year, dioceses in one century.
+  type MapShape = { d: string; fr?: string; nl?: string; en?: string; x?: number; y?: number };
+  type MapLayer = { year: number; territories: MapShape[]; diocesesYear?: number; dioceses?: MapShape[] };
+  let mapHistory = $state<{ layers: Record<string, MapLayer>; credit: { territories: string; dioceses: string } } | null>(null);
+  let mapLayer = $derived(mapPeriod ? mapHistory?.layers[mapPeriod] : undefined);
+  let mapShapes = $derived(mapLayer ? (mapLayerKind === "dioceses" && mapLayer.dioceses ? mapLayer.dioceses : mapLayer.territories) : []);
   const MAP_W = 800;
   const MAP_H = 669;
   // The visible part of the map, as an SVG viewBox; zooming shrinks it, dragging moves it.
@@ -86,11 +94,13 @@
   async function loadMap() {
     if (mapBase) return;
     try {
-      const [base] = await Promise.all([
+      const [base, history] = await Promise.all([
         fetch(new URL(`${import.meta.env.BASE_URL}map-base.json`, document.baseURI).href).then((response) => response.json()),
+        fetch(new URL(`${import.meta.env.BASE_URL}map-periods.json`, document.baseURI).href).then((response) => (response.ok ? response.json() : null)).catch(() => null),
         loadPlaces(),
       ]);
       mapBase = base;
+      mapHistory = history;
     } catch {
       mapBase = null;
     }
@@ -154,6 +164,25 @@
 
   function placeName(place: MapPlace): string {
     return place[lang] || place.nl || place.fr;
+  }
+
+  /** The map page for a period (none: every entry) and a historical layer, as a link. */
+  function mapHref(period: string, layer = mapLayerKind): string {
+    const next = new URLSearchParams();
+    if (period) next.set("period", period);
+    if (period && layer === "dioceses") next.set("layer", layer);
+    const query = next.toString();
+    return `#/map${query ? `?${query}` : ""}`;
+  }
+
+  /** A source credit of map-periods.json, its address as a link. */
+  function linkedCredit(credit: string): string {
+    return escapeHtml(credit).replace(/https:\/\/\S+/, (url) => `<a href="${url}">${url.replace(/^https:\/\//, "")}</a>`);
+  }
+
+  /** A place's publications, in the chosen period when there is one. */
+  function placeHref(key: string): string {
+    return `#/search?place=${encodeURIComponent(key)}${mapPeriod ? `&period=${mapPeriod}` : ""}`;
   }
 
   function removePlace(key: string) {
@@ -1322,6 +1351,27 @@
   <main class="wrap map-page">
     <h1>{text.map}</h1>
     <p class="similar-note">{text.mapIntro}</p>
+    <nav class="map-periods" aria-label={text.periodsLabel}>
+      <a href={mapHref("")} aria-current={mapPeriod === "" ? "true" : undefined}>{text.mapAllPeriods}</a>
+      {#each MAP_PERIODS as period}
+        <a href={mapHref(period)} aria-current={mapPeriod === period ? "true" : undefined}>{label("period", period)}</a>
+      {/each}
+    </nav>
+    {#if mapPeriod}
+      <p class="map-layer-line">
+        {#if mapLayer}
+          {#if mapLayer.dioceses}
+            <a href={mapHref(mapPeriod, "territories")} aria-current={mapLayerKind === "territories" ? "true" : undefined}>{text.mapTerritories.replace("{y}", String(mapLayer.year))}</a>
+            <a href={mapHref(mapPeriod, "dioceses")} aria-current={mapLayerKind === "dioceses" ? "true" : undefined}>{text.mapDioceses.replace("{y}", String(mapLayer.diocesesYear))}</a>
+          {:else}
+            <span class="map-layer-only">{text.mapTerritories.replace("{y}", String(mapLayer.year))}</span>
+          {/if}
+          <span class="map-layer-note">{text.mapLayerNote}</span>
+        {:else}
+          <span class="map-layer-note">{text.mapNoLayer}</span>
+        {/if}
+      </p>
+    {/if}
     <div class="map-layout">
       <div class="map-frame">
       <svg
@@ -1335,13 +1385,16 @@
         onpointerup={onMapUp}
         onpointerleave={onMapUp}
       >
-        {#if mapBase}
+        {#if mapBase && mapLayer}
+          {#each mapShapes as shape, index}<path class={`past-shape past-${index % 5}`} class:diocese={mapLayerKind === "dioceses"} d={shape.d} />{/each}
+          <path class="base-country-now" d={mapBase.country} />
+        {:else if mapBase}
           <path class="base-country" d={mapBase.country} />
           {#each mapBase.arrondissements as d}<path class="base-arrondissement" d={d} />{/each}
           {#each mapBase.regions as d}<path class="base-region" d={d} />{/each}
         {/if}
         {#each mapPlaces as place (place.key)}
-          <a href={`#/search?place=${encodeURIComponent(place.key)}`} aria-label={`${placeName(place)}: ${place.n}`}>
+          <a href={placeHref(place.key)} aria-label={`${placeName(place)}: ${place.n}`}>
             <circle
               class="place"
               class:active={mapHover?.key === place.key}
@@ -1354,6 +1407,11 @@
             ><title>{placeName(place)} — {place.n}</title></circle>
           </a>
         {/each}
+        {#if mapLayer}
+          {#each mapShapes.filter((shape) => shape.x !== undefined) as shape}
+            <text class="past-label" class:diocese={mapLayerKind === "dioceses"} x={shape.x} y={shape.y} font-size={18 / mapZoom}>{shape[lang] || shape.en}</text>
+          {/each}
+        {/if}
       </svg>
       <div class="map-zoom">
         <button type="button" aria-label={text.zoomIn} title={text.zoomIn} onclick={() => zoomAt(1.6)}>+</button>
@@ -1361,6 +1419,9 @@
         <button type="button" aria-label={text.zoomReset} title={text.zoomReset} onclick={() => { view = { x: 0, y: 0, w: MAP_W, h: MAP_H }; }}>⟲</button>
       </div>
       {#if mapBase}<p class="map-credit">{mapBase.credit}</p>{/if}
+      {#if mapLayer && mapHistory}
+        <p class="map-credit">{text.mapCreditPast}: {@html linkedCredit(mapLayerKind === "dioceses" && mapLayer.dioceses ? mapHistory.credit.dioceses : mapHistory.credit.territories)}</p>
+      {/if}
       </div>
       <aside class="map-side">
         {#if mapHover}
@@ -1371,13 +1432,13 @@
         <h2>{text.mapTop}</h2>
         <ol class="map-list">
           {#each mapPlaces.slice(0, 12) as place (place.key)}
-            <li><a href={`#/search?place=${encodeURIComponent(place.key)}`}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
+            <li><a href={placeHref(place.key)}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
           {/each}
         </ol>
         <h2>{text.mapElsewhere}</h2>
         <ul class="map-list">
           {#each mapElsewhere.slice(0, 20) as place (place.key)}
-            <li><a href={`#/search?place=${encodeURIComponent(place.key)}`}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
+            <li><a href={placeHref(place.key)}>{placeName(place)}</a> <span class="tree-count">{place.n.toLocaleString(lang)}</span></li>
           {/each}
         </ul>
       </aside>

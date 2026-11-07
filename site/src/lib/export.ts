@@ -10,7 +10,7 @@ interface Name {
   given: string;
 }
 
-const DATA_RIGHTS = "CC BY-NC 4.0. https://creativecommons.org/licenses/by-nc/4.0/";
+const DATA_RIGHTS = "CC BY-NC-SA 4.0. https://creativecommons.org/licenses/by-nc-sa/4.0/";
 
 const BIB = {
   article: "article",
@@ -216,7 +216,7 @@ function mods(hit: Hit, source: string): string {
   if (meta.id) parts.push(`  <identifier type="bhb">${xml(meta.id)}</identifier>`);
   parts.push(`  <recordInfo><recordContentSource>${xml(source)}</recordContentSource></recordInfo>`);
   if (meta.citation) parts.push(`  <note type="printed citation">${xml(presentCitation(meta.citation))}</note>`);
-  parts.push(`  <accessCondition type="use and reproduction" xlink:href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</accessCondition>`);
+  parts.push(`  <accessCondition type="use and reproduction" xlink:href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</accessCondition>`);
   parts.push(`</mods>`, ``);
   return parts.join("\n");
 }

@@ -247,7 +247,7 @@ function emphasize(html: string, text: string): string {
   return html.replace(new RegExp(escapeRegExp(safe)), `<em>${safe}</em>`);
 }
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 

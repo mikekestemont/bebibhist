@@ -114,7 +114,7 @@
   "notFound": "Cette notice est introuvable dans l’index.",
   "beta": "Bêta — volumes imprimés 1952–2008 ; export partiel 2009–2017.",
   "team": "Collaboratrice de projet : Sofie Onghena (Archives générales du Royaume) · Architecte numérique : Mike Kestemont (Universiteit Antwerpen) · Comité scientifique de pilotage : Luc François (UGent), Michèle Galand (ULB, † 2026), Guy Vanthemsche (VUB) et Karel Velle (UGent).",
-  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Commission royale d’Histoire. CC BY-NC 4.0.",
+  "attribution": "Bibliographie de l’Histoire de Belgique / Bibliografie van de Geschiedenis van België, Commission royale d’Histoire. CC BY-NC-SA 4.0.",
   "commission": "Commission Royale d'Histoire",
   "address": [
     "Palais des Académies",
@@ -144,8 +144,9 @@
       "paragraphs": [
         "Les volumes 1952–2017 ont paru chaque année dans la <em>Revue belge de philologie et d’histoire</em>. Ce site reprend ces volumes imprimés : les années 1952–2007 telles qu’elles ont été transcrites en XML en 2023, et 1964, 1965 et 2008 à partir du PDF de la revue.",
         "Depuis 2009, les notices sont aussi saisies dans le catalogue de la bibliothèque des Archives de l’État. Ce site contient un export partiel de ce catalogue pour 2009–2017. Les années suivantes n’y figurent pas encore.",
-        "La bibliographie est proposée sous licence CC BY-NC 4.0 (Attribution - Pas d’Utilisation Commerciale 4.0 International, https://creativecommons.org/licenses/by-nc/4.0/). En cas de réutilisation, mentionnez la Commission royale d’Histoire. L’usage commercial n’est pas permis.",
-        "Les DOI, ISBN et ISSN ont été trouvés automatiquement, d’après le titre, l’auteur et l’année, dans <a href=\"https://www.crossref.org/\">Crossref</a> et dans les données ouvertes du <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) et dans <a href=\"https://openlibrary.org/\">Open Library</a>. Ils sont signalés comme tels et n’ont pas été vérifiés à la main."
+        "La bibliographie est proposée sous licence CC BY-NC-SA 4.0 (Attribution - Pas d’Utilisation Commerciale - Partage dans les Mêmes Conditions 4.0 International, https://creativecommons.org/licenses/by-nc-sa/4.0/). En cas de réutilisation, mentionnez la Commission royale d’Histoire et partagez ce que vous en tirez sous la même licence. Pour un usage commercial, adressez-vous à la Commission, qui en décide au cas par cas.",
+        "Les DOI, ISBN et ISSN ont été trouvés automatiquement, d’après le titre, l’auteur et l’année, dans <a href=\"https://www.crossref.org/\">Crossref</a> et dans les données ouvertes du <a href=\"https://www.ecoom.be/en/data-collections/vabb-shw\">VABB-SHW</a> (ECOOM, CC BY 4.0) et dans <a href=\"https://openlibrary.org/\">Open Library</a>. Ils sont signalés comme tels et n’ont pas été vérifiés à la main.",
+        "La carte utilise les limites actuelles de <a href=\"https://www.geoboundaries.org/\">geoBoundaries</a> (Eurostat, CC BY 4.0). Les territoires historiques proviennent de Rombert Stapel (Institut international d’histoire sociale), <a href=\"https://doi.org/10.34894/PB9AT3\"><em>Mint Authorities of the Low Countries</em></a> (DataverseNL, CC BY-NC-SA 4.0), et les diocèses de Rowan Dorin et al., <a href=\"https://purl.stanford.edu/rh195hm5975\"><em>Digital Atlas of Dioceses and Ecclesiastical Provinces in Late Medieval Europe (1200–1500)</em></a> (Stanford, CC BY 3.0). Nous les avons simplifiés pour l’affichage."
       ]
     },
     {
@@ -166,7 +167,8 @@
     {
       "title": "Collaborateurs",
       "paragraphs": [
-        "Collaboratrice de projet : Sofie Onghena (Archives générales du Royaume). Architecte numérique : prof. dr. Mike Kestemont (Universiteit Antwerpen).",
+        "Sofie Onghena (Archives générales du Royaume) est la rédactrice de la bibliographie : elle en compile les volumes et en saisit les notices dans le catalogue des Archives de l’État. Ce site doit beaucoup à son travail.",
+        "Architecte numérique : prof. dr. Mike Kestemont (Universiteit Antwerpen).",
         "Le comité scientifique de pilotage se compose de prof. dr. Luc François (UGent), prof. dr. Michèle Galand (ULB, † 2026), prof. dr. Guy Vanthemsche (VUB) et prof. ém. dr. Karel Velle (UGent).",
         "La commission scientifique consultative se compose de prof. dr. Paul Bertrand (UCL), prof. dr. Eric Bousmar (FUSL), Bart Cosyns (UGent), prof. dr. Georges Declercq (VUB), prof. dr. Michel de Waha (ULB), prof. dr. Sébastien Dubois (ARA - AGR), prof. dr. Catherine Lanneau (ULg), prof. dr. Isabelle Parmentier (UNamur), prof. dr. Philippe Raxhon (ULg), prof. dr. Peter Stabel (UA), prof. dr. Erik Thoen (UGent), Marie Van Eeckenrode (UCL – ARA), prof. dr. Dries Vanysacker (KULeuven)."
       ]
@@ -244,6 +246,12 @@
   "mapHint": "Survolez un cercle pour voir le lieu.",
   "mapTop": "Lieux les plus indexés",
   "mapElsewhere": "Régions, provinces et lieux à l’étranger",
+  "mapAllPeriods": "Toutes les publications",
+  "mapTerritories": "Territoires vers {y}",
+  "mapDioceses": "Diocèses vers {y}",
+  "mapLayerNote": "Frontières approximatives ; les lieux restent à leur emplacement actuel.",
+  "mapNoLayer": "Pas de carte historique pour cette période : frontières actuelles.",
+  "mapCreditPast": "Frontières historiques",
   "zoomIn": "Zoom avant",
   "zoomOut": "Zoom arrière",
   "zoomReset": "Toute la carte",

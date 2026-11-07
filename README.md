@@ -42,6 +42,6 @@ BNTL's interaction patterns.
 
 ## Licence
 
-The bibliography as a whole — site and downloads — is **CC BY-NC 4.0**
-(https://creativecommons.org/licenses/by-nc/4.0/): reuse with attribution to the Royal Commission for History,
-non-commercial only. Code: MIT.
+The bibliography as a whole — site and downloads — is **CC BY-NC-SA 4.0**
+(https://creativecommons.org/licenses/by-nc-sa/4.0/): reuse with attribution to the Royal Commission for History,
+under the same licence, non-commercial unless the Commission agrees (case by case). Code: MIT.

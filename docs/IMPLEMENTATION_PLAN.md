@@ -17,7 +17,7 @@ reproducible from the raw inputs on one laptop, so the bibliography stays cheap 
 integrates as much as it can with other open datasets, rather than rebuilding what they hold: identifiers and links
 from Crossref, OpenAlex, ORCID, VABB-SHW, Open Library, KBR's Belgian Bibliography, ISSN and, later, Wikidata and
 PeriodO, each credited and each value marked as machine-derived, while the bibliography's own records stay open in
-return (CC BY-NC 4.0, yearly releases).
+return (CC BY-NC-SA 4.0, yearly releases).
 
 **Principle for this phase:** keep it light. One static site, one CI workflow, two small curated CSV files, one
 small local classifier. No server, no new front-end framework, no LLM API (since 31 Oct, one exception: the citation clean-up pass, see

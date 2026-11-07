@@ -14,9 +14,9 @@ def test_release_packs_the_derived_records_and_credits_the_licence(tmp_path):
     assert "derived dataset, not the raw sources" in text
     assert "2026-10-11" in text
     assert "abc1234" in text
-    assert "CC BY-NC 4.0" in text
-    assert "https://creativecommons.org/licenses/by-nc/4.0/" in text
-    assert "CC BY 4.0" not in text.replace("CC BY-NC 4.0", "")
+    assert "CC BY-NC-SA 4.0" in text
+    assert "https://creativecommons.org/licenses/by-nc-sa/4.0/" in text
+    assert "CC BY 4.0" not in text.replace("CC BY-NC-SA 4.0", "")
     with gzip.open(tmp_path / "release" / "records.jsonl.gz", "rt", encoding="utf-8") as handle:
         packed = [json.loads(line) for line in handle if line.strip()]
     assert packed == rows
