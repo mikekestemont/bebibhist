@@ -65,7 +65,8 @@ def render_notes(counts: Counter[str], built_on: str, commit: str) -> str:
         [
             "",
             f"The bibliography as a whole is {DATA_LICENCE} ({DATA_LICENCE_URL}). "
-            "Credit the Royal Commission of History. Commercial use is not permitted.",
+            "Credit the Royal Commission of History and share what you derive under the same licence. "
+            "For commercial use, ask the Commission, which decides case by case.",
             "",
         ]
     )

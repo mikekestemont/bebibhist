@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "index": "node scripts/build-index.mjs && node scripts/build-topics.mjs",
+    "index": "node scripts/build-index.mjs && node --experimental-strip-types scripts/build-topics.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
