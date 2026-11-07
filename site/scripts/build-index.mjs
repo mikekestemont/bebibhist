@@ -5,6 +5,8 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/p
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
+import { keyWord } from "../src/lib/words.js";
+
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
 
@@ -100,7 +102,7 @@ for await (const line of lines) {
     url: `#/record/${encodeURIComponent(record.id)}`,
     // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
     // translations out and still count its hits exactly (the switch "also search machine translations").
-    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
+    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}${keyWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
       translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}`,
     language,
     meta: {
@@ -169,7 +171,8 @@ for await (const line of lines) {
       container: container?.hash || "",
       containerCount: container ? String(container.count) : "",
     },
-    filters: countBrowse(filters(record)),
+    // Places and journal narrow a search through words (keyWords), not filters: their counts are never shown.
+    filters: withoutKeys(countBrowse(filters(record))),
     sort: sortKeys(record),
   });
   if (response.errors?.length) {
@@ -343,6 +346,18 @@ function containerOf(record, counts) {
 
 /** Precomputed neighbours as "id score|id score", read by the similar-publications page. */
 /** Subject area → period → decade of publication, with counts; the same values as the Pagefind filters. */
+/** The words that let a search be narrowed to the entry's places or its journal (src/lib/words.js). */
+function keyWords(record) {
+  const words = (record.place_ids || []).map((place) => keyWord("pl", place));
+  if (record.journal_id) words.push(keyWord("jn", record.journal_id));
+  return words.map((word) => ` ${word}`).join("");
+}
+
+function withoutKeys(values) {
+  const { place, journal, ...kept } = values;
+  return kept;
+}
+
 /** The words that mark the entry's regions on the map of subjects, at every level, so a region opens as a search
  * (#/search?topic=…). Words, not a filter: Pagefind counts every filter value on every search, and 744 more values
  * made all searches slower (7 Nov 2026). The same format as ``regionWord`` in src/lib/topics.ts. */

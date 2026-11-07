@@ -5,6 +5,7 @@
   import nl from "./i18n/nl.json";
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
   import { regionWord } from "./lib/topics";
+  import { keyWord } from "./lib/words.js";
   import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -38,6 +39,8 @@
   let exporting = $state(false);
   let listed: { data: () => Promise<Hit> }[] = [];
   let yearCounts = $state<Record<string, number>>({});
+  // Counts up with every search, so that a late year histogram from an earlier search is not shown.
+  let yearTicket = 0;
   let fieldChoice = $state("all");
   let dragFrom = $state<number | null>(null);
   let dragTo = $state<number | null>(null);
@@ -309,10 +312,6 @@
       const values = params.getAll(group);
       if (values.length) filters[group] = values;
     }
-    const places = params.getAll("place");
-    if (places.length) filters.place = places;
-    const journal = params.get("journal");
-    if (journal) filters.journal = [journal];
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
@@ -390,9 +389,15 @@
     const inside = params.get("in");
     const field = searchField(fieldChoice);
     const translations = withTranslations();
-    // Within a volume, or within a region of the map of subjects: words the index adds to those records.
+    // Within a volume, a region of the map of subjects, places or a journal: words the index adds to those records.
     const topic = params.get("topic");
-    const within = [inside ? `hk_${inside}` : "", topic ? regionWord(topic) : ""].filter(Boolean).join(" ");
+    const journal = params.get("journal");
+    const within = [
+      inside ? `hk_${inside}` : "",
+      topic ? regionWord(topic) : "",
+      ...params.getAll("place").map((place) => keyWord("pl", place)),
+      journal ? keyWord("jn", journal) : "",
+    ].filter(Boolean).join(" ");
     const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
     const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
@@ -414,19 +419,27 @@
       );
       scope = nextScope;
     }
+    const ticket = ++yearTicket;
+    if (!filters?.pubyear || unknown.length) yearCounts = { ...(response.filters?.pubyear || {}) };
+    const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
+    hits = await Promise.all(slice.map((item) => item.data()));
+    // With a year range, the year filter shows the counts of every year, so it needs the same search without the
+    // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
+    // it waits until the results have been painted (a frame, then a task), or it would hold them back.
     if (filters?.pubyear && !unknown.length) {
       const rest = { ...filters };
       delete rest.pubyear;
-      const broad = await engine.search(loose || asked, {
-        ...(Object.keys(rest).length ? { filters: rest } : {}),
-        ...(sort ? { sort } : {}),
-      });
-      yearCounts = { ...(broad.filters?.pubyear || {}) };
-    } else {
-      yearCounts = { ...(response.filters?.pubyear || {}) };
+      const search = engine;
+      requestAnimationFrame(() => setTimeout(() => {
+        if (ticket !== yearTicket) return;
+        void search.search(loose || asked, {
+          ...(Object.keys(rest).length ? { filters: rest } : {}),
+          ...(sort ? { sort } : {}),
+        }).then((broad) => {
+          if (ticket === yearTicket) yearCounts = { ...(broad.filters?.pubyear || {}) };
+        }).catch(() => {});
+      }, 0));
     }
-    const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
-    hits = await Promise.all(slice.map((item) => item.data()));
     // Checked after the results are shown, so it never delays them.
     const spellingFor = askedText;
     spelling = [];

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { decodePoints, matchQuery, regionWord, shardOf, tokens, undelta } from "../src/lib/topics.ts";
+import { keyWord } from "../src/lib/words.js";
 
 test("words are folded and function words left out, in the four languages", () => {
   assert.deepEqual(tokens("Les béguinages de Gand en het Begijnhof"), ["beguinages", "gand", "begijnhof"]);
@@ -46,4 +47,11 @@ test("a region's search word has one length, so none begins another", () => {
   assert.equal(regionWord("r1.1"), "rg_1001");
   assert.ok(!regionWord("r1.10").startsWith(regionWord("r1.1")));
   assert.equal(regionWord("r3.599"), "rg_3599");
+});
+
+test("a place or journal word is a tag and ten digits, the same for the same id", () => {
+  assert.match(keyWord("pl", "nis:44021"), /^pl_\d{10}$/);
+  assert.equal(keyWord("pl", "nis:44021"), keyWord("pl", "nis:44021"));
+  assert.notEqual(keyWord("pl", "nis:44021"), keyWord("pl", "nis:44022"));
+  assert.match(keyWord("jn", "t:biekorf"), /^jn_\d{10}$/);
 });
