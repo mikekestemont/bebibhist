@@ -516,6 +516,17 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
 Order: 1, 2, 3, 4, 6, 7 first (rules, a day or two, then a release); then 8 and 11; then 5, 9, 10, 12, 13; 14 after
 the meeting decides the address. Every fix gets a test on the record ids above.
 
+## 4g. To do: a trailer for the site (Mike, 8 Nov 2026)
+
+A short motion-graphics trailer (about a minute) that shows what the bibliography is and makes historians want to
+use it: an HTML page animated with GSAP, rendered frame by frame to MP4 with ffmpeg, with music. Leave each text on
+screen long enough to read (a pause of 0.5–1.5 s after every text moment), and check the sound by ear, not only the
+frames. What to show: the
+printed volumes since 1952 turned into one searchable list, a search typed and its results, the map of subjects,
+the places, and an entry with its DOI or KBR link. Build it once the site is stable (after the
+fixes of §4f and the new State Archives export), from real screens of the site; the source goes in the repository,
+the video beside the site, not in git.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |
