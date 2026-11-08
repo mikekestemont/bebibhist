@@ -5,6 +5,7 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import { scaleLinear } from "d3-scale";
   import createScatterplot from "regl-scatterplot";
+  import Waiting from "./Waiting.svelte";
   import { installGestures } from "./lib/gestures";
   import { PERIODS, THEMES, YEAR_BASE, decodePoints, matchQuery, shardOf, tokens, type CellTitle, type Points, type Region } from "./lib/topics";
 
@@ -29,6 +30,8 @@
   let points = $state.raw<Points | null>(null);
   let regions = $state.raw<Region[]>([]);
   let failed = $state(false);
+  // Set once the points are first drawn: until then the hourglass shows.
+  let drawn = $state(false);
   let width = $state(0);
   let height = $state(0);
   // Pixels per unit of the map and its offset, from the scatterplot's view: [scaleX, offsetX, scaleY, offsetY].
@@ -178,6 +181,7 @@
     });
     await redraw();
     fitAll(false);
+    drawn = true;
     if (query) void runSearch(query);
     const region = start.get("region");
     if (region && byId.has(region)) openRegion(region);
@@ -575,8 +579,8 @@
     <canvas bind:this={canvas} class="topics-canvas" aria-label={text.topics}></canvas>
     {#if failed}
       <p class="topics-status">{text.topicsFailed}</p>
-    {:else if !points}
-      <p class="topics-status">{text.topicsLoading}</p>
+    {:else if !drawn}
+      <div class="topics-status"><Waiting message={text.topicsLoading} large /></div>
     {/if}
 
     <div class="topics-labels" aria-hidden="false">

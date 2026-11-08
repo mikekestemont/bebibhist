@@ -881,7 +881,7 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 }
 .topics-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
 .topics-canvas:active { cursor: grabbing; }
-.topics-status { position: absolute; top: 45%; width: 100%; text-align: center; color: #6b6e73; }
+.topics-status { position: absolute; top: 36%; left: 0; right: 0; display: flex; justify-content: center; }
 .topics-labels { position: absolute; inset: 0; pointer-events: none; }
 .topics-label {
   position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
@@ -964,4 +964,19 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .topics-filters { flex-direction: row; }
   .topics-axis .minor { display: none; }
   .topics-panel { top: auto; left: 0.4rem; right: 0.4rem; bottom: 0.4rem; width: auto; max-height: 55%; }
+}
+
+/* Waiting (Waiting.svelte): the Commission's hourglass, turned over every 2.4 seconds, after a short rest. */
+.waiting { display: flex; align-items: center; gap: 0.7rem; margin: 1.4rem 0; color: #52555a; font-size: 15px; animation: waiting-in 0.3s ease-out 0.25s both; }
+.waiting .hourglass { width: 1.05rem; height: 2.1rem; flex: none; transform-box: fill-box; transform-origin: 50% 50%; animation: hourglass-turn 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.waiting.large { flex-direction: column; justify-content: center; gap: 0.9rem; font-size: 16px; }
+.waiting.large .hourglass { width: 1.6rem; height: 3.2rem; }
+@keyframes hourglass-turn {
+  0%, 30% { transform: rotate(0deg); }
+  50%, 80% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes waiting-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .waiting .hourglass { animation: none; }
 }

@@ -6,6 +6,7 @@
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
+  import Waiting from "./Waiting.svelte";
   import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -1203,7 +1204,7 @@
   <main class="wrap">
     <p><a href="#/search?{sessionStorage.getItem("bhb-search") || ""}">{text.back}</a></p>
     {#if loading}
-      <p>{text.loading}</p>
+      <Waiting message={text.loading} />
     {:else if record}
       <h1>
         {#if record.meta.kind === "book" || record.meta.kind === "journal-issue"}<em>{record.meta.title}</em>{:else}{record.meta.title}{/if}
@@ -1349,7 +1350,7 @@
         <p class="did-you-mean">{text.didYouMean} <a href={correctedHref()}>{correctedQuery()}</a>?</p>
       {/if}
       {#if loading && hits.length === 0}
-        <p>{text.loading}</p>
+        <Waiting message={text.loading} />
       {:else if missing}
         <p>{text.missing}</p>
       {:else if total === 0}
@@ -1376,7 +1377,7 @@
               <h2>{text.related}</h2>
               <p class="similar-note">{text.relatedNote}</p>
               {#if relatedLoading}
-                <p>{text.loading}</p>
+                <Waiting message={text.loading} />
               {:else if related.length === 0}
                 <p>{text.relatedNone}</p>
               {:else}
@@ -1398,7 +1399,7 @@
       <p class="similar-for">{text.similarFor} <a href={similarSource.url}>{@html citationHtml(similarSource.meta.citation || similarSource.meta.title, similarSource.meta, text.yearFromHost, text.volumeFromEntry, text.hostMatched, text.hostMissing, text.hostMissingNote, text.yearFromShort)}</a></p>
     {/if}
     {#if loading && similarHits.length === 0}
-      <p>{text.loading}</p>
+      <Waiting message={text.loading} />
     {:else if similarHits.length === 0}
       <p>{text.similarNone}</p>
     {:else}
@@ -1411,7 +1412,7 @@
   {#if TopicMap}
     <TopicMap {text} {lang} initial={params} />
   {:else}
-    <main class="wrap"><p>{text.topicsLoading}</p></main>
+    <main class="wrap"><Waiting message={text.topicsLoading} large /></main>
   {/if}
 {:else if path === "/map"}
   <main class="wrap map-page">
