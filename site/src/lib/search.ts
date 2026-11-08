@@ -283,10 +283,17 @@ let engine: Pagefind | null = null;
 
 export async function loadEngine(): Promise<Pagefind> {
   if (engine) return engine;
-  const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
   // Resolve against the page, not the bundle. A relative import from /assets/
   // would request /assets/pagefind/, where the index is not deployed.
-  const loaded = await importer(new URL(`${import.meta.env.BASE_URL}pagefind/pagefind.js`, document.baseURI).href);
+  const url = new URL(`${import.meta.env.BASE_URL}pagefind/pagefind.js`, document.baseURI).href;
+  let loaded: Pagefind;
+  try {
+    loaded = await workerPagefind(url);
+  } catch {
+    // A browser without module workers computes on the page's thread, as before.
+    const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
+    loaded = await importer(url);
+  }
   await loaded.options({ ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
   await loaded.init();
   await loaded.filters();
@@ -295,6 +302,47 @@ export async function loadEngine(): Promise<Pagefind> {
     return loaded.search(query, options);
   } };
   return engine;
+}
+
+/**
+ * Pagefind in a worker (pagefind-worker.ts), behind the same functions: the page's thread stays free while a
+ * search computes, so the page answers and the hourglass keeps turning. A result's data is asked of the worker
+ * when the page needs it.
+ */
+async function workerPagefind(url: string): Promise<Pagefind> {
+  const worker = new Worker(new URL("./pagefind-worker.ts", import.meta.url), { type: "module" });
+  const waiting = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
+  let next = 0;
+  const failed = new Promise<never>((_, reject) => {
+    worker.onerror = (event) => {
+      event.preventDefault();
+      reject(new Error(event.message || "worker failed"));
+    };
+  });
+  worker.onmessage = (event: MessageEvent<{ id: number; value?: unknown; error?: string }>) => {
+    const { id, value, error } = event.data;
+    const call = waiting.get(id);
+    waiting.delete(id);
+    if (error) call?.reject(new Error(error));
+    else call?.resolve(value);
+  };
+  const call = <T>(method: string, ...args: unknown[]): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      const id = (next += 1);
+      waiting.set(id, { resolve, reject });
+      worker.postMessage({ id, method, args });
+    });
+  await Promise.race([call("load", url), failed]);
+  return {
+    init: () => call("init"),
+    filters: () => call("filters"),
+    options: (settings) => call("options", settings),
+    preload: (query) => call("preload", query),
+    search: async (query, options) => {
+      const response = await call<{ results: { id: string }[]; filters?: Record<string, Record<string, number>> }>("search", query, options);
+      return { ...response, results: response.results.map((result) => ({ ...result, data: () => call<Hit>("data", result.id) })) };
+    },
+  };
 }
 
 const preloaded = new Set<string>();

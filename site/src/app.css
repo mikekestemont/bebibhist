@@ -968,7 +968,8 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 /* Waiting (Waiting.svelte): the Commission's hourglass, turned over at once and then every 2.4 seconds. */
 .waiting { display: flex; align-items: center; gap: 0.7rem; margin: 1.4rem 0; color: #52555a; font-size: 15px; }
-.waiting .hourglass { width: 1.05rem; height: 2.1rem; flex: none; transform-box: fill-box; transform-origin: 50% 50%; animation: hourglass-turn 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.waiting .hourglass { display: block; width: 1.05rem; height: 2.1rem; flex: none; transform-origin: 50% 50%; will-change: transform; animation: hourglass-turn 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.waiting .hourglass svg { display: block; width: 100%; height: 100%; }
 .waiting.large { flex-direction: column; justify-content: center; gap: 0.9rem; font-size: 16px; }
 .waiting.large .hourglass { width: 1.6rem; height: 3.2rem; }
 @keyframes hourglass-turn {
