@@ -127,16 +127,6 @@ export function editorsBeforeHost(citation: string, host?: string): string {
   return joinNames(names);
 }
 
-/** Drop host editors that the index still repeats among the chapter’s authors. */
-export function authorsWithout(authors: string | undefined, editors: string): string | undefined {
-  if (!authors) return authors;
-  if (!editors) return authors;
-  const drop = new Set(splitNames(editors));
-  const kept = splitNames(authors).filter((name) => !drop.has(name));
-  if (kept.length === 0) return undefined;
-  return joinNames(kept);
-}
-
 function splitNames(value: string): string[] {
   return value
     .split(/\s*(?:,|&)\s*|\s+et\s+|\s+en\s+/)

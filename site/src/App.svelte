@@ -6,7 +6,7 @@
   import { EXPORT_CAP, saveExport, saveExports, type ExportKind } from "./lib/export";
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
-  import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, authorsWithout, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -535,7 +535,7 @@
     const work = meta.kind === "book" || meta.kind === "journal-issue";
     const editors = meta.hostEditors?.trim() || editorsBeforeHost(meta.citation || "", meta.host);
     const pairs: [string, string | undefined, boolean?][] = [
-      [text.author, authorsWithout(meta.authors, editors)],
+      [text.author, meta.authors],
       // A collected volume's own editors; a chapter's editors are its host's, below.
       [text.hostEditors, meta.editors],
       [text.fieldTitle, meta.title, work],
