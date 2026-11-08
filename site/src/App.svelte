@@ -383,7 +383,10 @@
       return;
     }
     sessionStorage.setItem("bhb-search", params.toString());
-    if (hits.length === 0) loading = true;
+    if (hits.length === 0) {
+      loading = true;
+      await painted();
+    }
     const filters = activeFilters();
     const sort = sortOf(params.get("sort"));
     const askedText = [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ");
@@ -606,6 +609,15 @@
     const title = meta.kind === "book" ? meta.title : meta.host;
     if (!(meta.kind === "chapter" && label === text.host) && label !== text.contents) return undefined;
     return `#/search?in=${meta.container}&inTitle=${encodeURIComponent(title || "")}`;
+  }
+
+  /** Two frames, so the hourglass is painted and turning before Pagefind's work holds up the page's thread; at most
+   * 50 ms, since a tab in the background gets no frames. */
+  function painted(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      setTimeout(resolve, 50);
+    });
   }
 
   async function loadTopicNames() {
@@ -934,7 +946,8 @@
     window.addEventListener("hashchange", onHash);
     window.addEventListener("popstate", onHash);
     readRoute();
-    loadEngine()
+    painted()
+      .then(loadEngine)
       .then((loaded) => {
         engine = loaded;
         return refresh();

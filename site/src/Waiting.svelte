@@ -1,7 +1,6 @@
 <script lang="ts">
-  // The Commission's hourglass (its logo, as in the favicon), turned over and over while results are fetched, with a
-  // short message. It appears after a quarter of a second, so a quick answer does not flash it, and it stands still
-  // for readers who ask their system for less motion.
+  // The Commission's hourglass (its logo, as in the favicon), turned over at once and then again and again while
+  // results are fetched, with a short message. It stands still for readers who ask their system for less motion.
   let { message, large = false }: { message: string; large?: boolean } = $props();
 </script>
 
