@@ -909,6 +909,14 @@
     go("/search", next);
   }
 
+  /** Closes the open record and goes to the top when a link of the site inside it is followed (see resultRow). */
+  function leaveRecord(event: MouseEvent) {
+    const link = (event.target as Element).closest?.("a[href^='#/']");
+    if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    openId = "";
+    window.scrollTo(0, 0);
+  }
+
   function turn(nextPage: number) {
     const next = new URLSearchParams(params);
     next.set("page", String(nextPage));
@@ -1134,7 +1142,11 @@
       <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
     {#if open}
-      <div class="expanded">
+      <!-- A click on a link of the site inside an open record (an author, a journal, a place, a subject) starts a new
+           search or opens a page: the record closes and the page goes to the top, so the reader sees the new list and
+           its count, not the record they left. Keyboard users reach the links themselves, so no key handler is needed. -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <div class="expanded" onclick={leaveRecord}>
         {#if rows(hit).length}
           <dl class="fields">
             {#each rows(hit) as row}
