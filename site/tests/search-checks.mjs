@@ -1,13 +1,23 @@
 // Searches that must keep working, run against a built site before every deploy:
-//   npm run check -- http://localhost:4173/
+//   npx vite preview --port 4173 --base /bebibhist/   (then)   npm run check -- http://localhost:4173/bebibhist/
 // Each check opens a fresh page, as a first visitor would. Counts are ranges, so a new data release does not break
-// them; a check also fails when its first search takes longer than LIMIT_MS.
+// them; a check also fails when its first search takes longer than LIMIT_MS, and when the page or its search worker
+// reports an error or misses a file of the search index.
+//
+// The site must be served under a path, as GitHub Pages serves it (/bebibhist/): at the root, a file looked for at
+// the root is found, and the checks once passed while no search resolved on the published site (8 Nov 2026).
 import { chromium } from "playwright";
 
-const base = (process.argv[2] || "http://localhost:4173/").replace(/\/?$/, "/");
+const base = (process.argv[2] || "http://localhost:4173/bebibhist/").replace(/\/?$/, "/");
+if (new URL(base).pathname === "/") {
+  console.error(`Serve the site under a path, as GitHub Pages does (vite preview --base /bebibhist/), not at ${base}`);
+  process.exit(2);
+}
 const LIMIT_MS = 20000;
 
 const checks = [
+  // A plain word, the search that hung on the live site when the worker looked for the index at the root.
+  { name: "a plain word (bruaene)", hash: "#/search?q=bruaene", count: [60, 150], contains: /Van Bruaene/ },
   { name: "a word between two index chunks (béguinages)", hash: "#/search?q=b%C3%A9guinages", count: [1900, 2400], first: /b[ée]guin|begijn/i },
   { name: "another such word (abbaye, also through the title translations)", hash: "#/search?q=abbaye", count: [3800, 5200] },
   { name: "without the title translations (gewoonterecht)", hash: "#/search?q=gewoonterecht&tr=off", count: [5, 12] },
@@ -34,6 +44,15 @@ for (const check of checks) {
   const page = await browser.newPage();
   const started = Date.now();
   let problem = "";
+  // Errors of the page and of Pagefind's worker (whose console and requests Playwright reports on the page too),
+  // and files of the search index that could not be fetched.
+  const errors = [];
+  const note = (text) => errors.push(String(text).split("\n")[0]);
+  page.on("pageerror", (error) => note(`page error: ${error.message}`));
+  page.on("console", (message) => message.type() === "error" && note(`console: ${message.text()}`));
+  page.on("worker", (worker) => worker.on("console", (message) => message.type() === "error" && note(`worker: ${message.text()}`)));
+  page.on("response", (response) => response.url().includes("/pagefind/") && response.status() >= 400 && note(`${response.status()} ${response.url()}`));
+  page.on("requestfailed", (request) => request.url().includes("/pagefind/") && note(`failed ${request.url()}`));
   try {
     await page.goto(base + check.hash);
     if (check.count) {
@@ -63,6 +82,7 @@ for (const check of checks) {
   } catch (error) {
     problem = String(error.message || error).split("\n")[0];
   }
+  if (errors.length) problem = errors[0] + (problem ? ` (then: ${problem})` : "");
   const took = Date.now() - started;
   if (!problem && took > LIMIT_MS) problem = `took ${took} ms`;
   console.log(`${problem ? "FAIL" : "ok  "} ${check.name} (${took} ms)${problem ? ` — ${problem}` : ""}`);
