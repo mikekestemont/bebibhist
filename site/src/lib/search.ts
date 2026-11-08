@@ -270,7 +270,7 @@ interface Pagefind {
     query: string | null,
     options?: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
   ) => Promise<SearchResponse>;
-  options: (settings: { ranking?: { pageLength?: number } }) => Promise<void>;
+  options: (settings: { basePath?: string; ranking?: { pageLength?: number } }) => Promise<void>;
   preload: (query: string) => Promise<void>;
 }
 
@@ -294,7 +294,10 @@ export async function loadEngine(): Promise<Pagefind> {
     const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
     loaded = await importer(url);
   }
-  await loaded.options({ ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
+  // Pagefind finds its index next to its own script only on a page's thread; in a worker it falls back to
+  // "/pagefind/", which is not where the site is published (/bebibhist/pagefind/). So it is told.
+  const basePath = url.replace(/pagefind\.js$/, "");
+  await loaded.options({ basePath, ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
   await loaded.init();
   await loaded.filters();
   engine = { ...loaded, search: async (query, options) => {
