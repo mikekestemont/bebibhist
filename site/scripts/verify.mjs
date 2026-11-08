@@ -5,7 +5,8 @@
 import { spawn } from "node:child_process";
 
 const PORT = 4173;
-const base = `http://localhost:${PORT}/`;
+// Under /bebibhist/, as GitHub Pages serves it; the checks refuse a site served at the root.
+const base = `http://localhost:${PORT}/bebibhist/`;
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -26,7 +27,7 @@ async function waitFor(url, seconds) {
 
 if (!process.argv.includes("--no-index")) await run("npm", ["run", "index"]);
 await run("npm", ["run", "build"]);
-const preview = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], { stdio: "ignore" });
+const preview = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort", "--base", "/bebibhist/"], { stdio: "ignore" });
 try {
   await waitFor(base, 60);
   await run("npm", ["run", "check", "--", base]);
