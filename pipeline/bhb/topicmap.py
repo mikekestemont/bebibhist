@@ -341,6 +341,84 @@ def apply(records: list[Record], ids: list[str], xy: np.ndarray, member: np.ndar
     return count
 
 
+def repeated(regions_: list[Region], names: dict[str, dict[str, str]]) -> list[list[str]]:
+    """Groups of regions that would show the same name: at one level, or a region named like its parent (the
+    parent keeps its name). Compared in each language, folded."""
+    by_id = {region.id: region for region in regions_}
+    groups: dict[tuple, list[str]] = {}
+    for region in regions_:
+        name = names.get(region.id)
+        if not name:
+            continue
+        for language in ("nl", "en", "fr"):
+            groups.setdefault((region.level, language, fold(name[language])), []).append(region.id)
+    found = {tuple(sorted(ids)) for ids in groups.values() if len(ids) > 1}
+    for region in regions_:
+        parent = by_id.get(region.parent or "")
+        if parent and region.id in names and parent.id in names and any(
+                fold(names[region.id][language]) == fold(names[parent.id][language]) for language in ("nl", "en", "fr")):
+            found.add((region.id,))
+    return [list(ids) for ids in sorted(found)]
+
+
+def distinct_prompt(name: dict[str, str], level: int, titles: list[str], words: list[str], others: list[list[str]]) -> str:
+    listed = "\n".join(f"- {title}" for title in titles)
+    contrast = "\n".join(f"- {', '.join(other)}" for other in others if other) or "- (the larger region around it)"
+    short = "Use at most three words in each language and sentence case; " if level < len(LEVELS) else ""
+    return (
+        f"{INSTRUCTIONS}\n\nSeveral regions of the map are now called '{name['en']}' ('{name['nl']}', "
+        f"'{name['fr']}'), which readers cannot tell apart. Give this region a name that keeps that subject but says "
+        f"what sets it apart, from its own titles and words below: a place, a period, a kind of source or a narrower "
+        f"topic. {short}{"d" if short else "D"}o not reuse the shared name as it is.\n\nWords most typical of this region "
+        f"against the others of that name: {', '.join(words)}\n\nWords typical of the others:\n{contrast}\n\n"
+        f"Titles in this region (English translations):\n{listed}"
+    )
+
+
+def dedupe_names(ids: list[str], xy: np.ndarray, member: np.ndarray, regions_: list[Region], texts: dict[str, str],
+                 names: dict[str, dict[str, str]], namer: "Namer", rounds: int = 2, log=print) -> int:
+    """Rename the regions that share a name (``repeated``) so that each says what sets it apart; returns how many
+    were renamed. A name that comes back still shared is asked once more."""
+    finest = max(region.level for region in regions_)
+    paths = chain(regions_)
+    leaf_of = np.array([f"r{finest}.{k}" for k in member])
+    members: dict[str, list[int]] = {}
+    for index, leaf in enumerate(leaf_of):
+        for region_id in paths[leaf]:
+            members.setdefault(region_id, []).append(index)
+    by_id = {region.id: region for region in regions_}
+    renamed = 0
+    for _ in range(rounds):
+        groups = repeated(regions_, names)
+        if not groups:
+            break
+        todo, prompts = [], []
+        for group in groups:
+            texts_by = {rid: [texts.get(ids[i], "") for i in members.get(rid, [])] for rid in group}
+            if len(group) == 1:  # named like its parent: contrast with the parent's other parts
+                parent = by_id[group[0]].parent
+                siblings = [r.id for r in regions_ if r.parent == parent and r.id != group[0]]
+                texts_by.update({rid: [texts.get(ids[i], "") for i in members.get(rid, [])] for rid in siblings})
+            words = distinctive_words(texts_by, top=12)
+            for rid in group:
+                if rid in todo:
+                    continue
+                region = by_id[rid]
+                titles = sample_titles([ids[i] for i in members[rid]], xy[members[rid]], (region.x, region.y), texts, rid + "-distinct")
+                others = [words.get(other, [])[:8] for other in texts_by if other != rid]
+                todo.append(rid)
+                prompts.append(distinct_prompt(names[rid], region.level, titles[:20], words.get(rid, []), others[:6]))
+        for start in range(0, len(prompts), 8):
+            for rid, answer in zip(todo[start:start + 8], namer.ask_many(prompts[start:start + 8])):
+                if (name := parse_name(answer)) and all(fold(name[k]) != fold(names[rid][k]) for k in ("nl", "en")):
+                    names[rid] = name
+                    renamed += 1
+        log(f"topicmap: {len(todo)} regions with a shared name asked for a distinct one")
+    left = repeated(regions_, names)
+    log(f"topicmap: {renamed} regions renamed; {sum(len(g) for g in left)} still share a name")
+    return renamed
+
+
 def fix_names(names: dict[str, dict[str, str]], fixes: Path) -> int:
     """Apply the hand corrections of ``data/curated/topic_name_fixes.csv`` (language, wrong, right): a name that is
     exactly ``wrong`` in that language becomes ``right``. Returns the number of names corrected."""

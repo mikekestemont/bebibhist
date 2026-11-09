@@ -70,3 +70,18 @@ def test_hand_corrections_replace_a_whole_name_in_one_language(tmp_path):
     names = {"r1.0": {"en": "Namur and its region", "nl": "Namur en omgeving", "fr": "Namur et sa région"}}
     assert fix_names(names, fixes) == 1
     assert names["r1.0"] == {"en": "Namur and its region", "nl": "Namen en omgeving", "fr": "Namur et sa région"}
+
+
+def test_regions_that_would_show_the_same_name_are_found():
+    from bhb.topicmap import Region, repeated
+
+    regions_ = [Region("r1.0", 1, None, 0.1, 0.1, 10), Region("r1.1", 1, None, 0.9, 0.9, 10),
+                Region("r2.0", 2, "r1.0", 0.1, 0.1, 5), Region("r2.1", 2, "r1.0", 0.2, 0.2, 5)]
+    name = lambda nl, en, fr: {"nl": nl, "en": en, "fr": fr}
+    names = {"r1.0": name("Vroegmoderne Nederlanden", "Early modern Low Countries", "Pays-Bas modernes"),
+             "r1.1": name("Vroegmoderne Nederlanden", "Early modern Netherlands", "Pays-Bas modernes"),
+             "r2.0": name("Vroegmoderne Nederlanden", "Early modern Low Countries", "Pays-Bas modernes"),
+             "r2.1": name("Kerkelijk leven", "Church life", "Vie religieuse")}
+    found = repeated(regions_, names)
+    # Two at one level (in any language), and a child named like its parent (the parent keeps its name).
+    assert ["r1.0", "r1.1"] in found and ["r2.0"] in found and len(found) == 2

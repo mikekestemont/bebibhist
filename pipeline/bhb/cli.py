@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> None:
     topicmap_sub = topicmap.add_subparsers(dest="topicmap_command", required=True)
     topicmap_sub.add_parser("layout", help="place every entry (UMAP) and cut the map into regions: build/topicmap/layout.npz")
     topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
+    topicmap_sub.add_parser("dedupe", help="rename the regions that share a name (data/curated/topic_regions.json)")
     topicmap_sub.add_parser("apply", help="write each entry's position and region into build/records.jsonl")
 
     language = sub.add_parser("language", help="language of publication from the title (needs the language extra)")
@@ -570,10 +571,24 @@ def _topicmap(command: str) -> None:
     if command == "names":
         records = read_jsonl(path)
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
-        names = topicmap.name_regions(ids, xy, member, regions, texts, topicmap.Namer(folder / "names-cache.jsonl"))
+        namer = topicmap.Namer(folder / "names-cache.jsonl")
+        names = topicmap.name_regions(ids, xy, member, regions, texts, namer)
+        topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
+        # Hand corrections last, so they also reach the names the dedupe step made.
         fixed = topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
         curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}")
+        return
+    if command == "dedupe":
+        # The current names, with the regions that share a name renamed (also part of "names").
+        records = read_jsonl(path)
+        texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
+        document = json.loads(curated.read_text(encoding="utf-8"))
+        names = {row["id"]: row["name"] for row in document["regions"] if row.get("name")}
+        topicmap.dedupe_names(ids, xy, member, regions, texts, names, topicmap.Namer(folder / "names-cache.jsonl"))
+        topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
+        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"topicmap: names → {curated}")
         return
     if command == "apply":
         records = read_jsonl(path)
