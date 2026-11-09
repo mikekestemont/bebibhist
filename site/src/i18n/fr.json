@@ -15,6 +15,7 @@
   "yearFromVolume": "Année du volume",
   "yearFromHost": "Reprise du volume collectif que cette contribution cite. Elle n’est pas imprimée sur cette ligne.",
   "yearFromShort": "Complété : le volume imprimé donne l’année en deux chiffres.",
+  "yearNotPrinted": "Complété : le volume imprimé ne donne pas d’année ici ; cette année provient des données.",
   "imprintFromHost": "Repris du volume collectif que cette contribution cite. Ce n’est pas imprimé sur cette ligne.",
   "volumeFromEntry": "Repris du volume sous lequel cette contribution est listée : la notice imprimée le cite une seule fois, avant le sommaire.",
   "fieldSearch": "Chercher dans",

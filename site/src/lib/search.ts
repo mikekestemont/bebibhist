@@ -1,3 +1,4 @@
+import { personName, personWord } from "./words.js";
 export interface Hit {
   url: string;
   excerpt: string;
@@ -168,6 +169,7 @@ export function citationHtml(
   hostMissing = "",
   hostMissingNote = "",
   shortYearNote = "",
+  missingYearNote = "",
 ): string {
   const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
@@ -177,6 +179,7 @@ export function citationHtml(
     html = html.replace(meta.pubyear, `<span class="derived" title="${note}">${meta.pubyear}</span>`);
   }
   html = withFullYear(html, meta.pubyear, shortYearNote);
+  html = withMissingYear(html, meta.pubyear, missingYearNote);
   // The book's title and subtitle are italic wherever they stand after "In:", also after its editors
   // ("In: Deploige (Jeroen), Deneckere (Gita). Mystifying the Monarch").
   // A journal title stands after the article's title, without "In:".
@@ -219,6 +222,21 @@ function withFullYear(html: string, year: string | undefined, note: string): str
   if (found.length !== 1 || found[0].index === undefined) return html;
   const at = found[0].index + 2;
   return `${html.slice(0, at)} <span class="derived" title="${escapeHtml(note)}">[${year}]</span>${html.slice(at)}`;
+}
+
+/**
+ * A printed entry without any year (the volume's year was implied, about 10,000 entries of the early volumes): the
+ * year of the data at the end, in brackets and marked as supplied, so the result list shows it as the record does
+ * (Sébastien, 9 Nov 2026). Nothing is added when the text has a year of its own, even another one.
+ */
+function withMissingYear(html: string, year: string | undefined, note: string): string {
+  if (!year || !/^\d{4}$/.test(year) || year === "0000") return html;
+  const text = html.replace(/<[^>]*>/g, "");
+  if (/(?<!\d)(?:1[5-9]|20)\d\d(?!\d)/.test(text)) return html;
+  // A two-digit year that withFullYear could not place (it stands twice) is left as printed as well.
+  if (new RegExp(`,\\s${year.slice(2)}(?=\\s*[,.;]|$)`).test(text)) return html;
+  const span = ` <span class="derived" title="${escapeHtml(note)}">[${year}]</span>`;
+  return html.endsWith(".") ? `${html.slice(0, -1)}${span}.` : `${html}${span}`;
 }
 
 /** The volume goes before the pages, as in a printed chapter line, and is marked as supplied. */
@@ -397,6 +415,9 @@ export type SearchField = "all" | "author" | "title" | "host" | "series";
  * ``translations``, all text and title search the record's own words only, which the index repeats with a tag.
  */
 export function searchQuery(query: string, field: SearchField = "all", translations = true): string {
+  // An author searched by the name as the author row writes it: that person, as one word (``personWord``).
+  const name = field === "author" ? personName(query) : null;
+  if (name) return personWord(name[0], name[1]);
   const words = foldQuery(query).replace(/-/g, " ").split(/\s+/).filter(Boolean);
   if (field === "all" && translations) return words.join(" ");
   const tag = field === "all" ? "og" : field === "author" ? "au" : field === "title" ? (translations ? "ti" : "ot") : field === "series" ? "se" : "in";

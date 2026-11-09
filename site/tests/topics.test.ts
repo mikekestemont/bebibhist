@@ -55,3 +55,13 @@ test("a place or journal word is a tag and ten digits, the same for the same id"
   assert.notEqual(keyWord("pl", "nis:44021"), keyWord("pl", "nis:44022"));
   assert.match(keyWord("jn", "t:biekorf"), /^jn_\d{10}$/);
 });
+
+test("a name as the author row writes it is one word, the same for the same person", async () => {
+  const { personName, personWord } = await import("../src/lib/words.js");
+  assert.deepEqual(personName("Bertrand (Paul)"), ["Bertrand", "Paul"]);
+  assert.equal(personName("bertrand paul"), null);
+  assert.match(personWord("Bertrand", "Paul"), /^pn_\d{10}$/);
+  assert.equal(personWord("Bertrand", "Paul"), personWord("bertrand", "paul"));
+  assert.notEqual(personWord("Bertrand", "Paul"), personWord("Bertrand", "Jean-Pierre"));
+  assert.equal(personWord("Van Bruaene", "Anne-Laure"), personWord("Van Bruaene", "Anne-Laure"));
+});

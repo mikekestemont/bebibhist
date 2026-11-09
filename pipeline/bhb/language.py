@@ -91,6 +91,11 @@ FUNCTION_WORDS = {
     "en": {"the", "of", "and", "for", "with", "from", "to", "on", "between", "its", "their", "by", "into", "or", "not"},
     "de": {"der", "die", "das", "und", "im", "zur", "zum", "von", "mit", "über", "dem", "ein", "eine", "für", "auf",
            "aus", "bei", "zwischen", "einer", "eines", "vom"},
+    # Words of one of the rarer languages only, so that a Spanish title read as Latin by a hair ("Interiorización
+    # religiosa y propaganda hagiographica en los Paises Bajos …") is outvoted (Sébastien, 9 Nov 2026).
+    "es": {"los", "las", "y", "sus", "como"},
+    "it": {"della", "delle", "degli", "dei", "nel", "nella", "nelle", "negli", "alla", "alle", "gli", "dello", "sulla"},
+    "pt": {"dos", "das", "uma", "não", "às"},
 }
 _SHARED = {"de", "en", "in", "et", "la", "a", "al", "el", "il", "ad", "cum", "per"}
 _ALL_FUNCTION = set().union(*FUNCTION_WORDS.values()) | _SHARED
@@ -178,7 +183,7 @@ def decide(ranked: list[tuple[str, float]], text: str) -> Reading:
         allowed = True
     else:
         allowed = value >= OTHER_CONFIDENCE and value >= OTHER_LEAD * second and words >= OTHER_WORDS and (
-            not tally or value >= SEGMENT_LATIN)
+            not (set(tally) - {code}) or value >= SEGMENT_LATIN)
     contradicted = count >= 2 and voted != code and not tally[code]
     def reading(language: str, sure: bool) -> Reading:
         return Reading(language, confidence[language], words, sure, sum(tally.values()) - tally[language])

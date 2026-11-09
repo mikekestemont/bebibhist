@@ -15,6 +15,7 @@
   "yearFromVolume": "Year of the volume",
   "yearFromHost": "Taken from the collected volume this contribution cites. It is not printed on this line.",
   "yearFromShort": "Supplied: the printed volume gives the year in two digits.",
+  "yearNotPrinted": "Supplied: the printed volume gives no year here; this year comes from the data.",
   "imprintFromHost": "Taken from the collected volume this contribution cites. It is not printed on this line.",
   "volumeFromEntry": "Taken from the volume this contribution is listed under: the printed entry names it once, before its contents.",
   "fieldSearch": "Search in",

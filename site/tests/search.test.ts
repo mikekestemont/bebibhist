@@ -88,3 +88,11 @@ test("a hit found only through its title's translation says so", () => {
   assert.equal(foundThroughTranslation(content, "Brabant"), false);
   assert.equal(foundThroughTranslation("bhb:1990-2\nLa coutume", "coutume"), false);
 });
+
+test("a printed entry without any year shows the year of the data, in brackets and marked as supplied", () => {
+  const html = citationHtml("Stengers (Jean). Quelques notes sur la genèse. Mél. G. Smets. Bruxelles, p. 1–20.", { pubyear: "1952" }, "", "", "", "", "", "", "Aangevuld");
+  assert.match(html, /p\. 1–20 <span class="derived" title="Aangevuld">\[1952\]<\/span>\.$/);
+  // A year of its own, even another one, is left as printed.
+  assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Liège, 1950, 12 p.", { pubyear: "1951" }, "", "", "", "", "", "", "x"), /\[1951\]/);
+  assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Liège, 12 p.", { pubyear: "" }, "", "", "", "", "", "", "x"), /\[/);
+});

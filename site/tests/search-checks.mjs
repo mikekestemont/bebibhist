@@ -24,6 +24,8 @@ const checks = [
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
+  // A name as an author link writes it is that person: not an entry whose Paul and whose Bertrand are two people.
+  { name: "a person by name (Bertrand (Paul))", hash: "#/search?q=Bertrand%20(Paul)&field=author", count: [15, 30], lacks: /Bertrand \(Jean-Pierre\)/ },
   { name: "publication-year range (gent, 1990–1999)", hash: "#/search?q=gent&from=1990&to=1999", count: [500, 4000] },
   { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
   { name: "a record page (split chapter)", hash: "#/record/bhb%3A1996-13322-c5", selector: "main h1", contains: /Galbert/ },
@@ -71,6 +73,10 @@ for (const check of checks) {
       if (!problem && check.contains) {
         const all = (await page.locator(".result .citation").allTextContents()).join(" ");
         if (!check.contains.test(all)) problem = `no hit matches ${check.contains}`;
+      }
+      if (!problem && check.lacks) {
+        const all = (await page.locator(".result .citation").allTextContents()).join(" ");
+        if (check.lacks.test(all)) problem = `a hit matches ${check.lacks}`;
       }
     } else {
       await page.waitForSelector(check.selector, { timeout: check.limitMs || LIMIT_MS });

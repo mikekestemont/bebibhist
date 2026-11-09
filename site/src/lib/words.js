@@ -19,3 +19,23 @@ export function keyWord(tag, key) {
   const two = String(fnv(key, 2654435761) % 100000).padStart(5, "0");
   return `${tag}_${one}${two}`;
 }
+
+/** A person as the author row shows it, "Family (Given)", folded: the key of ``personWord``. */
+export function personKey(family, given) {
+  const norm = (text) => String(text || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  return `${norm(family)}|${norm(given)}`;
+}
+
+/**
+ * A person as one index word (tag "pn"), so that a search for a name, "Bertrand (Paul)", finds that person, and not
+ * an entry whose Paul and whose Bertrand are two people (Sébastien, 9 Nov 2026).
+ */
+export function personWord(family, given) {
+  return keyWord("pn", personKey(family, given));
+}
+
+/** "Family (Given)" → [family, given], as an author link writes a name; null for any other query. */
+export function personName(text) {
+  const match = String(text || "").trim().match(/^([^()]+?)\s*\(([^()]+)\)$/);
+  return match ? [match[1], match[2]] : null;
+}

@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/p
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
-import { keyWord } from "../src/lib/words.js";
+import { keyWord, personWord } from "../src/lib/words.js";
 
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
@@ -355,6 +355,10 @@ function keyWords(record) {
   // The entry's code of the classification and every code above it, so a subject of the tree opens with all the
   // entries of its sub-subjects (#/search?subject=III.D.2.b.).
   for (const code of codeChain(record)) words.push(keyWord("sc", code));
+  // Every person of the entry and the editors of its volume, each as one word, for a search by name.
+  for (const person of [...(record.persons || []), ...(record.host?.editors || [])]) {
+    if (person.family && person.given) words.push(personWord(person.family, person.given));
+  }
   return words.map((word) => ` ${word}`).join("");
 }
 
