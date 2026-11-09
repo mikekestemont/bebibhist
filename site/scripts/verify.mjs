@@ -28,7 +28,13 @@ async function waitFor(url, seconds) {
 if (!process.argv.includes("--no-index")) await run("npm", ["run", "index"]);
 await run("npm", ["run", "build"]);
 const preview = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort", "--base", "/bebibhist/"], { stdio: "ignore" });
+// With the port taken (another preview still running), vite stops at once and the checks would test that other
+// server instead: stop here and say so (9 Nov 2026).
+let exited = null;
+preview.on("exit", (code) => { exited = code; });
 try {
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+  if (exited !== null) throw new Error(`vite preview stopped (exit ${exited}): is port ${PORT} taken by another server?`);
   await waitFor(base, 60);
   await run("npm", ["run", "check", "--", base]);
 } finally {
