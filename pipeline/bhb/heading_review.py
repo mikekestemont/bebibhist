@@ -3,13 +3,15 @@
 The volumes up to 1992 print their own headings ("Betalingsmiddelen, banken en verzekeringsmaatschappijen"), worded
 anew from volume to volume; from 1993 on the volumes and the State Archives' records use the classification of
 ``data/curated/scheme.csv``. A heading is mapped once, not each entry under it: about 2,000 headings hold some 77,000
-entries. Two local models propose, nothing goes to an API:
+entries. Two models propose:
 
-- the classifier of ``bhb categorise`` (titles → code), whose predictions for all the entries under a heading,
+- the local classifier of ``bhb categorise`` (titles → code), whose predictions for all the entries under a heading,
   limited to the codes of the heading's period, are averaged: the share of each code;
-- Mistral Small 3.2 (``bhb.topicmap.Namer``, mlx-lm), which reads the heading itself, its place in the printed table
-  of contents and a few titles, and picks one of the classifier's candidates (or a sub-code of one), or answers that
-  the heading is too broad for one code (``BROAD``) or that none fits (``NONE``).
+- a language model that reads the heading itself, its place in the printed table of contents and a few titles, and
+  picks one of the codes offered, or answers that the heading is too broad for one code (``BROAD``) or that none fits
+  (``NONE``): by default Mistral Small through OpenRouter, the model of the citation pass, with the same pinned
+  version, EU routing and cache (Mike, 9 Nov 2026: the local Mistral Small 3.2 took about two minutes for eight
+  headings); ``--local`` keeps it on this machine (``bhb.topicmap.Namer``, mlx-lm).
 
 Headings that differ only in numbering, footnote marks, articles or plural endings are one group, asked once. The
 proposals go to ``build/headings/`` (a CSV and a spreadsheet to review, largest groups first), not into
@@ -37,6 +39,10 @@ WITH_CHILDREN = 4
 WITH_UPPER = 2
 MAX_OPTIONS = 32
 EXAMPLES = 8
+# The model of the citation pass (bhb/cli.py, ``citations run``), its version pinned in its id.
+MODEL = "mistralai/mistral-small-2603"
+SYSTEM = ("You map the headings of the printed Bibliography of Belgian History to the classification it has used "
+          "since 1993. Answer with the JSON asked for.")
 _STOP = set("le la les l d de des du et en a au aux un une dans sur par pour ou".split())
 
 
@@ -224,7 +230,36 @@ def _spread(items: list[str], n: int) -> list[str]:
     return [distinct[int(index * step)] for index in range(n)]
 
 
-def propose(records: list[Record], out: Path, limit: int | None = None, log=print) -> list[dict]:
+def ask_openrouter(prompts: list[str], offered: list[list[tuple[str, float | None]]], cache: Path, model: str = MODEL,
+                   workers: int = 6, log=print) -> list[str]:
+    """The answers through OpenRouter, each request cached (``bhb.citations.call``); the answer's code is limited by
+    the schema to the codes offered, BROAD and NONE. Returns each answer as JSON text, "" when a request failed."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bhb.citations import call, request_body
+
+    def ask(index: int):
+        codes = [code for code, _share in offered[index]] + ["BROAD", "NONE"]
+        schema = {"type": "object", "additionalProperties": False, "required": ["code", "fit"],
+                  "properties": {"code": {"type": "string", "enum": codes},
+                                 "fit": {"type": "string", "enum": ["same", "part", "wider"]}}}
+        return call(request_body(SYSTEM, prompts[index], schema, model, name="heading"), cache)
+
+    answers = [""] * len(prompts)
+    cost = 0.0
+    with ThreadPoolExecutor(workers) as pool:
+        for done, (index, reply) in enumerate(zip(range(len(prompts)), pool.map(ask, range(len(prompts)))), start=1):
+            cost += reply.cost
+            if reply.content is not None:
+                answers[index] = json.dumps(reply.content)
+            elif reply.error:
+                log(f"headings: request {index + 1} failed: {reply.error}")
+            if done % 100 == 0 or done == len(prompts):
+                log(f"headings: {done} of {len(prompts)} answered, ${cost:.2f} so far")
+    return answers
+
+
+def propose(records: list[Record], out: Path, limit: int | None = None, local: bool = False, log=print) -> list[dict]:
     """Proposals for every group of unreviewed old headings: ``out/proposals.csv`` and ``out/proposals.xlsx``."""
     from bhb.categorise import crosswalk_path, read_crosswalk
     from bhb.scheme import load_scheme, load_theme_map
@@ -239,11 +274,16 @@ def propose(records: list[Record], out: Path, limit: int | None = None, log=prin
     ordered = sorted(groups.values(), key=lambda group: -group.n)[:limit]
     offered = [options(group, scheme) for group in ordered]
     prompts = [prompt(group, items, scheme) for group, items in zip(ordered, offered)]
-    namer = Namer(out / "answers-cache.jsonl", log=log)
-    answers: list[str] = []
-    for start in range(0, len(prompts), 48):
-        answers += namer.ask_many(prompts[start : start + 48], max_tokens=40)
-        log(f"headings: {min(start + 48, len(prompts))} of {len(prompts)} groups answered")
+    if local:
+        namer = Namer(out / "answers-cache.jsonl", log=log)
+        answers: list[str] = []
+        for start in range(0, len(prompts), 48):
+            answers += namer.ask_many(prompts[start : start + 48], max_tokens=40)
+            log(f"headings: {min(start + 48, len(prompts))} of {len(prompts)} groups answered")
+    else:
+        from bhb.paths import build_dir
+
+        answers = ask_openrouter(prompts, offered, build_dir() / "cache" / "headings", log=log)
     result = []
     for rank, (group, items, answer) in enumerate(zip(ordered, offered, answers), start=1):
         code, fit = parse(answer, items)
@@ -268,6 +308,7 @@ def propose(records: list[Record], out: Path, limit: int | None = None, log=prin
             "classifier_first_share": f"{votes[0][1]:.2f}" if votes else "",
             "agreement": agreement(code, votes),
             "answer": (answer or "").strip(),
+            "model": "local Mistral-Small-3.2-24B (mlx)" if local else MODEL,
         })
     with (out / "proposals.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(result[0]))
@@ -279,13 +320,17 @@ def propose(records: list[Record], out: Path, limit: int | None = None, log=prin
 
 # The fits a heading may have to its code to be accepted without review: the same subject, or a part of it.
 ACCEPTED_FITS = ("same", "part")
+# A group needs this many entries: in a sample, the doubtful agreements were nearly all in groups of a few entries,
+# where the classifier's shares rest on two or three titles (9 Nov 2026).
+MIN_ENTRIES = 10
 
 
 def accepted(row: dict) -> bool:
     """A proposal taken without review: the model's code and the classifier's first candidate agree (the same code,
-    or the model's a finer or coarser code on the same branch), the fit is not "wider", and it is a code."""
+    or the model's a finer or coarser code on the same branch), the fit is not "wider", it is a code, and the group
+    has at least MIN_ENTRIES entries."""
     return (row.get("agreement") in ("agree", "related") and row.get("fit") in ACCEPTED_FITS
-            and row.get("proposed_code") not in ("", "BROAD", "NONE"))
+            and row.get("proposed_code") not in ("", "BROAD", "NONE") and int(row.get("n_entries") or 0) >= MIN_ENTRIES)
 
 
 def accept(out: Path, log=print) -> list[dict]:
@@ -309,7 +354,7 @@ def accept(out: Path, log=print) -> list[dict]:
                 "fit": row["fit"],
                 "group_entries": row["n_entries"],
                 "heading_fr": row["heading_fr"],
-                "proposed_by": "Mistral-Small-3.2-24B + classifier",
+                "proposed_by": f"{row.get('model') or MODEL} + classifier",
             })
     path = heading_proposals_path()
     with path.open("w", encoding="utf-8", newline="") as handle:

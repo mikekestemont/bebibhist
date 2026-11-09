@@ -42,12 +42,13 @@ def test_agreement_with_the_classifier():
 def test_a_proposal_is_taken_only_when_model_and_classifier_agree_and_it_fits():
     from bhb.heading_review import accepted
 
-    base = {"proposed_code": "III.D.2.b.5.", "agreement": "agree", "fit": "same"}
+    base = {"proposed_code": "III.D.2.b.5.", "agreement": "agree", "fit": "same", "n_entries": "40"}
     assert accepted(base)
     assert accepted({**base, "agreement": "related", "fit": "part"})
     assert not accepted({**base, "agreement": "differ"})
     assert not accepted({**base, "fit": "wider"})
     assert not accepted({**base, "proposed_code": "BROAD"})
+    assert not accepted({**base, "n_entries": "4"})
 
 
 def test_an_accepted_model_code_comes_after_a_reviewer_and_before_the_classifier():

@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> None:
     propose = categorise_sub.add_parser(
         "propose", help="local models propose a code for each unreviewed printed heading of 1952–1992 (build/headings/)")
     propose.add_argument("--limit", type=int, help="only the largest N groups (a trial)")
+    propose.add_argument("--local", action="store_true", help="the local model (mlx) instead of OpenRouter")
     categorise_sub.add_parser(
         "accept", help="take the proposals where the local model and the classifier agree (data/curated/heading_proposals.csv)")
 
@@ -189,7 +190,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "categorise" and args.categorise_command == "propose":
         from bhb.heading_review import propose
 
-        propose(_load_built_records(), build_dir() / "headings", limit=args.limit)
+        propose(_load_built_records(), build_dir() / "headings", limit=args.limit, local=args.local)
         return
     if args.command == "categorise" and args.categorise_command == "accept":
         from bhb.heading_review import accept
