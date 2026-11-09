@@ -440,15 +440,12 @@ function countBrowse(values, record) {
     for (const period of values.period || []) byPeriod[period] = (byPeriod[period] || 0) + 1;
     placePeriods.set(place, byPeriod);
   }
-  const year = Number(values.pubyear?.[0]);
-  const decade = year ? String(Math.floor(year / 10) * 10) : "";
   for (const theme of values.theme || []) {
     const node = (browse[theme] ??= { n: 0, periods: {} });
     node.n += 1;
     for (const period of values.period || []) {
-      const child = (node.periods[period] ??= { n: 0, decades: {} });
+      const child = (node.periods[period] ??= { n: 0 });
       child.n += 1;
-      if (decade) child.decades[decade] = (child.decades[decade] || 0) + 1;
     }
   }
   return values;

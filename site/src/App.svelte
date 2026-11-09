@@ -203,7 +203,7 @@
     go("/search", next);
   }
   let spelling = $state<{ word: string; suggestion: string; count: number }[]>([]);
-  type BrowseNode = { n: number; periods: Record<string, { n: number; decades: Record<string, number> }> };
+  type BrowseNode = { n: number; periods: Record<string, { n: number }> };
   let browseTree = $state<Record<string, BrowseNode>>({});
   let openTheme = $state("");
   let openPeriod = $state("");
@@ -1622,24 +1622,17 @@
                 <li>
                   <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
                   <span class="tree-count">{node.n.toLocaleString(lang)}</span>
-                  <!-- What the period opens on, said in words: a bare arrow was not seen as one (Mike, 9 Nov 2026). -->
-                  <button type="button" class="tree-more" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
-                    {count ? text.browseMore.replace("{n}", count.toLocaleString(lang)) : text.browseMoreDecades}
-                    <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-                  </button>
-                  {#if openPeriod === period}
-                    {@const list = subjectsUnder(theme, period)}
-                    {#if list.length}
-                      <p class="tree-group">{text.browseSubjects}</p>
-                      <ul class="tree-subjects">
-                        {#each list as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
-                      </ul>
-                      <p class="tree-group">{text.browseDecades}</p>
-                    {/if}
-                    <ul>
-                      {#each Object.entries(node.decades).sort((a, b) => Number(a[0]) - Number(b[0])) as [decade, count]}
-                        <li><a href={`#/search?theme=${theme}&period=${period}&from=${decade}&to=${Number(decade) + 9}`}>{text.browseDecade.replace("{d}", decade)}</a> <span class="tree-count">{count.toLocaleString(lang)}</span></li>
-                      {/each}
+                  <!-- What the period opens on, said in words: a bare arrow was not seen as one (Mike, 9 Nov 2026). Only
+                       subjects: the publication year is a filter of the results page. -->
+                  {#if count}
+                    <button type="button" class="tree-more" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
+                      {text.browseMore.replace("{n}", count.toLocaleString(lang))}
+                      <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+                    </button>
+                  {/if}
+                  {#if openPeriod === period && count}
+                    <ul class="tree-subjects">
+                      {#each subjectsUnder(theme, period) as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
                     </ul>
                   {/if}
                 </li>
