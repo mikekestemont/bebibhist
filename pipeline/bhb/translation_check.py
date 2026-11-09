@@ -8,7 +8,10 @@ Here a model judges, for every title, whether each of its translations renders t
 (``wrong``). Each item carries its own title next to its own translations, so a judgement does not lean on a neighbour
 the way a translation did; still, a request whose ids come back wrong is asked again title by title. A translation
 judged wrong is made again for that title alone (``ask_titles`` with one item, so there is no neighbour to copy from)
-and kept only when the same check judges it ``ok``; otherwise that language is left empty. Every request is cached
+and replaces the old one; it is checked as well, and the result recorded. It is kept even when that check fails: in a
+sample of the first run about half the "wrong" verdicts were right translations judged strictly ("Miracles à
+Montaigu" for "Mirakelen te Scherpenheuvel"), so leaving a language empty would lose good translations, while a
+translation made for its title alone cannot have the neighbour's text. Every request is cached
 (``bhb.citations.call``), so a run resumes, and a later pass that meets the same translations gets the same verdicts.
 """
 
@@ -83,9 +86,9 @@ def check(entries: list[Entry], cache: Path, model: str = MODEL) -> tuple[dict[s
     return verdicts, replies
 
 
-def repair(entry: Entry, wrong: list[str], cache: Path, model: str = MODEL) -> tuple[dict[str, str | None], list]:
-    """New translations for the languages judged wrong, the title alone in its request; a new one is kept only when
-    the check judges it ok, else that language is left empty."""
+def repair(entry: Entry, wrong: list[str], cache: Path, model: str = MODEL) -> tuple[dict[str, tuple[str | None, str]], list]:
+    """New translations for the languages judged wrong, the title alone in its request, each with the check's verdict
+    on it ("ok", "wrong", or "" when it could not be checked); None where the model gave none."""
     found, reply = ask_titles([Item(entry.id, entry.title, entry.hints)], model, cache)
     replies = [reply]
     fresh = {code: (found.get(entry.id) or {}).get(code) for code in wrong}
@@ -93,7 +96,7 @@ def repair(entry: Entry, wrong: list[str], cache: Path, model: str = MODEL) -> t
     verdicts, more = check([candidate], cache, model)
     replies.extend(more)
     verdict = verdicts.get(entry.id, {})
-    return {code: fresh[code] if fresh.get(code) and verdict.get(code) == "ok" else None for code in wrong}, replies
+    return {code: (fresh.get(code), verdict.get(code, "") if fresh.get(code) else "") for code in wrong}, replies
 
 
 def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit: int | None = None,
@@ -154,11 +157,13 @@ def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit:
             fresh, replies = future.result()
             tally(replies)
             for code in wrong:
-                counts["repaired" if fresh.get(code) else "left empty"] += 1
-                changes.append([entry.id, code, entry.title, entry.translations[code], fresh.get(code) or ""])
+                new, verdict = fresh.get(code, (None, ""))
+                counts["left as it was (no new translation)" if not new else f"translated again, check {verdict or 'not done'}"] += 1
+                changes.append([entry.id, code, entry.title, entry.translations[code], new or "", verdict])
     fixed = {}
-    for key, code, _title, _old, new in changes:
-        fixed.setdefault(key, {})[code] = new or None
+    for key, code, _title, _old, new, _verdict in changes:
+        if new:
+            fixed.setdefault(key, {})[code] = new
     if not limit and not only:
         shutil.copyfile(path, run_dir / "translations.before-check.jsonl")
         with path.open("w", encoding="utf-8") as handle:
@@ -168,7 +173,7 @@ def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit:
                 handle.write(json.dumps(row, ensure_ascii=False) + "\n")
     with (run_dir / "translation-check.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["id", "language", "title", "translation judged wrong", "new translation (empty: left out)"])
+        writer.writerow(["id", "language", "title", "translation judged wrong", "new translation (empty: none given, the old one kept)", "check of the new one"])
         writer.writerows(sorted(changes))
     log(f"translations: {dict(counts)}")
     return counts

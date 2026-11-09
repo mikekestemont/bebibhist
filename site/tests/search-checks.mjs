@@ -31,6 +31,8 @@ const checks = [
   { name: "the year chart as wide as its slider", hash: "#/search?q=gent", selector: ".years .hist", sameWidth: ".years .handles .track" },
   // A hand correction (data/curated/corrections.csv): the 2004 volume names him Johan.
   { name: "a corrected author (Deploige (Jeroen), Interiorización)", hash: "#/search?q=Deploige%20(Jeroen)&field=author&per=100", count: [25, 70], contains: /Interiorisaci/ },
+  // A translation copied from a neighbouring title (plan §4h): "Deploige" found four other Vatican articles of 1979.
+  { name: "no hits through a copied translation (Deploige)", hash: "#/search?q=deploige&per=100", count: [30, 80], lacks: /course à la guerre|nonciature Micara|question romaine/ },
   { name: "a person by name (Bertrand (Paul))", hash: "#/search?q=Bertrand%20(Paul)&field=author", count: [15, 30], lacks: /Bertrand \(Jean-Pierre\)/ },
   { name: "publication-year range (gent, 1990–1999)", hash: "#/search?q=gent&from=1990&to=1999", count: [500, 4000] },
   { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
