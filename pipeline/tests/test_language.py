@@ -99,3 +99,14 @@ def test_a_chapter_of_names_takes_its_volume_language_when_the_other_chapters_ag
     names = Record(id="bhb:c9", source="print-straive", bgb_year=1982, type="chapter", title="Conclusion fr", host=host)
     suggest(chapters + [names], _Fake())
     assert names.language_suggested == ["fr"] and "language-from-volume" in names.provenance.flags
+
+
+def test_function_words_of_a_rarer_language_outvote_a_narrow_latin_reading():
+    # Sébastien, 9 Nov 2026 (bhb:2004-44992): the identifier read this Spanish title as Latin by a hair.
+    title = "Interiorisación religiosa y propaganda hagiographica en los Paises Bajos meridionales del siglo XI al siglo XIII"
+    reading = decide([("la", 0.56), ("es", 0.43), ("pt", 0.002)], title)
+    assert reading.language == "es" and reading.sure
+    italian = decide([("la", 0.55), ("it", 0.40)], "Il commercio della lana nella Fiandra degli ultimi secoli")
+    assert italian.language == "it" and italian.sure
+    # A Spanish title with Spanish function words needs no extra certainty for them.
+    assert decide([("es", 0.70), ("pt", 0.10)], "Los tapices de los duques y la corte de Bruselas").sure

@@ -1,2 +1,3 @@
 id,wrong,right,kind,checked_by,date,note
 bhb:1952-3791,Zuznkir,Zumkir,ocr,,2026-11-02,"Reported in a test session; the same author is printed as Zumkir elsewhere"
+bhb:2004-44992,Johan,Jeroen,print,,2026-11-09,"The author is Jeroen Deploige (Mike). 'Johan' is already in the digitised volume (BGB_2004.xml, ref904), probably copied with the reference from another catalogue: its journal field holds a pasted reference ('Revista de Estudios Históricos 22 (2002): 31–52 2004')."

@@ -25,6 +25,12 @@ const checks = [
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
   // A name as an author link writes it is that person: not an entry whose Paul and whose Bertrand are two people.
+  // Sébastien's feedback, 9 Nov 2026: an entry that prints no year shows the year of the data, marked as supplied;
+  // and the year chart is as wide as the slider's track.
+  { name: "a supplied year where none is printed (Rogghé, Eeklo)", hash: "#/search?q=rogghe%20silexdrager", count: [1, 5], contains: /Silexdrager[^]*\[1953\]/ },
+  { name: "the year chart as wide as its slider", hash: "#/search?q=gent", selector: ".years .hist", sameWidth: ".years .handles .track" },
+  // A hand correction (data/curated/corrections.csv): the 2004 volume names him Johan.
+  { name: "a corrected author (Deploige (Jeroen), Interiorización)", hash: "#/search?q=Deploige%20(Jeroen)&field=author", count: [25, 70], contains: /Interiorisaci/ },
   { name: "a person by name (Bertrand (Paul))", hash: "#/search?q=Bertrand%20(Paul)&field=author", count: [15, 30], lacks: /Bertrand \(Jean-Pierre\)/ },
   { name: "publication-year range (gent, 1990–1999)", hash: "#/search?q=gent&from=1990&to=1999", count: [500, 4000] },
   { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
@@ -83,6 +89,11 @@ for (const check of checks) {
       if (check.atLeast) {
         const found = await page.locator(check.selector).count();
         if (found < check.atLeast) problem = `${found} × ${check.selector}, expected at least ${check.atLeast}`;
+      }
+      if (!problem && check.sameWidth) {
+        const width = async (selector) => (await page.locator(selector).first().boundingBox())?.width ?? 0;
+        const [one, two] = [await width(check.selector), await width(check.sameWidth)];
+        if (Math.abs(one - two) > 2) problem = `${check.selector} is ${Math.round(one)} px wide, ${check.sameWidth} ${Math.round(two)} px`;
       }
       if (!problem && check.contains) {
         const text = await page.textContent(check.selector);
