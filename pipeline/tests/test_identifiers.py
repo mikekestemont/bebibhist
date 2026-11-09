@@ -293,6 +293,15 @@ def test_an_orcid_comes_from_openalex_and_goes_to_the_same_full_name(tmp_path, m
     assert (other.persons[0].orcid, other.persons[0].orcid_from) == ("0000-0001-2345-6789", "name")
     assert older.persons[0].orcid is None and initials.persons[0].orcid is None
 
+    # An editor of a chapter's volume gets it by the same rule (Vanderputten edits a volume without writing in it).
+    from bhb.model import Host, Person
+
+    chapter = _record(title="Een hoofdstuk", family="Simons", year=2011)
+    chapter.host = Host(title="Een bundel", id=None, editors=[Person(family="Deploige", given="Jeroen", role="editor")])
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=60: io.BytesIO(json_.dumps(answer).encode()))
+    orcids([matched, chapter], tmp_path)
+    assert (chapter.host.editors[0].orcid, chapter.host.editors[0].orcid_from) == ("0000-0001-2345-6789", "name")
+
 
 def test_the_registry_gives_an_orcid_only_for_one_belgian_namesake(tmp_path, monkeypatch):
     import io

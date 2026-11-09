@@ -703,16 +703,19 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
             registry[key] = found
     counts["names found in the orcid registry"] = len(registry)
     for record in recent:
-        for person in record.persons:
+        # The editors of a chapter's volume as well (Vanderputten edits a volume without writing in it, 9 Nov 2026):
+        # by the same rule, from the names already known; no registry lookups of their own.
+        editors = list(record.host.editors) if record.host and record.host.editors else []
+        for person, editor in [*((person, False) for person in record.persons), *((person, True) for person in editors)]:
             key = f"{fold(person.family)}|{_full_given(person.given)}"
             if person.orcid or not _full_given(person.given):
                 continue
             if len(seen.get(key, ())) == 1:
                 person.orcid, person.orcid_from = next(iter(seen[key])), "name"
-                counts["orcid from the same name"] += 1
+                counts["orcid of a volume editor from the same name" if editor else "orcid from the same name"] += 1
             elif key in registry:
                 person.orcid, person.orcid_from = registry[key], "registry"
-                counts["orcid from the registry"] += 1
+                counts["orcid of a volume editor from the registry" if editor else "orcid from the registry"] += 1
     counts["names with an orcid"] = sum(1 for ids in seen.values() if len(ids) == 1)
     counts["names with several orcids (left out)"] = sum(1 for ids in seen.values() if len(ids) > 1)
     return dict(counts)

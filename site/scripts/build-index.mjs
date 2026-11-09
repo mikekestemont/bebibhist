@@ -122,8 +122,10 @@ for await (const line of lines) {
       authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
       editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
       // ORCID iDs (machine-derived), per name as the name line shows it: "Name (Given)\tiD\tsource|…".
-      orcids: (record.persons || []).filter((person) => person.orcid)
-        .map((person) => `${person.given ? `${person.family} (${person.given})` : person.family}\t${person.orcid}\t${person.orcid_from || ""}`).join("|"),
+      // The entry's persons and its volume's editors (an editor of the volume shows on the chapter too), one per name.
+      orcids: [...new Map([...(record.persons || []), ...(record.host?.editors || [])].filter((person) => person.orcid)
+        .map((person) => [person.given ? `${person.family} (${person.given})` : person.family, person])).entries()]
+        .map(([name, person]) => `${name}\t${person.orcid}\t${person.orcid_from || ""}`).join("|"),
       // Given names written out from KBR (machine-derived), per name as the name line shows it:
       // "Name (Given)\tgiven name\tdates\tKBR authority id\tsource|…".
       fullNames: [...(record.persons || []), ...(record.host?.editors || [])].filter((person) => person.given_full || person.kbr_id)
