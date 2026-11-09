@@ -74,6 +74,20 @@ def crosswalk_path() -> Path:
     return repo_root() / "data" / "curated" / "heading_crosswalk.csv"
 
 
+def heading_proposals_path() -> Path:
+    return repo_root() / "data" / "curated" / "heading_proposals.csv"
+
+
+def load_heading_proposals(path: Path | None = None) -> dict[str, tuple[str, str]]:
+    """Heading key → (code, confidence) of the accepted model proposals for old headings; {} without the file."""
+    path = path or heading_proposals_path()
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["heading_key"]: (row["code"], row.get("confidence") or "") for row in csv.DictReader(handle)
+                if row.get("heading_key") and row.get("code")}
+
+
 def heading_key(section_path: list[str]) -> str:
     """Accent-folded French half, with footnote marks, date ranges and spaces removed."""
     return "".join(normalise_heading(heading) for heading in section_path)
@@ -224,6 +238,11 @@ def categories_for(
             code, confidence, machine = resolved
             add(code, "see-also", confidence, machine)
 
+    # An old heading's code proposed by the local models and accepted where the model and the classifier agree
+    # (data/curated/heading_proposals.csv, ``bhb categorise accept``): a suggested value, before the classifier.
+    if not primary and row and not broad and (row.get("model_code") or "").strip():
+        add(row["model_code"].strip(), "heading-model", _float(row.get("model_confidence")) or 0.5, True, as_primary=True)
+
     if not primary and row and not broad:
         proposed = (row.get("proposed_code") or "").strip()
         confidence = _float(row.get("proposal_confidence"))
@@ -323,6 +342,12 @@ def categorise(
             print("classifier unavailable; only heading rules and V-Smart codes are applied")
 
     refresh_crosswalk(list(by_key.values()), existing)
+    # Accepted model proposals for old headings, kept apart from the crosswalk (whose proposal columns a draft
+    # rewrites); only for headings without a reviewer's answer. ``write_crosswalk`` leaves these keys out.
+    for key, (code, confidence) in load_heading_proposals().items():
+        row = by_key.get(key)
+        if row is not None and not (row.get("approved_code") or row.get("approved_theme") or "").strip():
+            row["model_code"], row["model_confidence"] = code, confidence
     scored = (
         _apply_model(records, groups, by_key, model, classes, theme_map, theme_tau)
         if model is not None
@@ -728,7 +753,7 @@ def _accepted(row: dict | None) -> bool:
     approved = (row.get("approved_code") or "").strip()
     if approved.upper() == "BROAD":
         return False
-    if approved or (row.get("approved_theme") or "").strip():
+    if approved or (row.get("approved_theme") or "").strip() or (row.get("model_code") or "").strip():
         return True
     return bool((row.get("proposed_code") or "").strip()) and _float(row.get("proposal_confidence")) >= CROSSWALK_USE
 
@@ -739,6 +764,8 @@ def _resolved(row: dict) -> tuple[str, float, bool] | None:
         return approved, 1.0, False
     if approved.upper() == "BROAD":
         return None
+    if (row.get("model_code") or "").strip():
+        return row["model_code"].strip(), _float(row.get("model_confidence")) or 0.5, True
     proposed = (row.get("proposed_code") or "").strip()
     confidence = _float(row.get("proposal_confidence"))
     if proposed and confidence >= CROSSWALK_USE:

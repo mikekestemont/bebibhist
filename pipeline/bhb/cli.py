@@ -50,6 +50,11 @@ def main(argv: list[str] | None = None) -> None:
     draft.add_argument("--tau-code", type=float)
     draft.add_argument("--tau-theme", type=float)
     draft.add_argument("--records", type=Path)
+    propose = categorise_sub.add_parser(
+        "propose", help="local models propose a code for each unreviewed printed heading of 1952–1992 (build/headings/)")
+    propose.add_argument("--limit", type=int, help="only the largest N groups (a trial)")
+    categorise_sub.add_parser(
+        "accept", help="take the proposals where the local model and the classifier agree (data/curated/heading_proposals.csv)")
 
     gold = sub.add_parser("gold", help="sample entries for correction, or score a corrected sheet")
     gold_sub = gold.add_subparsers(dest="gold_command", required=True)
@@ -180,6 +185,16 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
+        return
+    if args.command == "categorise" and args.categorise_command == "propose":
+        from bhb.heading_review import propose
+
+        propose(_load_built_records(), build_dir() / "headings", limit=args.limit)
+        return
+    if args.command == "categorise" and args.categorise_command == "accept":
+        from bhb.heading_review import accept
+
+        accept(build_dir() / "headings")
         return
     if args.command == "places" and args.places_command == "apply":
         from bhb.places import apply_places

@@ -271,7 +271,7 @@ class Namer:
     def ask(self, prompt: str) -> str:
         return self.ask_many([prompt])[0]
 
-    def ask_many(self, prompts: list[str], batch: int = 8) -> list[str]:
+    def ask_many(self, prompts: list[str], batch: int = 8, max_tokens: int = 120) -> list[str]:
         """The answers to ``prompts``, the new ones generated a batch at a time (greedy decoding)."""
         todo = [prompt for prompt in dict.fromkeys(prompts) if self.key(prompt) not in self.cache]
         if todo and self.model is None:
@@ -287,7 +287,7 @@ class Namer:
                 self.tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True)
                 for prompt in chunk
             ]
-            answers = batch_generate(self.model, self.tokenizer, tokens, max_tokens=120).texts
+            answers = batch_generate(self.model, self.tokenizer, tokens, max_tokens=max_tokens).texts
             with self.cache_path.open("a", encoding="utf-8") as handle:
                 for prompt, answer in zip(chunk, answers):
                     self.cache[self.key(prompt)] = answer
