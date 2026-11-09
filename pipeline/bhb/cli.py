@@ -168,6 +168,10 @@ def main(argv: list[str] | None = None) -> None:
     cocr.add_argument("--batches", type=int, default=150)
     cocr.add_argument("--seed", type=int, default=5)
     cocr.add_argument("--workers", type=int, default=3)
+    ccheck = citations_sub.add_parser("check-translations", help="judge every title translation and translate the wrong ones again, one title at a time (plan §4h)")
+    ccheck.add_argument("--limit", type=int, help="only the first N titles (a trial; the file is not changed)")
+    ccheck.add_argument("--ids", nargs="*", help="only these entries (a trial; the file is not changed)")
+    ccheck.add_argument("--workers", type=int, default=8)
     ctrans = citations_sub.add_parser("translate", help="translate a sample of titles into nl, fr and en, title only, for a hand check and a cost")
     ctrans.add_argument("--model", action="append", required=True)
     ctrans.add_argument("--per-language", type=int, default=50)
@@ -306,6 +310,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "citations" and args.citations_command == "ocr":
         _citations_ocr(args.model, args.batches, args.seed, args.workers)
+        return
+    if args.command == "citations" and args.citations_command == "check-translations":
+        from bhb.translation_check import run as check_translations
+
+        check_translations(build_dir() / "citations" / "run", build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check",
+                           workers=args.workers, limit=args.limit, only=set(args.ids) if args.ids else None)
         return
     if args.command == "citations" and args.citations_command == "translate":
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
@@ -1235,6 +1245,12 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         with (out / "translations.jsonl").open("w", encoding="utf-8") as handle:
             for record_id, title in translated.items():
                 handle.write(json.dumps({"id": record_id, "model": model, **title}, ensure_ascii=False) + "\n")
+        # Every translation is judged, and a wrong one made again for its title alone (plan §4h): within a request
+        # of 25 the model sometimes gave a title its neighbour's translation.
+        if not stop.is_set():
+            from bhb.translation_check import run as check_translations
+
+            check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers)
     lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
              f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
              f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",
