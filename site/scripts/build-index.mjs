@@ -20,6 +20,10 @@ const gazetteerPath = new URL("../../data/curated/gazetteer.csv", import.meta.ur
 const journalsPath = new URL("../../data/curated/journals.csv", import.meta.url);
 const topicRegionsPath = new URL("../../data/curated/topic_regions.json", import.meta.url);
 const placesPath = new URL("../public/places.json", import.meta.url).pathname;
+const themeMapPath = new URL("../../data/curated/theme_map.csv", import.meta.url);
+const subjectsPath = new URL("../public/subjects.json", import.meta.url).pathname;
+// Entries per code of the Bibliography's classification, those of its sub-codes included, for the subject tree.
+const subjectCounts = new Map();
 // Entries per place, for the map and the place names on the site.
 const placeCounts = new Map();
 // Entries per place and period, for the map's choice of period: place → period → count.
@@ -44,12 +48,19 @@ const BROAD_WORDINGS = new Set([
   "les institutions et la vie politique droit", "histoire de la vie religieuse et de la laicite",
 ].map(wording));
 
+/**
+ * Levels of the classification that only arrange the levels below them ("De verschillende vorstendommen",
+ * "Thematische indeling"): the subject tree leaves their wording out of the path it shows before a subject.
+ */
+const ARRANGING_CODES = new Set(["II.C.1.", "III.B.1.", "III.B.2.", "III.D.1.", "III.D.2."]);
+
 const synonyms = await loadSynonyms(synonymsPath);
 /** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
 const TRANSLATED = "⁂";
 /** Joins the French and Dutch halves of a printed heading. */
 const DASH = /\s+[—–-]\s+/;
 const scheme = await loadScheme(schemePath);
+const themeMap = await loadThemeMap(themeMapPath);
 const journals = await loadJournals(journalsPath);
 const topicChains = await loadTopicChains(topicRegionsPath);
 const language = "und";
@@ -172,7 +183,7 @@ for await (const line of lines) {
       containerCount: container ? String(container.count) : "",
     },
     // Places and journal narrow a search through words (keyWords), not filters: their counts are never shown.
-    filters: withoutKeys(countBrowse(filters(record))),
+    filters: withoutKeys(countBrowse(filters(record), record)),
     sort: sortKeys(record),
   });
   if (response.errors?.length) {
@@ -203,6 +214,7 @@ if (wasm.size < 1000) {
 await ensureEntry(outputPath, indexed);
 await writeKnownWords(`${outputPath}/index`, knownPath);
 await writeFile(browsePath, JSON.stringify(browse));
+await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, themeMap, subjectCounts)));
 await writePlaces(placesPath, placeCounts, placePeriods);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
@@ -350,6 +362,9 @@ function containerOf(record, counts) {
 function keyWords(record) {
   const words = (record.place_ids || []).map((place) => keyWord("pl", place));
   if (record.journal_id) words.push(keyWord("jn", record.journal_id));
+  // The entry's code of the classification and every code above it, so a subject of the tree opens with all the
+  // entries of its sub-subjects (#/search?subject=III.D.2.b.).
+  for (const code of codeChain(record)) words.push(keyWord("sc", code));
   return words.map((word) => ` ${word}`).join("");
 }
 
@@ -417,7 +432,8 @@ async function writePlaces(path, counts, periods) {
   await writeFile(path, JSON.stringify(places));
 }
 
-function countBrowse(values) {
+function countBrowse(values, record) {
+  for (const code of codeChain(record)) subjectCounts.set(code, (subjectCounts.get(code) || 0) + 1);
   for (const place of values.place || []) {
     placeCounts.set(place, (placeCounts.get(place) || 0) + 1);
     const byPeriod = placePeriods.get(place) || {};
@@ -596,6 +612,74 @@ function specificMeta(record, labels, merged = new Map()) {
   const [fr, nl] = halves(heading.replace(/^[\s(]*(?:[0-9]+|[a-zA-Z]|[IVXLC]+)[.)]\s*/, "").replace(/\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)/g, "").trim());
   if (!fr || BROAD_WORDINGS.has(wording(fr)) || BROAD_WORDINGS.has(wording(nl))) return {};
   return { specificFr: fr, specificNl: nl || fr, specificEn: fr, specificFrom: "printed", specificMachine: "" };
+}
+
+/** The entry's code of the classification (as its finer subject shows it) and the codes above it, finest first. */
+function codeChain(record) {
+  const coded = (record.categories || []).filter((item) => item.code && scheme[item.code]);
+  const primary = coded.find((item) => item.primary) || [...coded].sort((left, right) => right.code.length - left.code.length)[0];
+  const chain = [];
+  for (let code = primary?.code; code && scheme[code] && !chain.includes(code); code = scheme[code].parent) chain.push(code);
+  return chain;
+}
+
+/** data/curated/theme_map.csv as [prefix, subject area] rows; a prefix may have several rows. */
+async function loadThemeMap(path) {
+  const rows = parseCsv(await readFile(path, "utf8"));
+  const column = Object.fromEntries((rows[0] || []).map((name, index) => [name, index]));
+  return rows.slice(1).map((row) => [(row[column.code_prefix] || "").trim(), (row[column.theme] || "").trim()]).filter(([prefix, theme]) => prefix && theme);
+}
+
+/** A code's subject areas, as the pipeline gives them (bhb/scheme.py, themes_for_code): those of the longest
+ * matching prefix, and "local" when any shorter prefix has it. A subject appears in the tree under each. */
+function themesOfCode(code, map) {
+  const matches = map.filter(([prefix]) => code.startsWith(prefix));
+  if (!matches.length) return [];
+  const longest = Math.max(...matches.map(([prefix]) => prefix.length));
+  const themes = matches.filter(([prefix]) => prefix.length === longest).map(([, theme]) => theme);
+  if (matches.some(([, theme]) => theme === "local")) themes.push("local");
+  return [...new Set(themes)];
+}
+
+/** A code's period, by the rules of the pipeline's period facet (bhb/facets.py, periods_from_codes); "" for the
+ * auxiliary sciences (I.) and the codes outside those rules, which the tree shows under their subject area. */
+function periodOfCode(code) {
+  if (code.startsWith("II.")) return "general";
+  if (code.startsWith("III.A")) return "ancient";
+  if (/^III\.B\.[12](?:\.|$)/.test(code)) return "medieval";
+  if (/^III\.B\.3(?:\.|$)/.test(code)) return "burgundian";
+  if (code.startsWith("III.C")) return "early-modern";
+  if (code.startsWith("III.D")) return "contemporary";
+  return "";
+}
+
+/**
+ * The subject tree's codes, in the classification's order: code → [parent, entries (sub-codes included), subject
+ * areas, period, then for nl, fr and en the path and the subject]. The path is the label's wording between the
+ * period (or the part of the Bibliography) and the subject, without the arranging levels; only codes with a wording
+ * of their own and with entries are listed. English labels are drafts, as on the record pages.
+ */
+function subjectsDocument(labels, map, counts) {
+  const out = {};
+  for (const [code, row] of Object.entries(labels)) {
+    const n = counts.get(code) || 0;
+    if (!n || !(row.nl || row.fr)) continue;
+    const parts = code.replace(/\.$/, "").split(".");
+    // The label's parts, one per level of the code: drop the part of the Bibliography, and for history by period
+    // also the period itself, which the tree shows above the subject.
+    const skip = new Set([0, ...(code.startsWith("III.") ? [1] : [])]);
+    for (let depth = 1; depth < parts.length; depth += 1) {
+      if (ARRANGING_CODES.has(`${parts.slice(0, depth).join(".")}.`)) skip.add(depth - 1);
+    }
+    const named = (label) => {
+      const segments = (label || "").split(" / ").map((part) => part.trim());
+      if (segments.length !== parts.length) return ["", segments.slice(-1)[0] || ""];
+      const kept = segments.filter((part, index) => !skip.has(index) || index === segments.length - 1);
+      return [kept.slice(0, -1).join(" · "), kept.slice(-1)[0] || ""];
+    };
+    out[code] = [row.parent, n, themesOfCode(code, map), periodOfCode(code), ...named(row.nl || row.fr), ...named(row.fr || row.nl), ...named(row.en || row.fr)];
+  }
+  return out;
 }
 
 function lastPart(label) {

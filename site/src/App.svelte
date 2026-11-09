@@ -210,6 +210,7 @@
 
   /** The subject tree's counts are made when the index is built; nothing is searched to show them. */
   async function loadBrowse() {
+    void loadSubjects();
     if (Object.keys(browseTree).length) return;
     try {
       const response = await fetch(new URL(`${import.meta.env.BASE_URL}browse.json`, document.baseURI).href);
@@ -217,6 +218,49 @@
     } catch {
       browseTree = {};
     }
+  }
+
+  /**
+   * The subjects of the Bibliography's classification, for the tree and the chip (public/subjects.json, made with
+   * the index): code → [parent, entries with those of its sub-subjects, subject areas, period ("" for none), then for
+   * nl, fr and en the path shown before the subject and the subject].
+   */
+  type Subject = [string, number, string[], string, string, string, string, string, string, string];
+  let subjects = $state.raw<Record<string, Subject>>({});
+
+  async function loadSubjects() {
+    if (Object.keys(subjects).length) return;
+    try {
+      const response = await fetch(new URL(`${import.meta.env.BASE_URL}subjects.json`, document.baseURI).href);
+      if (response.ok) subjects = await response.json();
+    } catch {
+      subjects = {};
+    }
+  }
+
+  /** A subject's path and name in the reader's language. */
+  function subjectLabel(subject: Subject): [string, string] {
+    const [, , , , nlPath, nl, frPath, fr, enPath, en] = subject;
+    return lang === "nl" ? [nlPath, nl] : lang === "fr" ? [frPath, fr] : [enPath, en];
+  }
+
+  /** The subjects of a subject area and period (or, with "", of a subject area outside the periods), in order. */
+  function subjectsUnder(theme: string, period: string): [string, Subject][] {
+    return Object.entries(subjects).filter(([, subject]) => subject[2].includes(theme) && subject[3] === period);
+  }
+
+  function subjectTitle(code: string): string {
+    const subject = subjects[code];
+    if (!subject) return Object.keys(subjects).length ? code : "…";
+    const [path, name] = subjectLabel(subject);
+    return path ? `${path} · ${name}` : name;
+  }
+
+  function removeSubject() {
+    const next = new URLSearchParams(params);
+    next.delete("subject");
+    next.delete("page");
+    go("/search", next);
   }
 
   function flip(current: string, value: string): string {
@@ -369,6 +413,7 @@
       return;
     }
     if (params.get("topic") && !Object.keys(topicNames).length) void loadTopicNames();
+    if (params.get("subject")) void loadSubjects();
     if (path === "/browse") {
       await loadBrowse();
       loading = false;
@@ -393,14 +438,17 @@
     const inside = params.get("in");
     const field = searchField(fieldChoice);
     const translations = withTranslations();
-    // Within a volume, a region of the map of subjects, places or a journal: words the index adds to those records.
+    // Within a volume, a region of the map of subjects, places, a journal or a subject of the classification: words
+    // the index adds to those records.
     const topic = params.get("topic");
     const journal = params.get("journal");
+    const subject = params.get("subject");
     const within = [
       inside ? `hk_${inside}` : "",
       topic ? regionWord(topic) : "",
       ...params.getAll("place").map((place) => keyWord("pl", place)),
       journal ? keyWord("jn", journal) : "",
+      subject ? keyWord("sc", subject) : "",
     ].filter(Boolean).join(" ");
     const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
     const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
@@ -1034,6 +1082,14 @@
   </span>
 {/snippet}
 
+{#snippet subjectRow(code: string, subject: Subject)}
+  {@const [path, name] = subjectLabel(subject)}
+  <li>
+    <a href={`#/search?subject=${encodeURIComponent(code)}`} title={`${text.bhbCode} ${code}`}>{#if path}<span class="subject-path">{`${path} · `}</span>{/if}{name}</a>
+    <span class="tree-count">{subject[1].toLocaleString(lang)}</span>
+  </li>
+{/snippet}
+
 {#snippet categoryBlock(hit: Hit)}
   {@const specific = (lang === "nl" ? hit.meta.specificNl : lang === "en" ? hit.meta.specificEn : hit.meta.specificFr) || hit.meta.specificFr || ""}
   {#if hit.meta.themes || specific}
@@ -1041,12 +1097,17 @@
       <span class="theme">{text.subjects}</span>
       {#if hit.meta.themes}{@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}{/if}
       <!-- The finest subject: the last part of the BHB code's label, or of the printed heading before 1993. -->
-      {#if specific}
+      {#if specific && hit.meta.specificFrom && hit.meta.specificFrom !== "printed"}
+        <!-- A subject of the classification opens all its entries, as in the subject tree. -->
+        <a
+          class={hit.meta.specificMachine === "1" ? "tag tag-narrow tag-link tag-suggested" : "tag tag-narrow tag-link"}
+          href={`#/search?subject=${encodeURIComponent(hit.meta.specificFrom)}`}
+          title={`${hit.meta.specificMachine === "1" ? `${text.suggestedValue} ` : ""}${text.bhbCode} ${hit.meta.specificFrom} — ${text.subjectLink}`}
+        >{specific}</a>
+      {:else if specific}
         <span
           class={hit.meta.specificMachine === "1" ? "tag tag-narrow tag-suggested" : "tag tag-narrow"}
-          title={hit.meta.specificMachine === "1"
-            ? text.suggestedValue
-            : hit.meta.specificFrom === "printed" ? text.asPrinted : `${text.bhbCode} ${hit.meta.specificFrom}`}
+          title={hit.meta.specificMachine === "1" ? text.suggestedValue : text.asPrinted}
         >{specific}</span>
       {/if}
     </p>
@@ -1354,6 +1415,11 @@
           <li><button type="button" onclick={removeJournal} title={text.journalGrouped}>{text.journalChip} <em>{params.get("journalTitle") || ""}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
         </ul>
       {/if}
+      {#if params.get("subject")}
+        <ul class="chips refine">
+          <li><button type="button" onclick={removeSubject} title={`${text.bhbCode} ${params.get("subject")}`}>{text.subjectChip} <em>{subjectTitle(params.get("subject") || "")}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+        </ul>
+      {/if}
       {#if params.get("topic")}
         <ul class="chips refine">
           <li><button type="button" onclick={removeTopic}>{text.topicsChip} <em>{topicNames[params.get("topic") || ""]?.[lang] || "…"}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
@@ -1553,12 +1619,20 @@
               {#each groups.period.filter((value) => browseTree[theme].periods[value]) as period}
                 {@const node = browseTree[theme].periods[period]}
                 <li>
-                  <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} aria-label={text.browseDecades} title={text.browseDecades} onclick={() => { openPeriod = flip(openPeriod, period); }}>
+                  <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} aria-label={text.browseOpen} title={text.browseOpen} onclick={() => { openPeriod = flip(openPeriod, period); }}>
                     <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
                   </button>
                   <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
                   <span class="tree-count">{node.n.toLocaleString(lang)}</span>
                   {#if openPeriod === period}
+                    {@const list = subjectsUnder(theme, period)}
+                    {#if list.length}
+                      <p class="tree-group">{text.browseSubjects}</p>
+                      <ul class="tree-subjects">
+                        {#each list as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
+                      </ul>
+                      <p class="tree-group">{text.browseDecades}</p>
+                    {/if}
                     <ul>
                       {#each Object.entries(node.decades).sort((a, b) => Number(a[0]) - Number(b[0])) as [decade, count]}
                         <li><a href={`#/search?theme=${theme}&period=${period}&from=${decade}&to=${Number(decade) + 9}`}>{text.browseDecade.replace("{d}", decade)}</a> <span class="tree-count">{count.toLocaleString(lang)}</span></li>
@@ -1567,6 +1641,15 @@
                   {/if}
                 </li>
               {/each}
+              <!-- The subjects outside the periods: the auxiliary sciences, and older codes without a period. -->
+              {#if subjectsUnder(theme, "").length}
+                <li class="tree-loose">
+                  <p class="tree-group">{text.browseSubjects}</p>
+                  <ul class="tree-subjects">
+                    {#each subjectsUnder(theme, "") as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
+                  </ul>
+                </li>
+              {/if}
             </ul>
           {/if}
         </li>

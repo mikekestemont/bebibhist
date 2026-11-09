@@ -812,6 +812,13 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tree-toggle { font: inherit; font-size: 17px; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; gap: 0.4rem; }
 .tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
 .tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+/* The subjects of the classification under a period: a small heading, then one subject a line, its path greyed. */
+.tree .tree-group { margin: 0.45rem 0 0.15rem 1.6rem; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #6b6e73; }
+.tree ul.tree-subjects { padding: 0.1rem 0 0.2rem 1.6rem; }
+.tree ul.tree-subjects li { padding: 0.12rem 0; line-height: 1.35; }
+.tree li.tree-loose > .tree-group { margin-left: 0; }
+.tree li.tree-loose > ul.tree-subjects { padding-left: 0; }
+.subject-path { color: #6b6e73; }
 .tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }
 
 .did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
