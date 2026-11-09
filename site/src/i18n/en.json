@@ -239,6 +239,8 @@
   "browseDecades": "By decade of publication",
   "browseSubjects": "Subjects in the Bibliography’s classification",
   "browseOpen": "Subjects and decades",
+  "browseMore": "{n} subjects · decades",
+  "browseMoreDecades": "decades",
   "subjectChip": "Subject:",
   "subjectLink": "All publications on this subject.",
   "bhbCode": "BHB code",

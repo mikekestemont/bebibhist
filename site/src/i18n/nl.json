@@ -239,6 +239,8 @@
   "browseDecades": "Per decennium van verschijnen",
   "browseSubjects": "Onderwerpen in de indeling van de Bibliografie",
   "browseOpen": "Onderwerpen en decennia",
+  "browseMore": "{n} onderwerpen · decennia",
+  "browseMoreDecades": "decennia",
   "subjectChip": "Onderwerp:",
   "subjectLink": "Alle publicaties met dit onderwerp.",
   "bhbCode": "BHB-code",

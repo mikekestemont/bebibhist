@@ -239,6 +239,8 @@
   "browseDecades": "Par décennie de parution",
   "browseSubjects": "Sujets du classement de la Bibliographie",
   "browseOpen": "Sujets et décennies",
+  "browseMore": "{n} sujets · décennies",
+  "browseMoreDecades": "décennies",
   "subjectChip": "Sujet :",
   "subjectLink": "Toutes les publications de ce sujet.",
   "bhbCode": "Code BHB",

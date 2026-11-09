@@ -1618,12 +1618,15 @@
             <ul>
               {#each groups.period.filter((value) => browseTree[theme].periods[value]) as period}
                 {@const node = browseTree[theme].periods[period]}
+                {@const count = subjectsUnder(theme, period).length}
                 <li>
-                  <button type="button" class="tree-toggle small" aria-expanded={openPeriod === period} aria-label={text.browseOpen} title={text.browseOpen} onclick={() => { openPeriod = flip(openPeriod, period); }}>
-                    <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-                  </button>
                   <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
                   <span class="tree-count">{node.n.toLocaleString(lang)}</span>
+                  <!-- What the period opens on, said in words: a bare arrow was not seen as one (Mike, 9 Nov 2026). -->
+                  <button type="button" class="tree-more" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
+                    {count ? text.browseMore.replace("{n}", count.toLocaleString(lang)) : text.browseMoreDecades}
+                    <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+                  </button>
                   {#if openPeriod === period}
                     {@const list = subjectsUnder(theme, period)}
                     {#if list.length}
