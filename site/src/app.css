@@ -806,22 +806,31 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 }
 
 .tree, .tree ul { list-style: none; padding-left: 0; margin: 0; }
-.tree > li { border-bottom: 1px solid #e3e4e6; padding: 0.45rem 0; }
-.tree ul { padding: 0.3rem 0 0.2rem 1.6rem; }
-.tree ul li { padding: 0.15rem 0; }
-.tree-toggle.small { font-size: 15px; padding: 0 0.15rem; margin-right: 0.2rem; vertical-align: middle; }
-.tree-toggle { font: inherit; font-size: 17px; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; display: inline-flex; align-items: center; gap: 0.4rem; }
-.tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
-.tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
-/* The subjects of the classification under a period: a small heading, then one subject a line, its path greyed. */
-/* The classification tree: a level's number greyed before its name, and its count as a link to its publications. */
-.tree ul .tree-toggle { font-size: 15px; }
-.tree-number { color: #6b6e73; font-variant-numeric: tabular-nums; }
-.tree-publications { font-size: 13px; margin-left: 0.6rem; color: #2f4430; white-space: nowrap; }
-/* A level without levels below has no arrow: it starts where its siblings' numbers start. */
-.tree-leaf { font-size: 15px; display: inline-block; margin-left: calc(14px + 0.4rem); }
-.tree-leaf .tree-number { text-decoration: none; display: inline-block; }
+.tree > li { border-bottom: 1px solid #e3e4e6; padding: 0.5rem 0; }
+/* A level below sits under its parent's name: the arrow's column and the gap. */
+.tree ul { padding: 0.2rem 0 0.1rem calc(14px + 0.45rem); }
+.tree ul li { padding: 0.12rem 0; }
+/* One row: the name (arrow, number, wording) takes what it needs and wraps under its own first word; the count follows. */
+.tree-row { display: flex; align-items: baseline; gap: 0.6rem; }
+.tree-name { flex: 0 1 auto; display: inline-flex; align-items: baseline; gap: 0.45rem; font: inherit; font-size: 15px; line-height: 1.35;
+  text-align: left; color: #303133; text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; }
+.tree > li > .tree-row .tree-name { font-size: 17px; }
+.tree-name .chevron { flex: none; width: 14px; height: 14px; align-self: center; fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
+.tree-name[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.tree-number { flex: none; min-width: 1.6rem; color: #6b6e73; font-variant-numeric: tabular-nums; }
+.tree > li > .tree-row .tree-number { min-width: 2.1rem; }
+.tree-name:hover .tree-text, .tree-name:focus-visible .tree-text { text-decoration: underline; text-underline-offset: 3px; }
+.tree-publications { flex: none; font-size: 13px; color: #486249; white-space: nowrap; text-decoration: none; font-variant-numeric: tabular-nums; }
+.tree-publications:hover, .tree-publications:focus-visible { text-decoration: underline; }
 .tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }
+.tree-name { min-width: 0; }
+.tree-text { overflow-wrap: anywhere; }
+/* On a narrow screen the count goes under the name, in the name's column. */
+@media (max-width: 640px) {
+  .tree-row { flex-wrap: wrap; row-gap: 0.1rem; }
+  .tree-publications { flex-basis: 100%; padding-left: calc(14px + 1.6rem + 0.9rem); }
+  .tree > li > .tree-row .tree-publications { padding-left: calc(14px + 2.1rem + 0.9rem); }
+}
 
 .did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
 

@@ -1085,18 +1085,27 @@
 {#snippet subjectNode(code: string)}
   {@const kids = childrenOf.get(code) || []}
   {@const open = openCodes.includes(code)}
-  {@const count = (subjects[code]?.[1] || 0).toLocaleString(lang)}
+  {@const count = text.browsePublications.replace("{n}", (subjects[code]?.[1] || 0).toLocaleString(lang))}
+  {@const href = `#/search?subject=${encodeURIComponent(code)}`}
+  <!-- Every level alike: the arrow (or its empty place), the printed number in a column of its own, the name (it opens
+       the levels below, or the publications when there are none), and the count, which lists the publications. -->
   <li>
-    {#if kids.length}
-      <button type="button" class="tree-toggle" aria-expanded={open} onclick={() => toggleCode(code)}>
-        <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-        <span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span> {subjectName(code)}
-      </button>
-      <a class="tree-publications" href={`#/search?subject=${encodeURIComponent(code)}`} aria-label={`${subjectName(code)}: ${text.browsePublications.replace("{n}", count)}`}>{text.browsePublications.replace("{n}", count)}</a>
-    {:else}
-      <a class="tree-leaf" href={`#/search?subject=${encodeURIComponent(code)}`}><span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span> {subjectName(code)}</a>
-      <span class="tree-count">{count}</span>
-    {/if}
+    <div class="tree-row">
+      {#if kids.length}
+        <button type="button" class="tree-name" aria-expanded={open} onclick={() => toggleCode(code)}>
+          <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+          <span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span>
+          <span class="tree-text">{subjectName(code)}</span>
+        </button>
+      {:else}
+        <a class="tree-name" {href}>
+          <span class="chevron" aria-hidden="true"></span>
+          <span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span>
+          <span class="tree-text">{subjectName(code)}</span>
+        </a>
+      {/if}
+      <a class="tree-publications" {href} aria-label={`${subjectName(code)}: ${count}`}>{count}</a>
+    </div>
     {#if open && kids.length}
       <ul>{#each kids as kid (kid)}{@render subjectNode(kid)}{/each}</ul>
     {/if}
