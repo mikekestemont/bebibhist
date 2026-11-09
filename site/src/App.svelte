@@ -203,30 +203,16 @@
     go("/search", next);
   }
   let spelling = $state<{ word: string; suggestion: string; count: number }[]>([]);
-  type BrowseNode = { n: number; periods: Record<string, { n: number }> };
-  let browseTree = $state<Record<string, BrowseNode>>({});
-  let openTheme = $state("");
-  let openPeriod = $state("");
-
-  /** The subject tree's counts are made when the index is built; nothing is searched to show them. */
-  async function loadBrowse() {
-    void loadSubjects();
-    if (Object.keys(browseTree).length) return;
-    try {
-      const response = await fetch(new URL(`${import.meta.env.BASE_URL}browse.json`, document.baseURI).href);
-      if (response.ok) browseTree = await response.json();
-    } catch {
-      browseTree = {};
-    }
-  }
-
   /**
-   * The subjects of the Bibliography's classification, for the tree and the chip (public/subjects.json, made with
-   * the index): code → [parent, entries with those of its sub-subjects, subject areas, period ("" for none), then for
-   * nl, fr and en the path shown before the subject and the subject].
+   * The Bibliography's classification, for the subject tree and the chip (public/subjects.json, made with the index):
+   * code → [parent, entries with those of its sub-codes, name in nl, fr, en]. The tree is the classification itself, as
+   * the volumes from 1993 on and the State Archives' records use it; subject area, period and year are filters of the
+   * results page.
    */
-  type Subject = [string, number, string[], string, string, string, string, string, string, string];
+  type Subject = [string, number, string, string, string];
   let subjects = $state.raw<Record<string, Subject>>({});
+  // The codes opened in the tree.
+  let openCodes = $state<string[]>([]);
 
   async function loadSubjects() {
     if (Object.keys(subjects).length) return;
@@ -238,22 +224,36 @@
     }
   }
 
-  /** A subject's path and name in the reader's language. */
-  function subjectLabel(subject: Subject): [string, string] {
-    const [, , , , nlPath, nl, frPath, fr, enPath, en] = subject;
-    return lang === "nl" ? [nlPath, nl] : lang === "fr" ? [frPath, fr] : [enPath, en];
-  }
+  /** Each code's sub-codes, in the classification's order; "" holds the top levels (I., II., III.). */
+  let childrenOf = $derived.by(() => {
+    const found = new Map<string, string[]>();
+    for (const [code, [parent]] of Object.entries(subjects)) {
+      const key = parent && subjects[parent] ? parent : "";
+      found.set(key, [...(found.get(key) || []), code]);
+    }
+    return found;
+  });
 
-  /** The subjects of a subject area and period (or, with "", of a subject area outside the periods), in order. */
-  function subjectsUnder(theme: string, period: string): [string, Subject][] {
-    return Object.entries(subjects).filter(([, subject]) => subject[2].includes(theme) && subject[3] === period);
-  }
-
-  function subjectTitle(code: string): string {
+  function subjectName(code: string): string {
     const subject = subjects[code];
-    if (!subject) return Object.keys(subjects).length ? code : "…";
-    const [path, name] = subjectLabel(subject);
-    return path ? `${path} · ${name}` : name;
+    if (!subject) return code;
+    return (lang === "nl" ? subject[2] : lang === "fr" ? subject[3] : subject[4]) || code;
+  }
+
+  /** The number a level has in the printed table of contents: "III.", "B.", "2.", "b.". */
+  function levelNumber(code: string): string {
+    return `${code.replace(/\.$/, "").split(".").at(-1)}.`;
+  }
+
+  /** The chip's wording: the subject after the level above it ("Vlaanderen › Het economische en sociale leven"). */
+  function subjectTitle(code: string): string {
+    if (!Object.keys(subjects).length) return "…";
+    const parent = subjects[code]?.[0];
+    return parent && subjects[parent] ? `${subjectName(parent)} › ${subjectName(code)}` : subjectName(code);
+  }
+
+  function toggleCode(code: string) {
+    openCodes = openCodes.includes(code) ? openCodes.filter((item) => item !== code) : [...openCodes, code];
   }
 
   function removeSubject() {
@@ -261,10 +261,6 @@
     next.delete("subject");
     next.delete("page");
     go("/search", next);
-  }
-
-  function flip(current: string, value: string): string {
-    return current === value ? "" : value;
   }
 
   let related = $state<Hit[]>([]);
@@ -415,7 +411,7 @@
     if (params.get("topic") && !Object.keys(topicNames).length) void loadTopicNames();
     if (params.get("subject")) void loadSubjects();
     if (path === "/browse") {
-      await loadBrowse();
+      await loadSubjects();
       loading = false;
       return;
     }
@@ -1002,6 +998,8 @@
     window.addEventListener("hashchange", onHash);
     window.addEventListener("popstate", onHash);
     readRoute();
+    // The subject tree needs no search index: it shows while the index loads, and when it cannot.
+    if (path === "/browse") void loadSubjects();
     painted()
       .then(loadEngine)
       .then((loaded) => {
@@ -1082,11 +1080,26 @@
   </span>
 {/snippet}
 
-{#snippet subjectRow(code: string, subject: Subject)}
-  {@const [path, name] = subjectLabel(subject)}
+<!-- One level of the classification: its name opens the levels below it, its count lists its publications (those of
+     the levels below included). A level without levels below is a link itself. -->
+{#snippet subjectNode(code: string)}
+  {@const kids = childrenOf.get(code) || []}
+  {@const open = openCodes.includes(code)}
+  {@const count = (subjects[code]?.[1] || 0).toLocaleString(lang)}
   <li>
-    <a href={`#/search?subject=${encodeURIComponent(code)}`} title={`${text.bhbCode} ${code}`}>{#if path}<span class="subject-path">{`${path} · `}</span>{/if}{name}</a>
-    <span class="tree-count">{subject[1].toLocaleString(lang)}</span>
+    {#if kids.length}
+      <button type="button" class="tree-toggle" aria-expanded={open} onclick={() => toggleCode(code)}>
+        <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+        <span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span> {subjectName(code)}
+      </button>
+      <a class="tree-publications" href={`#/search?subject=${encodeURIComponent(code)}`} aria-label={`${subjectName(code)}: ${text.browsePublications.replace("{n}", count)}`}>{text.browsePublications.replace("{n}", count)}</a>
+    {:else}
+      <a class="tree-leaf" href={`#/search?subject=${encodeURIComponent(code)}`}><span class="tree-number" title={`${text.bhbCode} ${code}`}>{levelNumber(code)}</span> {subjectName(code)}</a>
+      <span class="tree-count">{count}</span>
+    {/if}
+    {#if open && kids.length}
+      <ul>{#each kids as kid (kid)}{@render subjectNode(kid)}{/each}</ul>
+    {/if}
   </li>
 {/snippet}
 
@@ -1607,49 +1620,7 @@
     <h1>{text.browse}</h1>
     <p class="similar-note">{text.browseIntro}</p>
     <ul class="tree">
-      {#each groups.theme.filter((value) => browseTree[value]) as theme}
-        <li>
-          <button type="button" class="tree-toggle" aria-expanded={openTheme === theme} onclick={() => { openTheme = flip(openTheme, theme); openPeriod = ""; }}>
-            <svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-            {label("theme", theme)}
-          </button>
-          <span class="tree-count">{browseTree[theme].n.toLocaleString(lang)}</span>
-          {#if openTheme === theme}
-            <ul>
-              {#each groups.period.filter((value) => browseTree[theme].periods[value]) as period}
-                {@const node = browseTree[theme].periods[period]}
-                {@const count = subjectsUnder(theme, period).length}
-                <li>
-                  <a href={`#/search?theme=${theme}&period=${period}`}>{label("period", period)}</a>
-                  <span class="tree-count">{node.n.toLocaleString(lang)}</span>
-                  <!-- What the period opens on, said in words: a bare arrow was not seen as one (Mike, 9 Nov 2026). Only
-                       subjects: the publication year is a filter of the results page. -->
-                  {#if count}
-                    <button type="button" class="tree-more" aria-expanded={openPeriod === period} onclick={() => { openPeriod = flip(openPeriod, period); }}>
-                      {text.browseMore.replace("{n}", count.toLocaleString(lang))}
-                      <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
-                    </button>
-                  {/if}
-                  {#if openPeriod === period && count}
-                    <ul class="tree-subjects">
-                      {#each subjectsUnder(theme, period) as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
-                    </ul>
-                  {/if}
-                </li>
-              {/each}
-              <!-- The subjects outside the periods: the auxiliary sciences, and older codes without a period. -->
-              {#if subjectsUnder(theme, "").length}
-                <li class="tree-loose">
-                  <p class="tree-group">{text.browseSubjects}</p>
-                  <ul class="tree-subjects">
-                    {#each subjectsUnder(theme, "") as [code, subject] (code)}{@render subjectRow(code, subject)}{/each}
-                  </ul>
-                </li>
-              {/if}
-            </ul>
-          {/if}
-        </li>
-      {/each}
+      {#each childrenOf.get("") || [] as code (code)}{@render subjectNode(code)}{/each}
     </ul>
   </main>
 {:else if path === "/about"}

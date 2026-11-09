@@ -28,7 +28,8 @@ const checks = [
   { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
   { name: "a record page (split chapter)", hash: "#/record/bhb%3A1996-13322-c5", selector: "main h1", contains: /Galbert/ },
   { name: "similar publications", hash: "#/similar/bhb%3Avs-1252259", selector: ".result", atLeast: 5 },
-  { name: "browse by subject", hash: "#/browse", selector: ".tree > li", atLeast: 8 },
+  // The classification's three parts (I., II., III.), with their names.
+  { name: "browse by subject", hash: "#/browse", selector: ".tree > li", atLeast: 3, contains: /Bibliograf/ },
   // A subject of the classification, from the subject tree or a record's tag; a subject holds its sub-subjects.
   { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [50, 150] },
   { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [5500, 8500] },

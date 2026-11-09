@@ -15,12 +15,11 @@ const synonymsPath = new URL("../../data/curated/place_synonyms.csv", import.met
 const schemePath = new URL("../../data/curated/scheme.csv", import.meta.url);
 const outputPath = new URL("../public/pagefind", import.meta.url).pathname;
 const stagingPath = new URL("../public/pagefind-build", import.meta.url).pathname;
-const browsePath = new URL("../public/browse.json", import.meta.url).pathname;
 const gazetteerPath = new URL("../../data/curated/gazetteer.csv", import.meta.url);
 const journalsPath = new URL("../../data/curated/journals.csv", import.meta.url);
 const topicRegionsPath = new URL("../../data/curated/topic_regions.json", import.meta.url);
 const placesPath = new URL("../public/places.json", import.meta.url).pathname;
-const themeMapPath = new URL("../../data/curated/theme_map.csv", import.meta.url);
+const aliasesPath = new URL("../../data/curated/scheme_aliases.csv", import.meta.url);
 const subjectsPath = new URL("../public/subjects.json", import.meta.url).pathname;
 // Entries per code of the Bibliography's classification, those of its sub-codes included, for the subject tree.
 const subjectCounts = new Map();
@@ -28,8 +27,6 @@ const subjectCounts = new Map();
 const placeCounts = new Map();
 // Entries per place and period, for the map's choice of period: place → period → count.
 const placePeriods = new Map();
-// Counts for the subject tree, made here once: in the browser, Pagefind needs seconds to count a large group.
-const browse = {};
 const wordsPath = new URL("../public/words", import.meta.url).pathname;
 const knownPath = new URL("../public/known", import.meta.url).pathname;
 // Every indexed word with its number of entries and its most common spelling, for "Did you mean …?".
@@ -48,19 +45,13 @@ const BROAD_WORDINGS = new Set([
   "les institutions et la vie politique droit", "histoire de la vie religieuse et de la laicite",
 ].map(wording));
 
-/**
- * Levels of the classification that only arrange the levels below them ("De verschillende vorstendommen",
- * "Thematische indeling"): the subject tree leaves their wording out of the path it shows before a subject.
- */
-const ARRANGING_CODES = new Set(["II.C.1.", "III.B.1.", "III.B.2.", "III.D.1.", "III.D.2."]);
-
 const synonyms = await loadSynonyms(synonymsPath);
 /** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
 const TRANSLATED = "⁂";
 /** Joins the French and Dutch halves of a printed heading. */
 const DASH = /\s+[—–-]\s+/;
 const scheme = await loadScheme(schemePath);
-const themeMap = await loadThemeMap(themeMapPath);
+const aliases = await loadAliases(aliasesPath);
 const journals = await loadJournals(journalsPath);
 const topicChains = await loadTopicChains(topicRegionsPath);
 const language = "und";
@@ -213,8 +204,7 @@ if (wasm.size < 1000) {
 }
 await ensureEntry(outputPath, indexed);
 await writeKnownWords(`${outputPath}/index`, knownPath);
-await writeFile(browsePath, JSON.stringify(browse));
-await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, themeMap, subjectCounts)));
+await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, subjectCounts)));
 await writePlaces(placesPath, placeCounts, placePeriods);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
@@ -440,14 +430,6 @@ function countBrowse(values, record) {
     for (const period of values.period || []) byPeriod[period] = (byPeriod[period] || 0) + 1;
     placePeriods.set(place, byPeriod);
   }
-  for (const theme of values.theme || []) {
-    const node = (browse[theme] ??= { n: 0, periods: {} });
-    node.n += 1;
-    for (const period of values.period || []) {
-      const child = (node.periods[period] ??= { n: 0 });
-      child.n += 1;
-    }
-  }
   return values;
 }
 
@@ -566,6 +548,7 @@ async function loadScheme(path) {
       fr: row[column.label_fr] || "",
       nl: row[column.label_nl] || "",
       en: row[column.label_en] || "",
+      source: row[column.source] || "",
     };
   }
   return scheme;
@@ -599,7 +582,7 @@ function specificMeta(record, labels, merged = new Map()) {
     const names = labelled(labels, primary.code);
     const parts = { fr: lastPart(names.fr), nl: lastPart(names.nl), en: lastPart(names.en) };
     if (parts.fr && !BROAD_WORDINGS.has(wording(parts.fr))) {
-      return { specificFr: parts.fr, specificNl: parts.nl, specificEn: parts.en, specificFrom: primary.code, specificMachine: primary.machine ? "1" : "" };
+      return { specificFr: parts.fr, specificNl: parts.nl, specificEn: parts.en, specificFrom: currentCode(primary.code), specificMachine: primary.machine ? "1" : "" };
     }
     // A code with a broad wording says nothing finer; one without any wording (II.B.) leaves the printed heading.
     if (parts.fr) return {};
@@ -616,65 +599,52 @@ function codeChain(record) {
   const coded = (record.categories || []).filter((item) => item.code && scheme[item.code]);
   const primary = coded.find((item) => item.primary) || [...coded].sort((left, right) => right.code.length - left.code.length)[0];
   const chain = [];
-  for (let code = primary?.code; code && scheme[code] && !chain.includes(code); code = scheme[code].parent) chain.push(code);
+  for (let code = primary ? currentCode(primary.code) : ""; code && scheme[code] && !chain.includes(code); code = scheme[code].parent) chain.push(code);
   return chain;
 }
 
-/** data/curated/theme_map.csv as [prefix, subject area] rows; a prefix may have several rows. */
-async function loadThemeMap(path) {
+/** Codes that some printed volumes of 1993–2008 numbered otherwise, to the code of the current classification
+ * (data/curated/scheme_aliases.csv): the tree and a subject's search use the current one. */
+async function loadAliases(path) {
   const rows = parseCsv(await readFile(path, "utf8"));
   const column = Object.fromEntries((rows[0] || []).map((name, index) => [name, index]));
-  return rows.slice(1).map((row) => [(row[column.code_prefix] || "").trim(), (row[column.theme] || "").trim()]).filter(([prefix, theme]) => prefix && theme);
+  return new Map(rows.slice(1).filter((row) => row[column.code] && row[column.current_code]).map((row) => [row[column.code], row[column.current_code]]));
 }
 
-/** A code's subject areas, as the pipeline gives them (bhb/scheme.py, themes_for_code): those of the longest
- * matching prefix, and "local" when any shorter prefix has it. A subject appears in the tree under each. */
-function themesOfCode(code, map) {
-  const matches = map.filter(([prefix]) => code.startsWith(prefix));
-  if (!matches.length) return [];
-  const longest = Math.max(...matches.map(([prefix]) => prefix.length));
-  const themes = matches.filter(([prefix]) => prefix.length === longest).map(([, theme]) => theme);
-  if (matches.some(([, theme]) => theme === "local")) themes.push("local");
-  return [...new Set(themes)];
-}
-
-/** A code's period, by the rules of the pipeline's period facet (bhb/facets.py, periods_from_codes); "" for the
- * auxiliary sciences (I.) and the codes outside those rules, which the tree shows under their subject area. */
-function periodOfCode(code) {
-  if (code.startsWith("II.")) return "general";
-  if (code.startsWith("III.A")) return "ancient";
-  if (/^III\.B\.[12](?:\.|$)/.test(code)) return "medieval";
-  if (/^III\.B\.3(?:\.|$)/.test(code)) return "burgundian";
-  if (code.startsWith("III.C")) return "early-modern";
-  if (code.startsWith("III.D")) return "contemporary";
-  return "";
+function currentCode(code) {
+  return aliases.get(code) || code;
 }
 
 /**
- * The subject tree's codes, in the classification's order: code → [parent, entries (sub-codes included), subject
- * areas, period, then for nl, fr and en the path and the subject]. The path is the label's wording between the
- * period (or the part of the Bibliography) and the subject, without the arranging levels; only codes with a wording
- * of their own and with entries are listed. English labels are drafts, as on the record pages.
+ * The subject tree: every code of the current classification (the State Archives' scheme, as the volumes from 1993
+ * on and the State Archives' records use it) with entries, in its order: code → [parent, entries with those of its
+ * sub-codes, name in nl, fr, en]. A level without a wording of its own ("III.B.2.b.") takes its name from the labels
+ * of the codes below it, whose paths name every level above ("… / De verschillende vorstendommen / Vlaanderen / …").
  */
-function subjectsDocument(labels, map, counts) {
+function subjectsDocument(labels, counts) {
+  const names = {};
+  for (const [code, row] of Object.entries(labels)) {
+    const depth = code.replace(/\.$/, "").split(".").length;
+    for (const language of ["nl", "fr", "en"]) {
+      const segments = (row[language] || "").split(" / ").map((part) => part.trim());
+      if (segments.length !== depth || !segments[depth - 1]) continue;
+      // The code's own name, and the names of the levels above it.
+      let level = code;
+      for (let index = depth - 1; index >= 0 && level; index -= 1) {
+        const entry = (names[level] ??= {});
+        if (!entry[language] || level === code) entry[language] = level === code ? segments[index] : entry[language] || segments[index];
+        level = labels[level]?.parent || "";
+      }
+    }
+  }
   const out = {};
   for (const [code, row] of Object.entries(labels)) {
     const n = counts.get(code) || 0;
-    if (!n || !(row.nl || row.fr)) continue;
-    const parts = code.replace(/\.$/, "").split(".");
-    // The label's parts, one per level of the code: drop the part of the Bibliography, and for history by period
-    // also the period itself, which the tree shows above the subject.
-    const skip = new Set([0, ...(code.startsWith("III.") ? [1] : [])]);
-    for (let depth = 1; depth < parts.length; depth += 1) {
-      if (ARRANGING_CODES.has(`${parts.slice(0, depth).join(".")}.`)) skip.add(depth - 1);
-    }
-    const named = (label) => {
-      const segments = (label || "").split(" / ").map((part) => part.trim());
-      if (segments.length !== parts.length) return ["", segments.slice(-1)[0] || ""];
-      const kept = segments.filter((part, index) => !skip.has(index) || index === segments.length - 1);
-      return [kept.slice(0, -1).join(" · "), kept.slice(-1)[0] || ""];
-    };
-    out[code] = [row.parent, n, themesOfCode(code, map), periodOfCode(code), ...named(row.nl || row.fr), ...named(row.fr || row.nl), ...named(row.en || row.fr)];
+    if (!n || row.source !== "vsmart") continue;
+    const name = names[code] || {};
+    const nl = name.nl || name.fr || "";
+    const fr = name.fr || nl;
+    out[code] = [row.parent, n, nl, fr, name.en || fr];
   }
   return out;
 }

@@ -813,17 +813,13 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .tree-toggle .chevron { fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform 0.15s; }
 .tree-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 /* The subjects of the classification under a period: a small heading, then one subject a line, its path greyed. */
-/* The button that opens a period on its subjects: a word and an arrow, in the green of the tags. */
-.tree-more { font: inherit; font-size: 13px; margin-left: 0.6rem; padding: 0.05rem 0.5rem; border: 1px solid #486249; border-radius: 3px; background: #f3f6f2; color: #2f4430; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; vertical-align: 1px; }
-.tree-more:hover { background: #e2eee4; }
-.tree-more .chevron { fill: none; stroke: currentColor; stroke-width: 1.8; transition: transform 0.15s; }
-.tree-more[aria-expanded="true"] .chevron { transform: rotate(90deg); }
-.tree .tree-group { margin: 0.45rem 0 0.15rem 1.6rem; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #6b6e73; }
-.tree ul.tree-subjects { padding: 0.3rem 0 0.35rem 1.6rem; }
-.tree ul.tree-subjects li { padding: 0.12rem 0; line-height: 1.35; }
-.tree li.tree-loose > .tree-group { margin-left: 0; }
-.tree li.tree-loose > ul.tree-subjects { padding-left: 0; }
-.subject-path { color: #6b6e73; }
+/* The classification tree: a level's number greyed before its name, and its count as a link to its publications. */
+.tree ul .tree-toggle { font-size: 15px; }
+.tree-number { color: #6b6e73; font-variant-numeric: tabular-nums; }
+.tree-publications { font-size: 13px; margin-left: 0.6rem; color: #2f4430; white-space: nowrap; }
+/* A level without levels below has no arrow: it starts where its siblings' numbers start. */
+.tree-leaf { font-size: 15px; display: inline-block; margin-left: calc(14px + 0.4rem); }
+.tree-leaf .tree-number { text-decoration: none; display: inline-block; }
 .tree-count { color: #6b6e73; font-size: 14px; font-variant-numeric: tabular-nums; margin-left: 0.4rem; }
 
 .did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
