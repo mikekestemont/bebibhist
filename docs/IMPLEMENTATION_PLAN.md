@@ -527,6 +527,35 @@ the places, and an entry with its DOI or KBR link. Build it once the site is sta
 fixes of §4f and the new State Archives export), from real screens of the site; the source goes in the repository,
 the video beside the site, not in git.
 
+## 4h. To do before the next citation pass: translations copied from a neighbouring title (Mike, 9 Nov 2026)
+
+A search for "Deploige" (within results, newest first) lists entries that do not mention him, "found via a machine
+translation". The model translates titles 25 to a request (`ask_titles`), and within a request it sometimes gives an
+entry the translation of a neighbour: in 1979, `bhb:1979-33187` to `-33190` (Aubert, Plavsic, Papeleux, all on the
+Vatican) have as Dutch "translation" the title of `bhb:1979-33186`, "Mgr. Simon Deploige aan het Vaticaan (dec.
+1914–juli 1915)"; their English translations are right. The ids in the answer match, so the id check of
+`ask_titles` does not catch it. Another case: the 1980 entry by Maes on Conscience's «Leeuw» has as French
+"translation" the title of another poem ("Le «Psaume» de Conscience…"); one translation also changed a printed 1793
+into 1709.
+
+Measured on the release of 7 Nov: a year in a translation that is not in the printed entry flags 355 entries, most of
+them rightly translated (an OCR fix "I960" → 1960, "jaren vijftig" → 1950s), some copied. Errors without a year are
+not found this way: the number is unknown, probably a few hundred of 183,501 translated titles. Translations are for
+search only (the printed text stays), but each wrong one makes false hits.
+
+Every answer is cached, so the next pass (the new State Archives export) gives the printed volumes the same
+translations again: fix this first.
+
+1. **Check every translation, locally.** bge-m3 (the model of the map of subjects, `build/vectors/`) gives the
+   similarity across languages of each title and each of its translations; a low one, or a year not in the printed
+   entry, flags the translation. Look at the distribution and a sample before choosing the threshold.
+2. **Translate the flagged titles again, one title per request** (OpenRouter, cached, a few euros at most); keep a new
+   translation only when it passes the check, else leave that language empty.
+3. **Build the check into the translation step** (`ask_titles` and the run in `cli.py`), so a pass catches it by
+   itself; consider smaller requests.
+4. A new data release (`bhb citations apply` onward, `npm --prefix site run verify`) and a deploy; add a search check
+   that "Deploige" no longer finds `bhb:1979-33190`.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |
