@@ -562,8 +562,9 @@ lose "Latin", half of them Dutch or French titles with a Latin name or quotation
 
 Found in a round of searches (9 Nov 2026), for the next release: 1,263 entries without a year whose linked volume
 (`host.id`, "(cf. n° …)") has one; the pipeline takes a volume's year only from the entry's own host fields
-(`year-from-host`). Take it from the linked volume as well, marked the same way. The volume editors' ORCIDs (Vanderputten)
-are in the code already.
+(`year-from-host`). Take it from the linked volume as well, marked the same way. Done in the code (`borrow_host_years`), as are the
+volume editors' ORCIDs (Vanderputten) and ORCIDs before 2000 within 30 years of a person's first iD; all three reach
+the data with the next release.
 
 ## 5. Order, effort and stop points
 

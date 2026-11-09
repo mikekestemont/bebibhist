@@ -127,15 +127,17 @@ def borrow_host_years(records: list[Record], by_id: dict[str, Record] | None = N
     for record in records:
         if record.role != "entry" or record.is_cross_listing or record.type == "book":
             continue
-        if record.year or _FOUR_DIGIT_YEAR.search(record.printed or ""):
+        if record.year:
             continue
         printed = record.printed or ""
         years: set[int] = set()
-        # A volume already linked through its cross-reference (``link_cited_hosts``) lends its year directly.
+        # A volume already linked through its cross-reference (``link_cited_hosts``) lends its year directly, even
+        # when the printed line has a four-digit number: that is nearly always a year in the title ("(± 1000–1620)"),
+        # which kept 1,255 chapters without a year (9 Nov 2026).
         linked = index.get(record.host.id) if record.host and record.host.id in record.cross_refs else None
         if linked is not None and linked.year:
             years.add(int(linked.year))
-        elif not _IN.search(printed):
+        elif _FOUR_DIGIT_YEAR.search(printed) or not _IN.search(printed):
             continue
         for ref in record.cross_refs if linked is None else []:
             target = index.get(ref)

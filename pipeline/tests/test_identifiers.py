@@ -281,6 +281,9 @@ def test_an_orcid_comes_from_openalex_and_goes_to_the_same_full_name(tmp_path, m
     other.persons[0].given = "Jeroen"
     older = _record(title="Een oud artikel", family="Deploige", year=1995)
     older.persons[0].given = "Jeroen"
+    # A namesake long before (more than CAREER_YEARS before the first entry with the iD) does not get it.
+    namesake = _record(title="Een heel oud artikel", family="Deploige", year=1950)
+    namesake.persons[0].given = "Jeroen"
     initials = _record(title="Nog een artikel", family="Deploige", year=2011)
     initials.persons[0].given = "J."
     answer = {"results": [{"doi": "https://doi.org/10.1484/j.rhe.3.232", "authorships": [
@@ -288,10 +291,12 @@ def test_an_orcid_comes_from_openalex_and_goes_to_the_same_full_name(tmp_path, m
         {"raw_author_name": "Jeroen Deploige", "author": {"orcid": "https://orcid.org/0000-0001-2345-6789"}}]}]}
     monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=60: io.BytesIO(json_.dumps(answer).encode()))
     monkeypatch.setattr("time.sleep", lambda seconds: None)
-    orcids([matched, other, older, initials], tmp_path)
+    orcids([matched, other, older, namesake, initials], tmp_path)
     assert (matched.persons[0].orcid, matched.persons[0].orcid_from) == ("0000-0001-2345-6789", "openalex")
     assert (other.persons[0].orcid, other.persons[0].orcid_from) == ("0000-0001-2345-6789", "name")
-    assert older.persons[0].orcid is None and initials.persons[0].orcid is None
+    # Before 2000 within a career (Mike, 9 Nov 2026), not beyond it; initials never.
+    assert (older.persons[0].orcid, older.persons[0].orcid_from) == ("0000-0001-2345-6789", "name")
+    assert namesake.persons[0].orcid is None and initials.persons[0].orcid is None
 
     # An editor of a chapter's volume gets it by the same rule (Vanderputten edits a volume without writing in it).
     from bhb.model import Host, Person

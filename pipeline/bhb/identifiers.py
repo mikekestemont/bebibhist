@@ -643,6 +643,10 @@ def open_access(records, cache: Path, batch: int = 50) -> dict[str, int]:
 # --- ORCID iDs for authors, through OpenAlex ------------------------------------------------------------------------
 
 ORCID_FROM_YEAR = 2000  # ORCID began in 2012; before about 2000 an iD is rarely attached to a publication.
+# Before that year a person takes an iD by their written-out name only within a career: at most this many years before
+# their first entry that carries it (Mike, 9 Nov 2026). Farther back the same name is too often another person (a
+# Paul Aron of 1942 against the Paul Aron writing from 2001 on).
+CAREER_YEARS = 30
 
 
 def _full_given(given: str | None) -> str:
@@ -652,7 +656,8 @@ def _full_given(given: str | None) -> str:
 
 
 def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
-    """Give authors of entries from ``ORCID_FROM_YEAR`` on their ORCID iD. OpenAlex lists the iDs of a DOI's
+    """Give authors of entries from ``ORCID_FROM_YEAR`` on, and of earlier entries within ``CAREER_YEARS`` of their
+    first iD, their ORCID iD. OpenAlex lists the iDs of a DOI's
     authors; an author of ours takes the iD of the OpenAlex author with the same family name (and, when both are
     given, the same first initial). Then a person with a written-out given name takes the iD on their other entries
     from that year on, as long as that name meets no other iD. Every iD records where it came from."""
@@ -661,7 +666,7 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
     counts: Counter[str] = Counter()
     recent = [record for record in records if (record.year or record.bgb_year or 0) >= ORCID_FROM_YEAR]
     for record in records:
-        for person in record.persons:
+        for person in [*record.persons, *(record.host.editors if record.host else [])]:
             person.orcid = person.orcid_from = None
     dois = sorted({record.doi for record in recent if record.doi})
     authorships: dict[str, list[tuple[str, str]]] = {}
@@ -716,6 +721,28 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
             elif key in registry:
                 person.orcid, person.orcid_from = registry[key], "registry"
                 counts["orcid of a volume editor from the registry" if editor else "orcid from the registry"] += 1
+    # Earlier entries, within a career: the same written-out name, one iD, at most CAREER_YEARS before the first
+    # entry that carries it.
+    first: dict[str, int] = {}
+    for record in recent:
+        year = record.year or record.bgb_year or 0
+        for person in [*record.persons, *(record.host.editors if record.host else [])]:
+            key = f"{fold(person.family)}|{_full_given(person.given)}"
+            if person.orcid and year and len(seen.get(key, ())) == 1:
+                first[key] = min(first.get(key, year), year)
+    for record in records:
+        year = record.year or record.bgb_year or 0
+        if not year or year >= ORCID_FROM_YEAR:
+            continue
+        for person in [*record.persons, *(record.host.editors if record.host else [])]:
+            key = f"{fold(person.family)}|{_full_given(person.given)}"
+            if person.orcid or not _full_given(person.given) or key not in first:
+                continue
+            if first[key] - year <= CAREER_YEARS:
+                person.orcid, person.orcid_from = next(iter(seen[key])), "name"
+                counts["orcid from the same name, before 2000"] += 1
+            else:
+                counts["same name too long before the first iD (left out)"] += 1
     counts["names with an orcid"] = sum(1 for ids in seen.values() if len(ids) == 1)
     counts["names with several orcids (left out)"] = sum(1 for ids in seen.values() if len(ids) > 1)
     return dict(counts)

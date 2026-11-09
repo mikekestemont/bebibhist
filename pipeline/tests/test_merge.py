@@ -207,3 +207,15 @@ def test_an_article_citing_a_volume_by_cf_without_in_gets_the_volume_and_its_yea
     assert found.host.id == volume.id and "host-from-cross-ref" in found.provenance.flags
     assert found.year == 1983 and found.type == "chapter"
     assert next(record for record in merged if record.id == volume.id).type == "book"
+
+
+def test_a_linked_volume_lends_its_year_even_with_a_year_in_the_chapters_title():
+    from bhb.merge import borrow_host_years
+
+    volume = Record(id="bhb:1983-38985", source="print-straive", bgb_year=1983, type="book", title="Pascua Mediaevalia", year=1983)
+    chapter = Record(id="bhb:1983-39286", source="print-straive", bgb_year=1983, type="chapter",
+                     host=Host(id="bhb:1983-38985", title="Pascua Mediaevalia"), cross_refs=["bhb:1983-38985"],
+                     printed="Van Ermen (E.). De Utrechtse kapittels Sint-Maarten en Sint-Salvator in de Antwerpse Kempen "
+                             "(± 1000–1620). Pascua Mediaevalia, pp. 300–350 (cf. n° 38985).")
+    assert borrow_host_years([volume, chapter]) == 1
+    assert chapter.year == 1983 and "year-from-host" in chapter.provenance.flags
