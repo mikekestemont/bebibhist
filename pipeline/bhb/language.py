@@ -30,6 +30,12 @@ from dataclasses import dataclass
 CORE = ("nl", "fr", "en", "de", "la")
 OTHER = ("it", "es", "pt", "ro", "pl", "cs", "sv", "da", "hu", "ru", "el")
 
+# Read but never given as a language of publication (Mike, 9 Nov 2026): a title read as Latin was as often a Dutch or
+# French title with a Latin name or quotation ("Lambertus Lombardus pictor eburonensis: biografie") as a Latin one
+# (an edition, "Cartularium Affligemense"), and publications written in Latin are very rare here. Such a title gets no
+# language from its title; an article then takes its journal's language, as a title of names does.
+NOT_ASSIGNED = {"la"}
+
 # A main title needs at least this many words of its own (not names) and this confidence; a language outside CORE
 # needs a longer title and a clear lead over the next one (Spanish over Portuguese). A segment of a bilingual title
 # needs a strong reading on its own.
@@ -266,7 +272,10 @@ def suggest(records, identifier: Identifier | None = None) -> dict[str, int]:
     for index, (record, text, reading) in enumerate(zip(entries, mains, main_readings)):
         if not reading.sure:
             continue
-        languages = languages_of(record, text, reading.language, by_entry.get(index, []))
+        languages = [code for code in languages_of(record, text, reading.language, by_entry.get(index, []))
+                     if code not in NOT_ASSIGNED]
+        if not languages:
+            continue
         if len(languages) > 1:
             record.provenance.flags.append("language-bilingual")
             counts["bilingual"] += 1

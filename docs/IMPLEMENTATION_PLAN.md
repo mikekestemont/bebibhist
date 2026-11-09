@@ -556,6 +556,10 @@ translations again: fix this first.
 4. A new data release (`bhb citations apply` onward, `npm --prefix site run verify`) and a deploy; add a search check
    that "Deploige" no longer finds `bhb:1979-33190`.
 
+Also in that release (decided 9 Nov 2026, in the code, not yet in the data): a title read as Latin gets no language
+(`NOT_ASSIGNED` in `bhb/language.py`); an article with such a title takes its journal's language. About 260 entries
+lose "Latin", half of them Dutch or French titles with a Latin name or quotation.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |

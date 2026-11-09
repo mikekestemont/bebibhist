@@ -110,3 +110,17 @@ def test_function_words_of_a_rarer_language_outvote_a_narrow_latin_reading():
     assert italian.language == "it" and italian.sure
     # A Spanish title with Spanish function words needs no extra certainty for them.
     assert decide([("es", 0.70), ("pt", 0.10)], "Los tapices de los duques y la corte de Bruselas").sure
+
+
+def test_a_title_read_as_latin_gets_no_language_but_an_article_takes_its_journals():
+    # Latin is still recognised (so a Latin title does not pass for Italian), but never given (Mike, 9 Nov 2026).
+    assert decide([("la", 0.96), ("en", 0.01)], "Bona et jura monasterii Haffligemensis").language == "la"
+    journal = [Record(id=f"bhb:{n}", source="print-straive", bgb_year=1954, type="article", title="Een titel nl",
+                      journal_id="t:biekorf") for n in range(10)]
+    article = Record(id="bhb:1954-5687", source="print-straive", bgb_year=1954, type="article",
+                     title="Lisiardus versus Hariulfus la", journal_id="t:biekorf")
+    edition = Record(id="bhb:1968-11972", source="print-straive", bgb_year=1968, type="book",
+                     title="Cartularium Affligemense anno la")
+    suggest(journal + [article, edition], _Fake())
+    assert article.language_suggested == ["nl"] and "language-from-journal" in article.provenance.flags
+    assert edition.language_suggested == []
