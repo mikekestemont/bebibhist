@@ -560,6 +560,11 @@ Also in that release (decided 9 Nov 2026, in the code, not yet in the data): a t
 (`NOT_ASSIGNED` in `bhb/language.py`); an article with such a title takes its journal's language. About 260 entries
 lose "Latin", half of them Dutch or French titles with a Latin name or quotation.
 
+Found in a round of searches (9 Nov 2026), for the next release: 1,263 entries without a year whose linked volume
+(`host.id`, "(cf. n° …)") has one; the pipeline takes a volume's year only from the entry's own host fields
+(`year-from-host`). Take it from the linked volume as well, marked the same way. The volume editors' ORCIDs (Vanderputten)
+are in the code already.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |
