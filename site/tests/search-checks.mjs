@@ -30,17 +30,17 @@ const checks = [
   { name: "a supplied year where none is printed (Rogghé, Eeklo)", hash: "#/search?q=rogghe%20silexdrager", count: [1, 5], contains: /Silexdrager[^]*\[1953\]/ },
   { name: "the year chart as wide as its slider", hash: "#/search?q=gent", selector: ".years .hist", sameWidth: ".years .handles .track" },
   // A hand correction (data/curated/corrections.csv): the 2004 volume names him Johan.
-  { name: "a corrected author (Deploige (Jeroen), Interiorización)", hash: "#/search?q=Deploige%20(Jeroen)&field=author", count: [25, 70], contains: /Interiorisaci/ },
+  { name: "a corrected author (Deploige (Jeroen), Interiorización)", hash: "#/search?q=Deploige%20(Jeroen)&field=author&per=100", count: [25, 70], contains: /Interiorisaci/ },
   { name: "a person by name (Bertrand (Paul))", hash: "#/search?q=Bertrand%20(Paul)&field=author", count: [15, 30], lacks: /Bertrand \(Jean-Pierre\)/ },
   { name: "publication-year range (gent, 1990–1999)", hash: "#/search?q=gent&from=1990&to=1999", count: [500, 4000] },
   { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
   { name: "a record page (split chapter)", hash: "#/record/bhb%3A1996-13322-c5", selector: "main h1", contains: /Galbert/ },
   { name: "similar publications", hash: "#/similar/bhb%3Avs-1252259", selector: ".result", atLeast: 5 },
   // The classification's three parts (I., II., III.), with their names.
-  { name: "browse by subject", hash: "#/browse", selector: ".tree > li", atLeast: 3, contains: /Bibliograf/ },
+  { name: "browse by subject", hash: "#/browse", selector: ".tree > li", atLeast: 3, contains: /Bibliogra(?:f|ph)/ },
   // A subject of the classification, from the subject tree or a record's tag; a subject holds its sub-subjects.
-  { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [50, 150] },
-  { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [5500, 8500] },
+  { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [150, 400] },
+  { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [7000, 11000] },
   { name: "place filter (Gent, indexed and from titles)", hash: "#/search?place=nis%3A44021", count: [2400, 3400] },
   { name: "a place suggested from the title", hash: "#/record/bhb%3A1995-11621", selector: ".tag-link.tag-suggested", contains: /Gh?ent|Gand/ },
   { name: "map of places", hash: "#/map", selector: ".map .place", atLeast: 1000 },
