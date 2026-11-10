@@ -308,6 +308,21 @@ def test_an_orcid_comes_from_openalex_and_goes_to_the_same_full_name(tmp_path, m
     assert (chapter.host.editors[0].orcid, chapter.host.editors[0].orcid_from) == ("0000-0001-2345-6789", "name")
 
 
+def test_an_orcid_from_the_registry_also_reaches_entries_before_2000(tmp_path, monkeypatch):
+    # Mike, 10 Nov 2026: Deploige's iD, found in the registry, was missing from his entries of 1996–1999.
+    import bhb.identifiers as identifiers
+
+    later = [_record(title=f"Artikel {n}", family="Deploige", year=2005 + n) for n in range(2)]
+    older = _record(title="Van memorabilia naar memoranda", family="Deploige", year=1999)
+    for record in (*later, older):
+        record.persons[0].given = "Jeroen"
+    monkeypatch.setattr(identifiers, "_openalex_works", lambda *args, **kwargs: {})
+    monkeypatch.setattr(identifiers, "registry_orcid", lambda family, given, cache: "0000-0002-0143-7138")
+    identifiers.orcids([*later, older], tmp_path)
+    assert later[0].persons[0].orcid_from == "registry"
+    assert (older.persons[0].orcid, older.persons[0].orcid_from) == ("0000-0002-0143-7138", "name")
+
+
 def test_the_registry_gives_an_orcid_only_for_one_belgian_namesake(tmp_path, monkeypatch):
     import io
     import json as json_

@@ -1,7 +1,8 @@
 """One category for every entry: a reviewed heading, a V-Smart code, or the classifier.
 
 Nothing below the confidence floor is stored. ``bhb categorise draft`` refreshes proposals and
-does not change a filled ``approved_code``, ``approved_theme`` or ``reviewer`` cell.
+does not change a filled ``approved_code``, ``approved_theme``, ``reviewer`` or ``note`` cell, except that a rule's
+row takes the rule's deeper code (``finer_codes``).
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ from bhb.scheme import (
     _french_half,
     agreement_score,
     code_from_path,
+    label_agreement,
+    leaf_label,
     load_scheme,
     load_theme_map,
     parent_code,
@@ -56,7 +59,7 @@ COLUMNS = (
     "reviewer",
     "note",
 )
-PROTECTED = ("approved_code", "approved_theme", "reviewer")
+PROTECTED = ("approved_code", "approved_theme", "reviewer", "note")
 
 _RANGE = re.compile(r"\b\d{3,4}\s*[–—-]\s*\d{2,4}\b")
 _RANGE_FOLDED = re.compile(r"\b\d{3,4}\s+\d{2,4}\b")
@@ -102,6 +105,13 @@ def normalise_heading(heading: str) -> str:
     return re.sub(r"\s+", "", folded)
 
 
+def _refines(row: dict, old: dict) -> bool:
+    """The fresh rule's code lies below the code an earlier rule gave this row."""
+    fresh, before = (row.get("approved_code") or "").strip(), (old.get("approved_code") or "").strip()
+    rules = (row.get("reviewer") or "").strip() == "rule" == (old.get("reviewer") or "").strip()
+    return rules and bool(before) and fresh != before and fresh.startswith(before)
+
+
 def era_of(years: set[int]) -> str:
     if not years:
         return ""
@@ -121,11 +131,15 @@ def document_text(record: Record) -> str:
 
 
 def refresh_crosswalk(proposed: list[dict], existing: list[dict]) -> list[dict]:
-    """Copy filled review cells onto the new proposals. Empty cells stay empty."""
+    """Copy filled review cells onto the new proposals. Empty cells stay empty. A row filled by the rule
+    (``reviewer`` = rule) gives way to the rule's deeper code for it (``finer_codes``), so a better rule reaches
+    the rows an earlier one filled."""
     previous = {row["heading_key"]: row for row in existing if row.get("heading_key")}
     for row in proposed:
         old = previous.get(row["heading_key"])
         if not old:
+            continue
+        if _refines(row, old):
             continue
         for column in PROTECTED:
             if str(old.get(column) or "").strip():
@@ -224,6 +238,9 @@ def categories_for(
     source = "heading-rule" if reviewer == "rule" else "crosswalk"
     if approved and not broad:
         add(approved, source, 1.0, False, as_primary=True)
+        # A heading that names two codes of the scheme has both (``finer_codes``).
+        for code in filter(None, (row.get("rule_also") or "").split("|")) if reviewer == "rule" else ():
+            add(code, source, 1.0, False)
         if approved_theme:
             add(None, source, 1.0, False, theme=approved_theme)
     elif approved_theme and not broad:
@@ -480,9 +497,42 @@ def _number_row(group: _Group, scheme: dict) -> dict:
         row["proposed_by"] = "numbers+label" if agreed else "numbers"
         row["proposal_confidence"] = f"{score / 100:.4f}"
     if agreed:
-        row["approved_code"] = code
+        finer = finer_codes(path, numbered[-1] if numbered else "", code, scheme)
+        row["approved_code"] = finer[0] if finer else code
         row["reviewer"] = "rule"
+        if len(finer) > 1:
+            row["rule_also"] = "|".join(finer[1:])
+            row["note"] = f"The heading names {' and '.join(finer)}: both are given."
     return row
+
+
+FINER_AGREE = 95
+
+
+def finer_codes(path: list[str], numbered: str, code: str, scheme: dict) -> list[str]:
+    """The codes below ``code`` named by the unnumbered headings under its numbered one (1993–2007: "b. La vie
+    économique / Les finances" is III.D.2.b.5., not III.D.2.b.). The volumes use the scheme's own wording, so a
+    label must agree almost word for word (``FINER_AGREE``); headings that only say "general" are passed over. Of
+    several such labels, one equal to the heading wins, then the deepest of a line (III.D.2.a.4.i. over
+    III.D.2.a.4.), and those left are all given ("Les élections; les partis; le personnel politique"). [] when
+    nothing agrees: the code stays."""
+    below = path[path.index(numbered) + 1:] if numbered in path else []
+    below = [heading for heading in below if not _GENERIC.search(_wording(heading))]
+    if not below:
+        return []
+    heading = below[-1]
+    candidates = [other for other, entry in scheme.items()
+                  if other != code and other.startswith(code) and (entry.label_fr or entry.label_nl)
+                  and label_agreement(heading, entry) >= FINER_AGREE]
+    if len(candidates) > 1:
+        wording = {fold(_clean_half(half)) for half in (_french_half(heading), _dutch_half(heading)) if half}
+        wording = {re.sub(r"^\(?\w{1,4}[).]\s*", "", text) for text in wording}
+        exact = [other for other in candidates
+                 if {fold(leaf_label(scheme[other].label_fr or "")), fold(leaf_label(scheme[other].label_nl or ""))} & wording]
+        if len(exact) == 1:
+            return exact
+        candidates = [other for other in candidates if not any(deeper != other and deeper.startswith(other) for deeper in candidates)]
+    return sorted(candidates)
 
 
 def _blank(group: _Group, path: list[str]) -> dict:

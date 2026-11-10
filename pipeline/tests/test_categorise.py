@@ -154,3 +154,34 @@ def test_a_heading_takes_the_code_of_its_respelled_siblings():
     assert rows["earlier"]["model_code"] == "III.D.2.b.5."
     # Another period does not take it.
     assert "model_code" not in rows["medieval"]
+
+
+def test_an_unnumbered_heading_names_the_deeper_code():
+    from bhb.categorise import finer_codes
+    from bhb.scheme import load_scheme
+
+    scheme = load_scheme()
+    above = ["III. Histoire par Époques", "D. Époque contemporaine", "2. Histoire par secteurs fonctionnels",
+             "b. La vie économique — Het economische leven"]
+    assert finer_codes([*above, "Les finances - De financiën"], above[-1], "III.D.2.b.", scheme) == ["III.D.2.b.5."]
+    # Under "Généralités" too; a wording that names no code leaves it.
+    culture = [*above[:3], "e. Histoire culturelle - Cultuurgeschiedenis", "Généralités - Algemeenheden"]
+    assert finer_codes([*culture, "(c) L’architecture - De architectuur"], culture[3], "III.D.2.e.", scheme) == ["III.D.2.e.6.c."]
+    assert finer_codes([*culture, "(a) Historiens; archéologues - Historici; archeologen"], culture[3], "III.D.2.e.", scheme) == []
+    # A heading that names two codes has both.
+    politics = [*above[:3], "a. Les institutions, le droit, l’histoire politique et militaire"]
+    named = finer_codes([*politics, "(b) Les élections; les partis; le personnel politique - De verkiezingen; de partijen"],
+                        politics[-1], "III.D.2.a.", scheme)
+    assert named == ["III.D.2.a.2.b.1.", "III.D.2.a.2.b.2."]
+
+
+def test_a_rule_row_takes_the_rules_deeper_code_but_a_review_stays():
+    from bhb.categorise import refresh_crosswalk
+
+    fresh = [{"heading_key": "k", "approved_code": "III.D.2.b.5.", "reviewer": "rule", "approved_theme": "", "note": ""},
+             {"heading_key": "r", "approved_code": "III.D.2.b.5.", "reviewer": "rule", "approved_theme": "", "note": ""}]
+    old = [{"heading_key": "k", "approved_code": "III.D.2.b.", "reviewer": "rule", "approved_theme": "", "note": ""},
+           {"heading_key": "r", "approved_code": "III.D.2.b.", "reviewer": "Sofie", "approved_theme": "", "note": "checked"}]
+    rows = {row["heading_key"]: row for row in refresh_crosswalk(fresh, old)}
+    assert rows["k"]["approved_code"] == "III.D.2.b.5."
+    assert rows["r"]["approved_code"] == "III.D.2.b." and rows["r"]["note"] == "checked"

@@ -113,6 +113,21 @@ def own_words(text: str) -> int:
     return sum(1 for word in _words(text) if len(word) > 1 and (word[0].islower() or word.lower() in _ALL_FUNCTION))
 
 
+# The small words of names ("van Zeeland. Paul", "de Schepper, dit Scepperius"): Dutch or French to the identifier,
+# they are no words of the title's language when everything else is a name.
+_PARTICLES = {"van", "von", "vander", "vanden", "de", "der", "den", "du", "des", "d", "ten", "ter", "dit", "le", "la", "y"}
+_NAME_HEAD = re.compile(r"^[^,.:;]{2,40}[,.]\s")
+
+
+def name_title(text: str) -> bool:
+    """A title of names, given names, places and dates only, a comma or full stop after the first name ("Velter,
+    Georges, 1896–1979", "Van Rijswijck, Jan. 1853–1906", "Bruxelles, Gand, Liège"). It says nothing of the language
+    and lends none to its volume (Guy Vanthemsche, 10 Nov 2026: the Nouvelle biographie nationale read as Dutch from
+    its Flemish names); an article titled so still takes its journal's language."""
+    words = [part for match in _WORD.finditer(text) for part in re.split(r"['’]", match.group()) if part]
+    return bool(_NAME_HEAD.match(text)) and bool(words) and all(word[0].isupper() or word.lower() in _PARTICLES for word in words)
+
+
 # A capitalised word opens the title or a part of it when nothing but punctuation comes before it.
 _OPENS = re.compile(r"(?:^|[.:;!?—–(«“‘'\"]\s*|\s[-/=]\s*)$")
 
@@ -270,7 +285,7 @@ def suggest(records, identifier: Identifier | None = None) -> dict[str, int]:
     counts: Counter[str] = Counter()
     container_votes: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     for index, (record, text, reading) in enumerate(zip(entries, mains, main_readings)):
-        if not reading.sure:
+        if not reading.sure or name_title(text):
             continue
         languages = [code for code in languages_of(record, text, reading.language, by_entry.get(index, []))
                      if code not in NOT_ASSIGNED]

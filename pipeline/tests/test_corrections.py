@@ -41,3 +41,13 @@ def test_a_machine_correction_replaces_whole_words_only_and_is_flagged():
     assert apply_corrections([record], rows) == 1
     assert record.printed == "Michel (J.). Over het kasteel" and record.title == "Over het kasteel"
     assert "corrected-ocr-machine" in record.provenance.flags
+
+
+def test_a_type_row_changes_the_kind_of_publication_only():
+    record = _zumkir()
+    record.type = "article"
+    assert apply_corrections([record], [{"id": record.id, "wrong": "article", "right": "chapter", "kind": "type"}]) == 1
+    assert record.type == "chapter" and record.title.startswith("Tableau politique")
+    # Another type than the one the row expects, or no known type, leaves it.
+    assert apply_corrections([record], [{"id": record.id, "wrong": "article", "right": "chapter", "kind": "type"}]) == 0
+    assert apply_corrections([record], [{"id": record.id, "wrong": "chapter", "right": "poem", "kind": "type"}]) == 0

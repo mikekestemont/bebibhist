@@ -1,6 +1,6 @@
 # Heading crosswalk
 
-One row per printed heading path. `bhb categorise draft` refreshes the proposal columns. It does not change `approved_code`, `approved_theme` or `reviewer` once a cell has been filled. To reconsider a row, clear those three cells and run the draft again.
+One row per printed heading path. `bhb categorise draft` refreshes the proposal columns. It does not change `approved_code`, `approved_theme`, `reviewer` or `note` once a cell has been filled, with one exception: a row the rule filled (`reviewer` = `rule`) takes the rule's deeper code when an unnumbered heading below the numbered one names a code of the scheme ("b. La vie économique / Les finances" is III.D.2.b.5.). To reconsider a row, clear those cells and run the draft again.
 
 An empty `approved_code` means the row has not been reviewed.
 

@@ -722,13 +722,19 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
                 person.orcid, person.orcid_from = registry[key], "registry"
                 counts["orcid of a volume editor from the registry" if editor else "orcid from the registry"] += 1
     # Earlier entries, within a career: the same written-out name, one iD, at most CAREER_YEARS before the first
-    # entry that carries it.
+    # entry that carries it. The iD may come from a DOI or from the registry (Jeroen Deploige's, found in the
+    # registry, was missing from his seven entries of 1996–1999: Mike, 10 Nov 2026).
+    known: dict[str, set[str]] = defaultdict(set)
+    for record in recent:
+        for person in [*record.persons, *(record.host.editors if record.host else [])]:
+            if person.orcid and _full_given(person.given):
+                known[f"{fold(person.family)}|{_full_given(person.given)}"].add(person.orcid)
     first: dict[str, int] = {}
     for record in recent:
         year = record.year or record.bgb_year or 0
         for person in [*record.persons, *(record.host.editors if record.host else [])]:
             key = f"{fold(person.family)}|{_full_given(person.given)}"
-            if person.orcid and year and len(seen.get(key, ())) == 1:
+            if person.orcid and year and len(known.get(key, ())) == 1:
                 first[key] = min(first.get(key, year), year)
     for record in records:
         year = record.year or record.bgb_year or 0
@@ -739,7 +745,7 @@ def orcids(records, cache: Path, batch: int = 50) -> dict[str, int]:
             if person.orcid or not _full_given(person.given) or key not in first:
                 continue
             if first[key] - year <= CAREER_YEARS:
-                person.orcid, person.orcid_from = next(iter(seen[key])), "name"
+                person.orcid, person.orcid_from = next(iter(known[key])), "name"
                 counts["orcid from the same name, before 2000"] += 1
             else:
                 counts["same name too long before the first iD (left out)"] += 1

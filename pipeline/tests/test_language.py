@@ -124,3 +124,15 @@ def test_a_title_read_as_latin_gets_no_language_but_an_article_takes_its_journal
     suggest(journal + [article, edition], _Fake())
     assert article.language_suggested == ["nl"] and "language-from-journal" in article.provenance.flags
     assert edition.language_suggested == []
+
+
+def test_a_title_of_names_lends_no_language_to_its_volume():
+    # Guy Vanthemsche, 10 Nov 2026: Flemish names read as Dutch made the Nouvelle biographie nationale Dutch.
+    from bhb.language import name_title
+
+    assert name_title("Velter, Georges, 1896–1979")
+    assert name_title("van Zeeland. Paul, 1893–1973")
+    assert name_title("Van Rijswijck, Jan. 1853–1906")
+    assert not name_title("De Gentse Feesten")
+    assert not name_title("Gent, een stad in beweging")
+    assert not name_title("Velter et le patronat belge")
