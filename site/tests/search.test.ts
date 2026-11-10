@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { citationHtml, contentWords, editDistance, foundThroughTranslation, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
 import { nameWords } from "../src/lib/words.js";
 
 test("a year range matches any of its years, not all of them at once", () => {
@@ -51,11 +51,13 @@ test("without the translations, all text and title search the record's own words
 });
 
 test("a hit through a translation needs the whole word in the translation only", () => {
-  const content = "Les ponts de Bruges og_les_ og_ponts_\n⁂\nde bruggen van brugge";
-  assert.equal(foundThroughTranslation(content, "bruggen"), true);
-  assert.equal(foundThroughTranslation(content, "brugg"), false);
-  assert.equal(foundThroughTranslation(content, "brugg", true), true);
-  assert.equal(foundThroughTranslation(content, "ponts"), false);
+  const words = { og: "les ponts de bruges", tw: "bruggen van brugge" };
+  assert.equal(foundThroughTranslation(words, "bruggen"), true);
+  assert.equal(foundThroughTranslation(words, "brugg"), false);
+  assert.equal(foundThroughTranslation(words, "brugg", true), true);
+  assert.equal(foundThroughTranslation(words, "ponts"), false);
+  // A prefix that the record's own text has too ("brug…" in "bruges") is no hit through the translation.
+  assert.equal(foundThroughTranslation(words, "brug", true), false);
 });
 
 test("content words are folded and leave out function words", () => {
@@ -118,11 +120,23 @@ test("a host missing from the export is left out of the line, not shown as a tit
 });
 
 test("a hit found only through its title's translation says so", () => {
-  const content = "bhb:1990-1\nDe gewoonte in het leenhof van Brabant\nti_gewoonte ti_leenhof\n⁂\nLa coutume à la cour féodale de Brabant\nti_coutume";
-  assert.equal(foundThroughTranslation(content, "coutume féodale"), true);
-  assert.equal(foundThroughTranslation(content, "leenhof"), false);
-  assert.equal(foundThroughTranslation(content, "Brabant"), false);
-  assert.equal(foundThroughTranslation("bhb:1990-2\nLa coutume", "coutume"), false);
+  const words = { og: "de gewoonte in het leenhof van brabant", tw: "la coutume cour feodale", ot: "de gewoonte in het leenhof van brabant", tt: "la coutume cour feodale" };
+  assert.equal(foundThroughTranslation(words, "coutume féodale"), true);
+  assert.equal(foundThroughTranslation(words, "leenhof"), false);
+  assert.equal(foundThroughTranslation(words, "Brabant"), false);
+  assert.equal(foundThroughTranslation({ og: "la coutume" }, "coutume"), false);
+  assert.equal(foundThroughTranslation(undefined, "coutume"), false);
+});
+
+test("the index words of a record under each search tag", () => {
+  const words = { og: "les ponts de bruges", tw: "bridges", ot: "les ponts", tt: "bridges", au: "dupont" };
+  assert.deepEqual(indexWords(words, "og"), ["les", "ponts", "de", "bruges"]);
+  assert.deepEqual(indexWords(words, "aw"), ["les", "ponts", "de", "bruges", "bridges"]);
+  assert.deepEqual(indexWords(words, "ot"), ["les", "ponts"]);
+  assert.deepEqual(indexWords(words, "ti"), ["les", "ponts", "bridges"]);
+  assert.deepEqual(indexWords(words, "au"), ["dupont"]);
+  assert.deepEqual(indexWords(words, "se"), []);
+  assert.deepEqual(indexWords(undefined, "aw"), []);
 });
 
 test("a printed entry without any year shows the year of the data, in brackets and marked as supplied", () => {

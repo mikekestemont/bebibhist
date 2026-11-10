@@ -1,9 +1,13 @@
 import { nameWords, personName, personWord } from "./words.js";
 export { nameWords };
+/** The words the index holds for a record, per tag, space-separated (``storedWords`` in scripts/build-index.mjs):
+ * its own text ("og"), the translations' new words ("tw"), its title ("ot"), the translated title's new words
+ * ("tt"), its people ("au"), its volume or journal ("in") and its series ("se"). */
+export type IndexWords = { og?: string; tw?: string; ot?: string; tt?: string; au?: string; in?: string; se?: string };
+
 export interface Hit {
   url: string;
-  excerpt: string;
-  content?: string;
+  words?: IndexWords;
   meta: {
     id: string;
     formerIds?: string;
@@ -347,17 +351,52 @@ export async function loadEngine(): Promise<Pagefind> {
   await loaded.options({ basePath, ranking: { pageLength: PAGE_LENGTH_WEIGHT, termSimilarity: TERM_SIMILARITY } });
   await loaded.init();
   await loaded.filters();
+  recordsBase = `${basePath}records/`;
+  // A result's data comes from the record files (``recordOf``), not from Pagefind's fragments, which are not published.
   engine = { ...loaded, search: async (query, options) => {
     if (query) await loadPrefixChunks(loaded, query);
-    return loaded.search(query, options);
+    const response = await loaded.search(query, options);
+    return { ...response, results: response.results.map(({ id }) => ({ id, data: () => recordOf(id) })) };
   } };
   return engine;
 }
 
+let recordsBase = "";
+const recordFiles = new Map<string, Promise<Record<string, { m: Hit["meta"]; w?: IndexWords }>>>();
+
+/**
+ * The record of a search result, by its Pagefind id ("und_0083ebf"): from the record file named by the id's first
+ * three hex digits (records/008.bin, about 28 kB for some 45 records, ``writeRecordFiles`` in
+ * scripts/build-index.mjs). Pagefind's one fragment per record made a deployment of 200,000 files, whose copy on
+ * GitHub Pages stalled (10 Nov 2026).
+ */
+export async function recordOf(id: string): Promise<Hit> {
+  const key = id.slice(id.indexOf("_") + 1, id.indexOf("_") + 4);
+  if (!recordFiles.has(key)) {
+    const loading = fetch(`${recordsBase}${key}.bin`).then(async (response) => {
+      if (!response.ok) throw new Error(`records/${key}.bin: ${response.status}`);
+      return JSON.parse(await gunzipText(new Uint8Array(await response.arrayBuffer())));
+    });
+    // A file that could not be read is asked for again next time.
+    loading.catch(() => recordFiles.delete(key));
+    recordFiles.set(key, loading);
+  }
+  const record = (await recordFiles.get(key)!)[id];
+  if (!record) throw new Error(`record ${id} is not in records/${key}.bin`);
+  return { url: `#/record/${encodeURIComponent(record.m.id)}`, meta: record.m, words: record.w };
+}
+
+/** The text of a gzip file; a server that sent it already unpacked (Content-Encoding: gzip) is read as it is. */
+async function gunzipText(bytes: Uint8Array): Promise<string> {
+  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return new TextDecoder().decode(bytes);
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).text();
+}
+
 /**
  * Pagefind in a worker (pagefind-worker.ts), behind the same functions: the page's thread stays free while a
- * search computes, so the page answers and the hourglass keeps turning. A result's data is asked of the worker
- * when the page needs it.
+ * search computes, so the page answers and the hourglass keeps turning. A result's data is read from the record
+ * files (``recordOf``).
  */
 async function workerPagefind(url: string): Promise<Pagefind> {
   const worker = new Worker(new URL("./pagefind-worker.ts", import.meta.url), { type: "module" });
@@ -390,7 +429,7 @@ async function workerPagefind(url: string): Promise<Pagefind> {
     preload: (query) => call("preload", query),
     search: async (query, options) => {
       const response = await call<{ results: { id: string }[]; filters?: Record<string, Record<string, number>> }>("search", query, options);
-      return { ...response, results: response.results.map((result) => ({ ...result, data: () => call<Hit>("data", result.id) })) };
+      return { ...response, results: response.results.map(({ id }) => ({ id, data: () => recordOf(id) })) };
     },
   };
 }
@@ -548,8 +587,16 @@ function lowerBound(list: string[], token: string): number {
   return low;
 }
 
-/** Begins the machine-translated titles in a record's indexed content (``scripts/build-index.mjs``). */
-const TRANSLATED = "⁂";
+/** The words a search under ``tag`` ("aw", "og", "ti" …, ``fieldTag``) finds in a record. */
+export function indexWords(words: IndexWords | undefined, tag: string): string[] {
+  const list = (value?: string) => (value ? value.split(" ") : []);
+  if (!words) return [];
+  if (tag === "og") return list(words.og);
+  if (tag === "aw") return [...list(words.og), ...list(words.tw)];
+  if (tag === "ot") return list(words.ot);
+  if (tag === "ti") return [...list(words.ot), ...list(words.tt)];
+  return list(words[tag as keyof IndexWords]);
+}
 
 function wordsOf(text: string): string[] {
   return foldQuery(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
@@ -557,15 +604,13 @@ function wordsOf(text: string): string[] {
 
 /**
  * Whether a hit was found only through the machine translation of its title: a word of the query (or, with
- * ``prefix``, a word that begins with it) is in the translations but nowhere else in the record.
+ * ``prefix``, a word that begins with it) is among the translations' new words but nowhere in the record's own text.
  */
-export function foundThroughTranslation(content: string | undefined, query: string, prefix = false): boolean {
-  const at = content ? content.indexOf(TRANSLATED) : -1;
-  if (!content || at < 0) return false;
-  // The record's own words end before the tagged copies ("ti_…", "og_…"), which repeat the translations too.
-  const own = wordsOf(content.slice(0, at)).filter((word) => !/^[a-z]{2}$/.test(word));
-  const translated = wordsOf(content.slice(at));
-  const has = (words: string[], word: string) => words.some((candidate) => (prefix ? candidate.startsWith(word) : candidate === word));
+export function foundThroughTranslation(words: IndexWords | undefined, query: string, prefix = false): boolean {
+  if (!words?.tw) return false;
+  const own = indexWords(words, "og");
+  const translated = indexWords(words, "aw").slice(own.length);
+  const has = (list: string[], word: string) => list.some((candidate) => (prefix ? candidate.startsWith(word) : candidate === word));
   return wordsOf(query)
     .filter((word) => word.length > 2 && !FUNCTION_WORDS.has(word))
     .some((word) => !has(own, word) && has(translated, word));

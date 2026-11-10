@@ -13,12 +13,12 @@ permissions:
 concurrency: pages
 
 jobs:
-  deploy:
+  # The site is built and checked in one job and deployed in another, so a deployment that stalls is tried again on
+  # its own in a few minutes (pages-retry.yml does so once; by hand, "Re-run failed jobs" or gh run rerun <id>
+  # --failed), instead of a new run that builds for 20 to 30 minutes first.
+  build:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'data-')
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,12 +57,21 @@ jobs:
           npm run build
           echo "site index and build: $(( $(date +%s) - start ))s" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check the artifact size
+      # GitHub Pages copies every file of a deployment. With about 200,000 files (one Pagefind fragment per record)
+      # and 560 MB, that copy stalled past its 10 minutes on three of eight deployments of 10 Nov 2026; the records
+      # now come in 4,096 files (scripts/build-index.mjs, ``writeRecordFiles``). A build that grows back towards
+      # that fails here, before it is deployed.
+      - name: Check the artifact size and file count
         run: |
           size=$(du -sm --apparent-size site/dist | cut -f1)
-          echo "site/dist: ${size} MB" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$size" -gt 900 ]; then
-            echo "site/dist is ${size} MB, above the 900 MB limit"
+          files=$(find site/dist -type f | wc -l)
+          echo "site/dist: ${size} MB in ${files} files" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt 600 ]; then
+            echo "site/dist is ${size} MB, above the 600 MB limit"
+            exit 1
+          fi
+          if [ "$files" -gt 40000 ]; then
+            echo "site/dist has ${files} files, above the 40,000 limit"
             exit 1
           fi
 
@@ -82,26 +91,36 @@ jobs:
         with:
           path: site/dist
 
-      # Pages copies about 200,000 files (one search fragment per record). Mostly that takes half a minute, but twice
-      # on 10 Nov 2026 it stayed "syncing_files" until the deployment was cancelled after 10 minutes (a longer timeout
-      # set here made no difference), and a second deployment of the same build went through. So a stalled first
-      # attempt is followed by a second one; the job fails only when both do.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Pages takes an artifact once: a second deployment of the same artifact never got a status and timed out (10
+      # Nov 2026), while a new artifact of the same commit was taken. So a re-run of this job deploys a copy of the
+      # build's artifact under a name of its own.
+      - name: Download the build's artifact again
+        if: github.run_attempt != '1'
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/pages
+
+      - name: Upload it as a new artifact
+        if: github.run_attempt != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-pages-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pages/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        continue-on-error: true
         with:
           timeout: 600000
-
-      - name: Wait before the second attempt
-        if: steps.deployment.outcome == 'failure'
-        run: |
-          echo "first deployment failed; trying once more" >> "$GITHUB_STEP_SUMMARY"
-          sleep 60
-
-      - name: Deploy to GitHub Pages (second attempt)
-        id: deployment_retry
-        if: steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v4
-        with:
-          timeout: 600000
+          artifact_name: ${{ github.run_attempt == '1' && 'github-pages' || format('github-pages-attempt-{0}', github.run_attempt) }}

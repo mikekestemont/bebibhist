@@ -1,0 +1,33 @@
+name: pages-retry
+
+# A Pages deployment that stalls (the copy of the files stays "syncing" past its 10 minutes; three of eight on
+# 10 Nov 2026) is tried once more: only the failed deploy job runs again, with a copy of the build's artifact
+# (pages.yml), not a new build. A failed build or search check is not retried.
+on:
+  workflow_run:
+    workflows: [pages]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  retry:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run the deploy job when only it failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          jobs=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN/jobs" --jq '[.jobs[] | {name, conclusion}]')
+          echo "$jobs"
+          build=$(echo "$jobs" | jq -r '.[] | select(.name == "build") | .conclusion')
+          deploy=$(echo "$jobs" | jq -r '.[] | select(.name == "deploy") | .conclusion')
+          if [ "$build" != "success" ] || [ "$deploy" != "failure" ]; then
+            echo "build $build, deploy $deploy: nothing to retry"
+            exit 0
+          fi
+          echo "the deployment of run $RUN failed; deploying again" >> "$GITHUB_STEP_SUMMARY"
+          gh run rerun "$RUN" --failed --repo "${{ github.repository }}"

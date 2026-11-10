@@ -7,7 +7,7 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, FUNCTION_WORD_SET, escapeHtml, fieldTag, foundThroughTranslation, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -524,7 +524,7 @@
     if (!current()) return;
     hits = loaded;
     // The hits shown that lack a word whole were found through a longer word: the line before them says so.
-    partialIds = new Set(longer.length ? loaded.filter((hit) => !hasWholeWords(hit.content, words, tag)).map((hit) => hit.meta.id) : []);
+    partialIds = new Set(longer.length ? loaded.filter((hit) => !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
     // With a year range, the year filter shows the counts of every year, so it needs the same search without the
     // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
     // it waits until the results have been painted (a frame, then a task), or it would hold them back.
@@ -556,10 +556,11 @@
   // The hits shown that were found only through a longer word (they follow the whole-word hits).
   let partialIds = $state<Set<string>>(new Set());
 
-  /** Whether a record's indexed words hold each of ``words`` whole, under the search's tag ("aw_brugge_"). */
-  function hasWholeWords(content: string | undefined, words: string[], tag: string): boolean {
-    if (!content) return true;
-    return words.every((word) => new RegExp(`(?:^|\\s)${tag}_${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(?=\\s|$)`).test(content));
+  /** Whether a record's indexed words hold each of ``words`` whole, under the search's tag ("aw" for "aw_brugge_"). */
+  function hasWholeWords(stored: IndexWords | undefined, words: string[], tag: string): boolean {
+    if (!stored) return true;
+    const found = new Set(indexWords(stored, tag));
+    return words.every((word) => found.has(word));
   }
 
   /** The query's content words (for an author, the name's words with their particles joined), without "*" words. */
@@ -673,7 +674,7 @@
   function viaTranslation(hit: Hit): boolean {
     if (!translatable() || !withTranslations()) return false;
     // A hit of the second step was found through a longer word: the translation is checked the same way.
-    return foundThroughTranslation(hit.content, [query, ...params.getAll("more")].join(" "), partialIds.has(hit.meta.id));
+    return foundThroughTranslation(hit.words, [query, ...params.getAll("more")].join(" "), partialIds.has(hit.meta.id));
   }
 
   function scopeOf(search: URLSearchParams): string {

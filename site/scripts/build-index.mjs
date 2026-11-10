@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
@@ -55,8 +55,6 @@ const EDITOR_ROLES = new Set(["editor", "compiler"]);
 const NOT_AUTHOR = new Set([...EDITOR_ROLES, "preface", "translator", "illustrator"]);
 
 const synonyms = await loadSynonyms(synonymsPath);
-/** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
-const TRANSLATED = "⁂";
 /** Joins the French and Dutch halves of a printed heading. */
 const DASH = /\s+[—–-]\s+/;
 const scheme = await loadScheme(schemePath);
@@ -70,6 +68,8 @@ if (!index) {
   process.exit(1);
 }
 
+// Entry id → its index words per tag (``storedWords``), for the record files (``writeRecordFiles``).
+const recordWords = new Map();
 // Entry kept in search → the other volumes' listings of the same publication (filled by countContainers).
 const listedAgain = new Map();
 // Listing → the listing kept in search, for neighbours that name the other one.
@@ -118,16 +118,24 @@ for await (const line of lines) {
   countWords(translated ? `${content}\n${translated}` : content);
   const own = stripMarks(content).slice(0, 4000);
   const specific = specificMeta(record, scheme, merged);
+  const lists = indexLists(record, own, translated ? stripMarks(translated).slice(0, 2000) : "", translatedTitle);
+  recordWords.set(record.id, storedWords(lists));
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
-    // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
-    // translations out and still count its hits exactly (the switch "also search machine translations").
-    // Every tagged word closes with "_" (``prefixed``), so a search can ask for the whole word: "aw_brugge_" does not
-    // find "bruggen" (reviewer, 9 Nov 2026), while "aw_brugg" still finds every word it begins. "aw_" is all the
-    // text, the translations' new words included; it stands after the translations' marker, so the page can tell
-    // a hit found only through them.
-    content: `${[record.id, ...(record.former_ids || []), ...again.flatMap((item) => [item.id, ...item.former])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}${keyWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
-      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}\n${prefixed("aw", translated ? `${own}\n${stripMarks(translated).slice(0, 2000)}` : own)}`,
+    // Only tagged words, besides the entry's ids and the words that narrow a search (``keyWords``): every search the
+    // page makes asks for them (``searchQuery``), so the plain text, which was indexed once more beside them, is
+    // left out (10 Nov 2026: a quarter of the index, for no search).
+    // "og_" is the record's own text and "ot_" its title, so a search can leave the translations out and still count
+    // its hits exactly (the switch "also search machine translations"); "aw_" is all the text, the translations' new
+    // words included, and "ti_" the title with its translations' new words. Every tagged word closes with "_"
+    // (``tagged``), so a search can ask for the whole word: "aw_brugge_" does not find "bruggen" (reviewer, 9 Nov
+    // 2026), while "aw_brugg" still finds every word it begins. The page reads the same word lists from the record
+    // files (``storedWords``) to tell a hit found only through a longer word or a translation.
+    content: [
+      [record.id, ...(record.former_ids || []), ...again.flatMap((item) => [item.id, ...item.former])].join(" "),
+      `${[tagged("ti", lists.ot), tagged("au", lists.au), tagged("in", lists.in), tagged("se", lists.se)].filter(Boolean).join(" ")}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}${keyWords(record)}`,
+      [tagged("og", lists.og), tagged("ot", lists.ot), tagged("ti", lists.tt), tagged("aw", lists.aw)].filter(Boolean).join(" "),
+    ].join("\n"),
     language,
     meta: {
       id: record.id,
@@ -224,6 +232,7 @@ await rm(stagingPath, { recursive: true, force: true });
 const written = await index.writeFiles({ outputPath: stagingPath });
 if (written.errors?.length) console.error(written.errors.join("\n"));
 await close();
+await writeRecordFiles(stagingPath, indexed);
 await rm(previousPath, { recursive: true, force: true });
 try {
   await rename(outputPath, previousPath);
@@ -243,6 +252,43 @@ await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, subjectCou
 await writePlaces(placesPath, placeCounts, placePeriods);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
+
+/**
+ * The records the page shows, in 4,096 files instead of Pagefind's one fragment per record (180,000 files): GitHub
+ * Pages copies every file of a deployment, and from 10 Nov 2026 that copy of about 200,000 files stalled past its
+ * 10 minutes on three of eight deployments. A search result's id is its fragment's name ("und_0083ebf"); the first
+ * three hex digits after the language name its file, records/008.bin, which holds every record whose id begins so
+ * ({id: {m: meta, w: index words}}, gzip). The page reads that file instead of the fragment (``recordOf`` in
+ * src/lib/search.ts), and the fragments are not published. A record file is about 28 kB.
+ */
+async function writeRecordFiles(dir, expected) {
+  const fragments = `${dir}/fragment`;
+  const files = new Map();
+  let count = 0;
+  for (const name of await readdir(fragments)) {
+    if (!name.endsWith(".pf_fragment")) continue;
+    const id = name.slice(0, -".pf_fragment".length);
+    const hash = id.slice(id.indexOf("_") + 1);
+    if (!/^[0-9a-f]{3}/.test(hash)) throw new Error(`unexpected fragment name ${name}`);
+    const fragment = JSON.parse(gunzipSync(await readFile(`${fragments}/${name}`)).subarray("pagefind_dcd".length).toString("utf8"));
+    const words = recordWords.get(fragment.meta.id);
+    if (!words) throw new Error(`no index words for ${fragment.meta.id} (${name})`);
+    const key = hash.slice(0, 3);
+    if (!files.has(key)) files.set(key, {});
+    files.get(key)[id] = { m: fragment.meta, w: words };
+    count += 1;
+  }
+  if (count !== expected) throw new Error(`${count} fragments for ${expected} indexed entries`);
+  await mkdir(`${dir}/records`, { recursive: true });
+  let bytes = 0;
+  for (const [key, records] of files) {
+    const body = gzipSync(JSON.stringify(records), { level: 9 });
+    bytes += body.length;
+    await writeFile(`${dir}/records/${key}.bin`, body);
+  }
+  await rm(fragments, { recursive: true, force: true });
+  console.log(`records: ${count} in ${files.size} files, ${Math.round(bytes / 1048576)} MB → ${dir}/records`);
+}
 
 /** Pagefind 1.4 sometimes leaves pagefind-entry.json empty, and search then never starts. */
 async function ensureEntry(dir, pageCount) {
@@ -323,12 +369,45 @@ function yearOf(value) {
   return match ? Number(match[0]) : 0;
 }
 
-function fieldTokens(record) {
+/**
+ * The words the index holds for an entry, per tag, each once: its own text ("og"), all of it with the
+ * translations' new words ("aw"), its title ("ot", which is also "ti"), the translated title's new words (added to
+ * "ti"), its people ("au"), its volume or journal ("in") and its series ("se").
+ */
+function indexLists(record, own, translatedText, translatedTitle) {
   const authors = (record.persons || []).map((person) => [person.family, person.given, person.given_full].filter(Boolean).join(" ")).join(" ");
   // A family name's particles joined to the word after them, as an author query joins them (``nameWords``):
   // "Van der Weyden" and "Vander Weyden" both give au_vanderweyden_, "Dervaux-Van Ussel" au_vanussel_.
   const joined = (record.persons || []).flatMap((person) => nameWords(person.family).map(({ word }) => word)).join(" ");
-  return [prefixed("ti", record.title), prefixed("au", `${authors} ${joined}`), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
+  const og = wordList(own);
+  const ot = wordList(record.title);
+  return {
+    og,
+    aw: translatedText ? wordList(`${own}\n${translatedText}`) : og,
+    ot,
+    tt: without(wordList(translatedTitle), ot),
+    au: wordList(`${authors} ${joined}`),
+    in: wordList(record.host?.title),
+    se: wordList(record.series?.title),
+  };
+}
+
+/**
+ * The word lists of ``indexLists`` as the record files keep them for the page, space-separated and only the new
+ * words of "aw" (the page joins them to "og" again, ``indexWords`` in src/lib/search.ts).
+ */
+function storedWords(lists) {
+  const stored = {};
+  const tw = without(lists.aw, lists.og);
+  for (const [key, list] of [["og", lists.og], ["tw", tw], ["ot", lists.ot], ["tt", lists.tt], ["au", lists.au], ["in", lists.in], ["se", lists.se]]) {
+    if (list.length) stored[key] = list.join(" ");
+  }
+  return stored;
+}
+
+function without(list, other) {
+  const seen = new Set(other);
+  return list.filter((word) => !seen.has(word));
 }
 
 /** Each place of an entry once, its readable name with it. */
@@ -349,13 +428,16 @@ function newWords(text, own) {
   return words.filter((word) => !seen.has(word) && seen.add(word)).join(" ");
 }
 
-function prefixed(tag, text) {
+/** The folded words of ``text`` of two letters or more, each once, in order. */
+function wordList(text) {
   const seen = new Set();
   const words = fold(String(text || "")).match(/[\p{L}\p{N}]+/gu) || [];
-  return words
-    .filter((word) => word.length > 1 && !seen.has(word) && seen.add(word))
-    .map((word) => `${tag}_${word}_`)
-    .join(" ");
+  return words.filter((word) => word.length > 1 && !seen.has(word) && seen.add(word));
+}
+
+/** A word list as index words of one tag, each closed with "_" (a whole word). */
+function tagged(tag, list) {
+  return list.map((word) => `${tag}_${word}_`).join(" ");
 }
 
 function people(record) {
