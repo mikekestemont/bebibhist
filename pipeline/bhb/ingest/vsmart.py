@@ -318,20 +318,44 @@ def render_printed(record: Record) -> str:
     )
 
 
-def render_printed_fields(persons, title, subtitle, host: Host | None, year, extent, place, publisher) -> str:
+def _name_line(persons) -> str:
     names = [f"{person.family} ({person.given})" if person.given else person.family for person in persons]
     if len(names) > 1:
-        authors = ", ".join(names[:-1]) + " & " + names[-1]
-    else:
-        authors = names[0] if names else ""
+        return ", ".join(names[:-1]) + " & " + names[-1]
+    return names[0] if names else ""
+
+
+# Contributors who are not authors, named after the title in the Bibliography's two languages, as its headings are
+# (Guy Vanthemsche, 10 Nov 2026: the writer of a preface read as a co-author of the book).
+_CONTRIBUTED = (
+    ("preface", "Voorwoord – Préface"),
+    ("translator", "Vertaling – Traduction"),
+    ("illustrator", "Illustraties – Illustrations"),
+)
+# The catalogue's "Samensteller, uitgever" compiled or edited the volume: shown as its editors.
+EDITOR_ROLES = ("editor", "compiler")
+
+
+def render_printed_fields(persons, title, subtitle, host: Host | None, year, extent, place, publisher) -> str:
+    """Authors, then the title; editors before the title only when there is no author (``eds.``), else after it."""
+    authors = [person for person in persons if person.role not in EDITOR_ROLES + tuple(role for role, _ in _CONTRIBUTED)]
+    editors = [person for person in persons if person.role in EDITOR_ROLES]
     bits: list[str] = []
     if authors:
-        bits.append(authors + ".")
+        bits.append(_name_line(authors) + ".")
+    elif editors:
+        bits.append(_name_line(editors) + (" (eds.)." if len(editors) > 1 else " (ed.)."))
     heading = title or ""
     if subtitle:
         heading = f"{heading}: {subtitle}" if heading else subtitle
     if heading:
         bits.append(heading.rstrip(".") + ".")
+    if authors and editors:
+        bits.append(f"Red. – Éd.: {_name_line(editors)}.")
+    for role, label in _CONTRIBUTED:
+        named = [person for person in persons if person.role == role]
+        if named:
+            bits.append(f"{label}: {_name_line(named)}.")
     if host is not None:
         detail = ", ".join(
             part

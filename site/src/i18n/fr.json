@@ -63,6 +63,9 @@
   "host": "Dans",
   "hostSubtitle": "Sous-titre",
   "hostEditors": "Direction",
+  "preface": "Préface",
+  "translators": "Traduction",
+  "illustrators": "Illustrations",
   "volume": "Volume",
   "issue": "Fascicule",
   "pages": "Pages",
@@ -324,8 +327,8 @@
   "particlesJoined": "Les particules sont jointes au nom : van der Weyden, Van der Weyden et Vander Weyden sont un même nom. La recherche par auteur trouve les personnes qui ont écrit ou édité, pas celles dont on parle.",
   "searchAllText": "Chercher « {q} » dans tout le texte",
   "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
-  "alsoListed": "Aussi dans un autre volume",
-  "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie, est réunie ici en une seule notice.",
+  "alsoListed": "Aussi ailleurs dans la Bibliographie",
+  "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie ou sous une autre rubrique du même volume, est réunie ici en une seule notice.",
   "tierDivider": "Trouvés par des mots plus longs : {words}",
   "longerNote": "Les mots qui commencent par ceux de la recherche sont trouvés aussi, après les notices qui ont le mot entier : {words}."
 }

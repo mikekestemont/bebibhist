@@ -63,6 +63,9 @@
   "host": "In",
   "hostSubtitle": "Ondertitel",
   "hostEditors": "Redactie",
+  "preface": "Voorwoord",
+  "translators": "Vertaling",
+  "illustrators": "Illustraties",
   "volume": "Deel",
   "issue": "Aflevering",
   "pages": "Pagina's",
@@ -324,8 +327,8 @@
   "particlesJoined": "Tussenvoegsels horen bij de naam: van der Weyden, Van der Weyden en Vander Weyden zijn één naam. Zoeken op auteur vindt wie schreef of uitgaf, niet over wie geschreven werd.",
   "searchAllText": "“{q}” zoeken in alle tekst",
   "nameVariants": "Deze naam wordt hier op meer dan één manier geschreven:",
-  "alsoListed": "Ook in een ander volume",
-  "alsoListedNote": "Dezelfde publicatie, nog eens opgenomen in een ander volume van de Bibliografie, staat hier als één beschrijving.",
+  "alsoListed": "Ook elders in de Bibliografie",
+  "alsoListedNote": "Dezelfde publicatie, nog eens opgenomen in een ander volume van de Bibliografie of onder een andere rubriek van hetzelfde volume, staat hier als één beschrijving.",
   "tierDivider": "Gevonden via langere woorden: {words}",
   "longerNote": "Woorden die met de gezochte woorden beginnen worden ook gevonden, na de beschrijvingen met het hele woord: {words}."
 }

@@ -256,6 +256,32 @@ def test_catalogue_line_does_not_double_the_final_stop():
     assert "In: Holy Women" in hosted
 
 
+def test_catalogue_line_names_a_preface_writer_after_the_title():
+    # Guy Vanthemsche, 10 Nov 2026: he wrote the preface of Liebman's book and read as its co-author.
+    line = render_printed_fields(
+        [Person("Liebman", "Marcel"), Person("Vanthemsche", "Guy", role="preface")],
+        "Les socialistes belges (1895-1914)",
+        None,
+        None,
+        2017,
+        "339 p.",
+        "Charleroi",
+        "Couleur livres",
+    )
+    assert line.startswith("Liebman (Marcel). Les socialistes belges (1895-1914). Voorwoord – Préface: Vanthemsche (Guy). ")
+    edited = render_printed_fields(
+        [Person("Jaumain", "Serge", role="compiler"), Person("Dumoulin", "Michel", role="editor")],
+        "La Région de Bruxelles-Capitale",
+        None,
+        None,
+        2009,
+        None,
+        "Bruxelles",
+        "Racine",
+    )
+    assert edited.startswith("Jaumain (Serge) & Dumoulin (Michel) (eds.). La Région de Bruxelles-Capitale. Bruxelles")
+
+
 @pytest.mark.parametrize(
     ("linkage", "volume", "issue"),
     [

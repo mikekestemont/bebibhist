@@ -27,6 +27,9 @@ export interface Hit {
     categorySource?: string;
     authors?: string;
     editors?: string;
+    preface?: string;
+    translators?: string;
+    illustrators?: string;
     subtitle?: string;
     host?: string;
     hostSubtitle?: string;
@@ -191,9 +194,11 @@ export function citationHtml(
   html = withMissingYear(html, meta.pubyear, missingYearNote);
   // The book's title and subtitle are italic wherever they stand after "In:", also after its editors
   // ("In: Deploige (Jeroen), Deneckere (Gita). Mystifying the Monarch").
-  // A journal title stands after the article's title, without "In:".
+  // A journal title stands after the article's title, without "In:"; so does a book's after some chapters' titles.
   const titleAt = meta.title ? html.indexOf(escapeHtml(meta.title.trim())) : -1;
-  const after = html.search(/In:/) >= 0 ? html.search(/In:/) : meta.kind === "article" && titleAt >= 0 ? titleAt + escapeHtml(meta.title!.trim()).length : -1;
+  // A chapter printed without "In:" names its book after its own title too ("Ortino (Sergio). La legislazione
+  // bancaria … Banca e Industria fra le due guerre …": Guy Vanthemsche, 10 Nov 2026).
+  const after = html.search(/In:/) >= 0 ? html.search(/In:/) : (meta.kind === "article" || meta.kind === "chapter") && titleAt >= 0 ? titleAt + escapeHtml(meta.title!.trim()).length : -1;
   if (after >= 0 && !meta.inVolume) {
     for (const part of [missing ? "" : meta.host, meta.hostSubtitle]) {
       const safe = escapeHtml(part?.trim() || "");

@@ -45,6 +45,10 @@ const BROAD_WORDINGS = new Set([
   "les institutions et la vie politique droit", "histoire de la vie religieuse et de la laicite",
 ].map(wording));
 
+/** Roles of the people named on an entry who are not its authors (bhb/model.py, ``Person.role``). */
+const EDITOR_ROLES = new Set(["editor", "compiler"]);
+const NOT_AUTHOR = new Set([...EDITOR_ROLES, "preface", "translator", "illustrator"]);
+
 const synonyms = await loadSynonyms(synonymsPath);
 /** Begins the translated titles in a record's content; a sign, so it is no word of the index. */
 const TRANSLATED = "⁂";
@@ -136,8 +140,13 @@ for await (const line of lines) {
       source: record.source || "",
       ...categoryMeta(record, scheme),
       ...specificMeta(record, scheme, merged),
-      authors: nameLine((record.persons || []).filter((person) => person.role !== "editor")).slice(0, 300),
-      editors: nameLine((record.persons || []).filter((person) => person.role === "editor")).slice(0, 300),
+      // Authors only: a preface's writer, a translator or an illustrator has a row of their own (Guy Vanthemsche,
+      // 10 Nov 2026: the writer of a preface read as a co-author). The catalogue's compilers are the volume's editors.
+      authors: nameLine((record.persons || []).filter((person) => !NOT_AUTHOR.has(person.role))).slice(0, 300),
+      editors: nameLine((record.persons || []).filter((person) => EDITOR_ROLES.has(person.role))).slice(0, 300),
+      preface: nameLine((record.persons || []).filter((person) => person.role === "preface")).slice(0, 300),
+      translators: nameLine((record.persons || []).filter((person) => person.role === "translator")).slice(0, 300),
+      illustrators: nameLine((record.persons || []).filter((person) => person.role === "illustrator")).slice(0, 300),
       // ORCID iDs (machine-derived), per name as the name line shows it: "Name (Given)\tiD\tsource|…".
       // The entry's persons and its volume's editors (an editor of the volume shows on the chapter too), one per name.
       orcids: [...new Map([...(record.persons || []), ...(record.host?.editors || [])].filter((person) => person.orcid)
@@ -250,7 +259,8 @@ async function ensureEntry(dir, pageCount) {
 
 function sortKeys(record) {
   const published = String(record.year || record.host?.year || "").match(/\d{4}/);
-  const first = (record.persons || [])[0];
+  // The first author, not a translator or the writer of a preface named before them.
+  const first = (record.persons || []).find((person) => !NOT_AUTHOR.has(person.role)) || (record.persons || [])[0];
   const author = first ? fold(`${first.family} ${first.given || ""}`) : "";
   return {
     year: record.bgb_year ? String(record.bgb_year) : "0000",

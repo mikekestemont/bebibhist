@@ -10,12 +10,16 @@ printed text of each stays as printed.
 Two entries are one publication when they are in different volumes, have the same first author and type, the same
 title (folded), the same year of publication, and for a chapter or article the same pages, for an article the same
 journal. A reprint in another journal, a new edition of another year, or the yearly report of a society with the
-same title stay apart. Entries of one volume printed under two headings stay apart too: that is the volume's own
-classification of them.
+same title stay apart.
+
+Two listings in one volume, printed under two headings, are linked the same way (Guy Vanthemsche, 10 Nov 2026: his
+notice on Georges Velter in BGB 2002 showed twice, n° 39080 and 39810). The volume's classification of the other
+listing is kept: the kept record takes its subjects, periods and heading as well (``_take_subjects``).
 """
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections import Counter, defaultdict
 
@@ -53,7 +57,7 @@ def _richness(record) -> tuple:
 
 
 def link_duplicates(records) -> dict[str, int]:
-    """Set ``duplicate_of`` on every listing but one of the same publication in different volumes."""
+    """Set ``duplicate_of`` on every listing but one of the same publication, in one volume or in several."""
     groups: dict[tuple, list] = defaultdict(list)
     for record in records:
         record.duplicate_of = None
@@ -62,17 +66,19 @@ def link_duplicates(records) -> dict[str, int]:
             groups[key].append(record)
     counts: Counter[str] = Counter()
     for key, group in groups.items():
-        if len(group) < 2 or len({record.bgb_year for record in group}) < 2:
+        if len(group) < 2:
             continue
         kept = max(group, key=_richness)
         for record in group:
             if record is kept:
                 continue
-            # Two listings of one volume stay apart; only those of other volumes point to the kept one.
-            if record.bgb_year == kept.bgb_year:
-                continue
             record.duplicate_of = kept.id
-            counts[f"{key[2]}s listed again"] += 1
+            if record.bgb_year == kept.bgb_year:
+                # The same volume classified it twice: the kept record carries both classifications.
+                _take_subjects(kept, record)
+                counts[f"{key[2]}s listed twice in one volume"] += 1
+            else:
+                counts[f"{key[2]}s listed again"] += 1
         counts["publications listed more than once"] += 1
     # A chapter linked (Cfr. n°) to a volume's listing that is not kept points to the kept one, so the volume and
     # its chapters stay together on the site.
@@ -82,3 +88,23 @@ def link_duplicates(records) -> dict[str, int]:
             record.host.id = kept_of[record.host.id]
             counts["chapters moved to the kept volume"] += 1
     return dict(counts)
+
+
+def _take_subjects(kept, other) -> None:
+    """The other listing's heading, subject codes (never primary), subject areas and periods, added to the kept one."""
+    if other.section_path and other.section_path != kept.section_path and other.section_path not in kept.secondary_sections:
+        kept.secondary_sections.append(list(other.section_path))
+    have = {(category.code, category.theme) for category in kept.categories}
+    for category in other.categories:
+        if (category.code, category.theme) not in have:
+            kept.categories.append(dataclasses.replace(category, primary=False))
+            have.add((category.code, category.theme))
+    for values, suggested, others, others_suggested in (
+        (kept.theme, kept.theme_suggested, other.theme, other.theme_suggested),
+        (kept.period, kept.period_suggested, other.period, other.period_suggested),
+    ):
+        for value in others:
+            if value not in values:
+                values.append(value)
+                if value in others_suggested:
+                    suggested.append(value)

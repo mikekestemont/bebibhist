@@ -60,7 +60,7 @@ placed.forEach((record, index) => {
   period[index] = bits(record.period, PERIODS);
   cell[index] = cellIndex.get(record.topic);
   const translations = record.translations || {};
-  const authors = (record.persons || []).filter((person) => person.role !== "editor").map((person) => person.family).filter(Boolean);
+  const authors = (record.persons || []).filter((person) => !["editor", "compiler", "preface", "translator", "illustrator"].includes(person.role)).map((person) => person.family).filter(Boolean);
   const row = [index, record.id, record.title || "", authors.slice(0, 3).join(", ") + (authors.length > 3 ? " …" : ""), published ? String(published) : "", translations.nl || "", translations.fr || "", translations.en || ""];
   (cells.get(cell[index]) || cells.set(cell[index], []).get(cell[index])).push(row);
   const text = [record.title, record.subtitle, record.title_translated, translations.nl, translations.fr, translations.en, authors.join(" ")].filter(Boolean).join(" ");

@@ -63,6 +63,9 @@
   "host": "In",
   "hostSubtitle": "Subtitle",
   "hostEditors": "Editors",
+  "preface": "Preface",
+  "translators": "Translation",
+  "illustrators": "Illustrations",
   "volume": "Volume",
   "issue": "Issue",
   "pages": "Pages",
@@ -324,8 +327,8 @@
   "particlesJoined": "A name's particles are joined to it: van der Weyden, Van der Weyden and Vander Weyden are one name. A search by author finds the people who wrote or edited, not the people written about.",
   "searchAllText": "Search all text for “{q}”",
   "nameVariants": "This name is written in more than one way here:",
-  "alsoListed": "Also listed in another volume",
-  "alsoListedNote": "The same publication, printed again in another volume of the Bibliography, is shown here as one record.",
+  "alsoListed": "Also listed elsewhere in the Bibliography",
+  "alsoListedNote": "The same publication, printed again in another volume of the Bibliography or under another heading of the same volume, is shown here as one record.",
   "tierDivider": "Found through longer words: {words}",
   "longerNote": "Words that begin with the query's words are found too, after the entries with the whole word: {words}."
 }

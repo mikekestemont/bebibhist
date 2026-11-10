@@ -86,6 +86,13 @@ test("a journal title is italic after the article's title", () => {
   assert.match(html, /Schilde\. <em>Antwerpiensia<\/em>, 24/);
 });
 
+test("a chapter printed without In: has its book in italics after its own title", () => {
+  // Guy Vanthemsche, 10 Nov 2026.
+  const citation = "Ortino (Sergio). La legislazione bancaria negli anni Trenta negli Stati Uniti e in Svizzera, Germania e Belgio. Banca e Industria fra le due guerre. Ricerca promossa dal Banco di Roma. Bologna, Il Mulino, 1981, pp. 349–400.";
+  const html = citationHtml(citation, { title: "La legislazione bancaria negli anni Trenta negli Stati Uniti e in Svizzera, Germania e Belgio", host: "Banca e Industria fra le due guerre. Ricerca promossa dal Banco di Roma", kind: "chapter" });
+  assert.match(html, /Belgio\. <em>Banca e Industria fra le due guerre\. Ricerca promossa dal Banco di Roma<\/em>\. Bologna/);
+});
+
 test("a two-digit year of the 1950s gets the full year in brackets, marked as supplied", () => {
   const citation = "Geldolf (W.). Een vredescongres te Brussel 103 jaar geleden. Nieuw Vlaams Tijdschrift, VI, 51, p. 185–195.";
   const html = citationHtml(citation, { title: "Een vredescongres te Brussel 103 jaar geleden", host: "Nieuw Vlaams Tijdschrift", kind: "article", pubyear: "1951" }, "", "", "", "", "", "Aangevuld");

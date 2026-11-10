@@ -348,6 +348,7 @@ def categorise(
         row = by_key.get(key)
         if row is not None and not (row.get("approved_code") or row.get("approved_theme") or "").strip():
             row["model_code"], row["model_confidence"] = code, confidence
+    sibling_codes(groups, by_key)
     scored = (
         _apply_model(records, groups, by_key, model, classes, theme_map, theme_tau)
         if model is not None
@@ -388,6 +389,61 @@ class _Group:
     paths: Counter = field(default_factory=Counter)
     years: set[int] = field(default_factory=set)
     n_entries: int = 0
+
+
+# A heading's own number: "(e)", "e.", "3.", "d)", "III.".
+_ENUMERATOR = re.compile(r"^\s*\(?(?:[A-Za-z]|\d{1,2}|[IVXivx]{1,4})\s*[).]\s*")
+# Headings that say only "general": no heading below them is named after them.
+_GENERIC = re.compile(r"generalit|generales|generaux|algemeen")
+
+
+def _wording(heading: str) -> str:
+    """A heading's French half, folded, without its number: the same wording under another letter matches."""
+    return normalise_heading(_ENUMERATOR.sub("", heading))
+
+
+def _sibling_key(path: list[str] | tuple[str, ...]) -> tuple | None:
+    """The period, the last heading's wording and its nearest parent that is more than "general"."""
+    if not path:
+        return None
+    last = _wording(path[-1])
+    if len(last) < 12 or _GENERIC.search(last):
+        return None
+    parent = next((wording for wording in map(_wording, reversed(path[:-1])) if wording and not _GENERIC.search(wording)), "")
+    return (tuple(sorted(periods_from_path(list(path)))), last, parent)
+
+
+def sibling_codes(groups: dict[str, "_Group"], by_key: dict[str, dict]) -> int:
+    """A heading without a reviewed or accepted code takes the code of the headings with the same wording, under a
+    parent of the same wording, in the same period, when they all agree: the volumes renumbered and respelled one
+    heading from year to year ("e. Moyens de payement, banques, compagnies d’assurance" in 1980, "Moyens de payement …"
+    under "Généralités" in 1982–1990), and only some of its spellings had a code (Guy Vanthemsche, 10 Nov 2026: his
+    articles on banking were missing from Finance). Suggested, like the model's proposals. Returns the headings
+    filled."""
+    donors: dict[tuple, Counter] = defaultdict(Counter)
+    confidence: dict[tuple, list[float]] = defaultdict(list)
+    for key, group in groups.items():
+        row = by_key.get(key) or {}
+        approved = (row.get("approved_code") or "").strip()
+        code = approved if approved and approved.upper() != "BROAD" else (row.get("model_code") or "").strip()
+        sibling = _sibling_key(group.paths.most_common(1)[0][0])
+        if not code or sibling is None or tuple(sorted(periods_from_codes([code]))) != sibling[0]:
+            continue
+        donors[sibling][code] += group.n_entries
+        confidence[sibling].append(1.0 if approved else _float(row.get("model_confidence")) or 0.5)
+    filled = 0
+    for key, group in groups.items():
+        row = by_key.get(key)
+        if row is None or any((row.get(column) or "").strip() for column in ("approved_code", "approved_theme", "model_code")):
+            continue
+        sibling = _sibling_key(group.paths.most_common(1)[0][0])
+        codes = donors.get(sibling) if sibling else None
+        if not codes or len(codes) != 1:
+            continue
+        row["model_code"] = next(iter(codes))
+        row["model_confidence"] = f"{min(confidence[sibling]):.2f}"
+        filled += 1
+    return filled
 
 
 def _groups(records: list[Record]) -> dict[str, _Group]:

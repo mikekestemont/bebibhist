@@ -132,3 +132,25 @@ def test_vsmart_code_is_the_primary_category():
     assert categories[0].primary is True
     assert categories[0].machine is False
     assert categories[1].primary is False
+
+
+def test_a_heading_takes_the_code_of_its_respelled_siblings():
+    # Guy Vanthemsche, 10 Nov 2026: BGB 1980 prints the banking heading as "e. Moyens de payement …" under
+    # "3. Histoire Économique"; 1982–1990 print it under "c. Histoire Économique / Généralités", and only that
+    # spelling had the code of finance.
+    from collections import Counter
+
+    from bhb.categorise import _Group, sibling_codes
+
+    contemporary = "G. Époque contemporaine — Hedendaags tijdvak, 1789–1980"
+    banks = "Moyens de payement, banques, compagnies d’assurance — Betalingsmiddelen, banken, verzekeringsmaatschappijen"
+    later = ("III. Histoire par Époques", contemporary, "c. Histoire Économique", "Généralités — Algemene werken", banks)
+    earlier = ("III. Histoire par Époques", contemporary, "3. Histoire Économique", f"e. {banks}")
+    medieval = ("III. Histoire par Époques", "B. Le moyen âge — De middeleeuwen", "3. Histoire Économique", f"e. {banks}")
+    groups = {key: _Group(key=key, paths=Counter({path: 1}), n_entries=1)
+              for key, path in (("later", later), ("earlier", earlier), ("medieval", medieval))}
+    rows = {"later": {"model_code": "III.D.2.b.5.", "model_confidence": "0.36"}, "earlier": {}, "medieval": {}}
+    assert sibling_codes(groups, rows) == 1
+    assert rows["earlier"]["model_code"] == "III.D.2.b.5."
+    # Another period does not take it.
+    assert "model_code" not in rows["medieval"]

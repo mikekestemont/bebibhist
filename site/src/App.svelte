@@ -739,6 +739,8 @@
     // The journal or book missing from the State Archives' export has no name: its row says so in words, not as a
     // title in brackets (reviewer, 9 Nov 2026).
     const hostMissing = meta.host === HOST_MISSING && !meta.journalTitle;
+    // Rows of names, each name a link to that person's entries.
+    const PEOPLE_ROWS = new Set([text.author, text.hostEditors, text.preface, text.translators, text.illustrators]);
     const pairs: [string, string | undefined, boolean?][] = [
       [text.author, meta.authors],
       // A collected volume's own editors; a chapter's editors are its host's, below, and are not listed twice
@@ -746,6 +748,11 @@
       [text.hostEditors, work || !sameNames(meta.editors, editors) ? meta.editors : ""],
       [text.fieldTitle, meta.title, work],
       [text.subtitle, meta.subtitle ? capitalize(cleanLead(meta.subtitle)) : undefined, work],
+      // Named on the entry but not its authors: a preface's writer, a translator, an illustrator (Guy Vanthemsche,
+      // 10 Nov 2026).
+      [text.preface, meta.preface],
+      [text.translators, meta.translators],
+      [text.illustrators, meta.illustrators],
       // An article's journal by the name of the journal list (the citation keeps the printed spelling).
       [hostMissing ? text.fields.host : hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : hostMissing ? text.hostMissingNote : meta.host, !hostMissing],
       [text.hostSubtitle, meta.hostSubtitle ? capitalize(cleanLead(meta.hostSubtitle)) : undefined, true],
@@ -772,9 +779,9 @@
             label,
             value,
             italic,
-            authors: label === text.author || label === text.hostEditors,
-            orcids: label === text.author || label === text.hostEditors ? orcidsOf(meta) : undefined,
-            fullNames: label === text.author || label === text.hostEditors ? fullNamesOf(meta) : undefined,
+            authors: PEOPLE_ROWS.has(label),
+            orcids: PEOPLE_ROWS.has(label) ? orcidsOf(meta) : undefined,
+            fullNames: PEOPLE_ROWS.has(label) ? fullNamesOf(meta) : undefined,
             derived: derivedNote(label, meta),
             // The fields read by the language model: a mark after the source, explained in the footer.
             marked: label === text.source && meta.parsedLlm ? text.parsedByModel : undefined,
