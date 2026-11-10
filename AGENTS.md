@@ -1,6 +1,7 @@
 # Instructions for coding agents
 
-The current task is **`docs/IMPLEMENTATION_PLAN.md`** (phase 2); where it conflicts with older documents, it wins. For background, start with **`docs/PROTOTYPE_SPEC.md`**: it is the self-contained brief (context, data formats, record model,
+The current task is **`docs/IMPLEMENTATION_PLAN.md`** (phase 2); where it conflicts with older documents, it wins.
+Phase 3, maintenance from master files, is proposed in `docs/MAINTENANCE_PLAN.md` and not started. For background, start with **`docs/PROTOTYPE_SPEC.md`**: it is the self-contained brief (context, data formats, record model,
 steps, website requirements, definition of done). `pipeline/README.md` documents the pipeline. The internal project
 plan and notes are in `../bebibhist-raw/notes/` (private; not every contributor has them).
 

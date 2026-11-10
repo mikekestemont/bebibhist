@@ -9,7 +9,9 @@ still holds.
 built on embeddings instead of the TF-IDF sketch below; see `docs/SEMANTIC_INDEX_PROPOSAL.md`. Fixes made after
 this plan (optional function words in search, collected volumes split into their contributions, series, editors,
 ranking) are recorded in `docs/DECISIONS.md`. Still open: the review of `heading_crosswalk.csv`, the gold pass, and
-theme coverage below the 90 % target. Next proposals: `docs/IDENTIFIER_PROPOSAL.md` (DOIs, ISBNs, ISSNs).
+theme coverage below the 90 % target. Next proposals: `docs/IDENTIFIER_PROPOSAL.md` (DOIs, ISBNs, ISSNs). After this phase:
+`docs/MAINTENANCE_PLAN.md` (phase 3, proposed 10 Nov 2026: MODS master files corrected in place, yearly Zotero
+intake and Zenodo releases).
 
 **Principles (Mike, 1 Nov 2026).** The project follows the principles of *minimal computing*: a static site, no
 server or database to keep running, indexes built once and served as files, few dependencies, and every step
