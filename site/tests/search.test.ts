@@ -28,6 +28,8 @@ test("a word is matched whole: Brugge does not find bruggen, unless asked for", 
   assert.equal(searchQuery("Brugge", "title"), "ti_brugge_");
   assert.equal(searchQuery("brugg*"), "aw_brugg");
   assert.equal(searchQuery("Brugge", "all", true, true), "aw_brugge");
+  // A function word stays whole when the others find the words they begin.
+  assert.equal(searchQuery("guibert de gembloux", "all", true, true), "aw_guibert aw_de_ aw_gembloux");
 });
 
 test("an author's particles join the name after them, as the index joins them", () => {

@@ -304,7 +304,7 @@ interface Pagefind {
     query: string | null,
     options?: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
   ) => Promise<SearchResponse>;
-  options: (settings: { basePath?: string; ranking?: { pageLength?: number } }) => Promise<void>;
+  options: (settings: { basePath?: string; ranking?: { pageLength?: number; termSimilarity?: number } }) => Promise<void>;
   preload: (query: string) => Promise<void>;
 }
 
@@ -312,6 +312,13 @@ interface Pagefind {
  * 0.4 kept the top hits of test queries or improved them; 0.1 let long entries such as volumes with
  * their contents take over. */
 const PAGE_LENGTH_WEIGHT = 0.4;
+
+/** How much Pagefind favours an index word as long as the query's word over a longer word it begins (default 1).
+ * At 10 every entry with the whole word ranks above every entry found only through a longer one: all 5,096 whole
+ * "brugge" hits before the 254 through bruggen, brugges …, likewise for gent, kerk and abbaye; at 1 partial hits
+ * mixed in from the first place (a Wespelaar bridges article second for Brugge). One search instead of two
+ * (Mike, 10 Nov 2026). */
+const TERM_SIMILARITY = 10;
 
 let engine: Pagefind | null = null;
 
@@ -331,7 +338,7 @@ export async function loadEngine(): Promise<Pagefind> {
   // Pagefind finds its index next to its own script only on a page's thread; in a worker it falls back to
   // "/pagefind/", which is not where the site is published (/bebibhist/pagefind/). So it is told.
   const basePath = url.replace(/pagefind\.js$/, "");
-  await loaded.options({ basePath, ranking: { pageLength: PAGE_LENGTH_WEIGHT } });
+  await loaded.options({ basePath, ranking: { pageLength: PAGE_LENGTH_WEIGHT, termSimilarity: TERM_SIMILARITY } });
   await loaded.init();
   await loaded.filters();
   engine = { ...loaded, search: async (query, options) => {
@@ -443,7 +450,8 @@ export function searchQuery(query: string, field: SearchField = "all", translati
   if (name) return personWord(name[0], name[1]);
   if (field === "author") return nameWords(query).map(({ word, prefix: open }) => indexWord("au", word, open || prefix)).join(" ");
   const tag = fieldTag(field, translations);
-  return queryWords(query).map(({ word, prefix: open }) => indexWord(tag, word, open || prefix)).join(" ");
+  // A function word ("de", "la") stays whole: as a prefix it would match thousands of words, for nothing.
+  return queryWords(query).map(({ word, prefix: open }) => indexWord(tag, word, open || (prefix && !FUNCTION_WORDS.has(word)))).join(" ");
 }
 
 /** The index tag a search of ``field`` asks for (scripts/build-index.mjs). */

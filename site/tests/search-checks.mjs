@@ -92,8 +92,6 @@ for (const check of checks) {
     }
     if (check.count) {
       await page.waitForSelector(".count", { timeout: LIMIT_MS });
-      // The entries found through longer words come in a second step: the count is read once it is done.
-      await page.waitForFunction(() => !document.querySelector(".widening"), null, { timeout: LIMIT_MS });
       const text = await page.textContent(".count");
       const count = Number((text || "").replace(/[^\d]/g, ""));
       if (count < check.count[0] || count > check.count[1]) problem = `count ${count} outside ${check.count.join("–")}`;

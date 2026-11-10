@@ -485,11 +485,13 @@
       journal ? keyWord("jn", journal) : "",
       subject ? keyWord("sc", subject) : "",
     ].filter(Boolean).join(" ");
-    // Whole words first; then, unless the reader asked for whole words only, the entries found only through words
-    // that begin with the query's words ("bruggen" for Brugge), below them (Mike, 10 Nov 2026).
+    // One search for the query's words and every word they begin ("bruggen" for Brugge), in which Pagefind ranks an
+    // entry with the whole word above one found only through a longer word (``TERM_SIMILARITY``, lib/search.ts), so
+    // whole words come first and the longer ones follow, in one list with its counts (Mike, 10 Nov 2026). "Whole
+    // words only" (match=whole) leaves the longer words out.
     const wholeOnly = params.get("match") === "whole";
-    const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
-    const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
+    const asked = [askedText ? searchQuery(askedText, field, translations, !wholeOnly) : "", within].filter(Boolean).join(" ") || null;
+    const relaxed = askedText ? relaxedQuery(askedText, field, translations, !wholeOnly) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
     // A word that is not in the index finds nothing: say so at once rather than let Pagefind answer it with every
     // word sharing its prefix.
@@ -504,15 +506,11 @@
     if (!current()) return;
     total = response.results.length;
     listed = response.results;
-    wholeCount = total;
-    partialIds = new Set();
-    // The longer words of the index that the query's words begin, from the small word lists (no search).
-    const longer = askedText && !personName(askedText) ? await longerWords(contentQueryWords(askedText, field), fieldTag(field, translations)) : [];
+    // The longer words of the index that the query's words begin, from the small word lists (no search), for the note.
+    const words = askedText && !personName(askedText) ? contentQueryWords(askedText, field) : [];
+    const tag = fieldTag(field, translations);
+    const longer = words.length ? await longerWords(words, tag) : [];
     if (!current()) return;
-    const widen = !wholeOnly && longer.length > 0;
-    const openAsked = askedText ? [searchQuery(askedText, field, translations, true), within].filter(Boolean).join(" ") : null;
-    const openRelaxed = askedText ? relaxedQuery(askedText, field, translations, true) : null;
-    const open = (openRelaxed ? [openRelaxed, within].filter(Boolean).join(" ") : null) || openAsked;
     if (nextScope !== scope) {
       counts = Object.fromEntries(
         Object.entries(response.filters || {}).map(([key, values]) => [key, { ...values }]),
@@ -525,6 +523,8 @@
     const loaded = await Promise.all(slice.map((item) => item.data()));
     if (!current()) return;
     hits = loaded;
+    // The hits shown that lack a word whole were found through a longer word: the line before them says so.
+    partialIds = new Set(longer.length ? loaded.filter((hit) => !hasWholeWords(hit.content, words, tag)).map((hit) => hit.meta.id) : []);
     // With a year range, the year filter shows the counts of every year, so it needs the same search without the
     // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
     // it waits until the results have been painted (a frame, then a task), or it would hold them back.
@@ -534,7 +534,7 @@
       const search = engine;
       requestAnimationFrame(() => setTimeout(() => {
         if (ticket !== yearTicket) return;
-        void search.search(widen ? open : loose || asked, {
+        void search.search(loose || asked, {
           ...(Object.keys(rest).length ? { filters: rest } : {}),
           ...(sort ? { sort } : {}),
         }).then((broad) => {
@@ -545,57 +545,21 @@
     // Checked after the results are shown, so it never delays them.
     const spellingFor = askedText;
     spelling = [];
-    if (askedText) spellingSuggestions(askedText, widen).then((found) => {
+    if (askedText) spellingSuggestions(askedText, !wholeOnly).then((found) => {
       if (current() && spellingFor === [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ")) spelling = found;
     });
     void searchNotices(askedText, field, hits, longer, current);
     remember(hits);
-    // A page that lies wholly after the whole-word entries waits, with the hourglass, for the second step.
-    loading = widen && (page - 1) * pageSize >= wholeCount;
-    if (widen && open) await widenSearch(open, { ...(filters ? { filters } : {}), ...(sort ? { sort } : {}) }, !filters?.pubyear, current);
+    loading = false;
   }
 
-  // How many entries of the list have every word whole (they come first), and which shown hits came after them.
-  let wholeCount = $state(0);
+  // The hits shown that were found only through a longer word (they follow the whole-word hits).
   let partialIds = $state<Set<string>>(new Set());
-  // True while the entries found through longer words are looked for.
-  let widening = $state(false);
 
-  /**
-   * The second step of a search: the entries found only through words that begin with the query's words, after the
-   * whole-word ones, in the same order (relevance or the chosen sort). The total and the filter counts are then
-   * those of the whole list, so they match what is shown.
-   */
-  async function widenSearch(open: string, options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> }, years: boolean, current: () => boolean) {
-    widening = true;
-    try {
-      const unknown = await unknownWords(open);
-      if (!current() || unknown.length) return;
-      const wide = await engine!.search(open, options);
-      if (!current()) return;
-      const first = new Set(listed.map((item) => item.id));
-      const extra = wide.results.filter((item) => !first.has(item.id));
-      if (!extra.length) return;
-      listed = [...listed, ...extra];
-      total = listed.length;
-      counts = Object.fromEntries(Object.entries(wide.filters || {}).map(([key, values]) => [key, { ...values }]));
-      if (years) yearCounts = { ...(wide.filters?.pubyear || {}) };
-      // The page shown may now hold entries of the second step (a short first step, or a later page).
-      const start = (page - 1) * pageSize;
-      const slice = listed.slice(start, start + pageSize);
-      if (start + slice.length > wholeCount) {
-        const loaded = await Promise.all(slice.map((item) => item.data()));
-        if (!current()) return;
-        hits = loaded;
-        partialIds = new Set(loaded.filter((_, index) => start + index >= wholeCount).map((hit) => hit.meta.id));
-        remember(hits);
-      }
-    } finally {
-      if (current()) {
-        widening = false;
-        loading = false;
-      }
-    }
+  /** Whether a record's indexed words hold each of ``words`` whole, under the search's tag ("aw_brugge_"). */
+  function hasWholeWords(content: string | undefined, words: string[], tag: string): boolean {
+    if (!content) return true;
+    return words.every((word) => new RegExp(`(?:^|\\s)${tag}_${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(?=\\s|$)`).test(content));
   }
 
   /** The query's content words (for an author, the name's words with their particles joined), without "*" words. */
@@ -1237,10 +1201,8 @@
       {#if notices.longer.length}
         {#if wholeOnly}
           <p>{text.wholeWords.replace("{words}", longerList())} <a href={matchHref(false)}>{text.alsoLonger}</a></p>
-        {:else if widening}
-          <p class="widening">{text.widening.replace("{words}", longerList())}</p>
-        {:else if total > wholeCount}
-          <p>{text.tierNote.replace("{whole}", wholeCount.toLocaleString(lang)).replace("{more}", (total - wholeCount).toLocaleString(lang)).replace("{words}", longerList())} <a href={matchHref(true)}>{text.wholeWordsOnly}</a></p>
+        {:else}
+          <p>{text.longerNote.replace("{words}", longerList())} <a href={matchHref(true)}>{text.wholeWordsOnly}</a></p>
         {/if}
       {/if}
       {#if searchField(fieldChoice) === "author" && query.trim() && !personName(query)}
@@ -1720,9 +1682,10 @@
           {@render tools()}
         </div>
         {@render matchNotes()}
+        {@const firstPartial = hits.findIndex((hit) => partialIds.has(hit.meta.id))}
         {#each hits as hit, index}
           <!-- The entries found only through longer words follow those with every word whole. -->
-          {#if (page - 1) * pageSize + index === wholeCount && total > wholeCount}
+          {#if index === firstPartial}
             <p class="tier-divider">{text.tierDivider.replace("{words}", longerList())}</p>
           {/if}
           {@render resultRow(hit)}

@@ -326,7 +326,6 @@
   "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
   "alsoListed": "Aussi dans un autre volume",
   "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie, est réunie ici en une seule notice.",
-  "tierNote": "{whole} avec le mot entier d’abord, puis {more} par des mots plus longs : {words}.",
   "tierDivider": "Trouvés par des mots plus longs : {words}",
-  "widening": "Recherche aussi des mots plus longs : {words} …"
+  "longerNote": "Les mots qui commencent par ceux de la recherche sont trouvés aussi, après les notices qui ont le mot entier : {words}."
 }

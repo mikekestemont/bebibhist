@@ -85,3 +85,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        # Pages copies about 200,000 files: on 10 Nov 2026 it was still syncing them when the default 10 minutes ran
+        # out, and the deployment was cancelled.
+        with:
+          timeout: 1800000

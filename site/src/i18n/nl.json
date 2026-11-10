@@ -326,7 +326,6 @@
   "nameVariants": "Deze naam wordt hier op meer dan één manier geschreven:",
   "alsoListed": "Ook in een ander volume",
   "alsoListedNote": "Dezelfde publicatie, nog eens opgenomen in een ander volume van de Bibliografie, staat hier als één beschrijving.",
-  "tierNote": "{whole} met het hele woord eerst, dan {more} via langere woorden: {words}.",
   "tierDivider": "Gevonden via langere woorden: {words}",
-  "widening": "Zoekt ook naar langere woorden: {words} …"
+  "longerNote": "Woorden die met de gezochte woorden beginnen worden ook gevonden, na de beschrijvingen met het hele woord: {words}."
 }

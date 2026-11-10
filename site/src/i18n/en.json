@@ -326,7 +326,6 @@
   "nameVariants": "This name is written in more than one way here:",
   "alsoListed": "Also listed in another volume",
   "alsoListedNote": "The same publication, printed again in another volume of the Bibliography, is shown here as one record.",
-  "tierNote": "{whole} with the whole word first, then {more} found through longer words: {words}.",
   "tierDivider": "Found through longer words: {words}",
-  "widening": "Also looking for longer words: {words} …"
+  "longerNote": "Words that begin with the query's words are found too, after the entries with the whole word: {words}."
 }
