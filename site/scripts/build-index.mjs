@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/p
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
-import { keyWord, personWord } from "../src/lib/words.js";
+import { keyWord, nameWords, personWord } from "../src/lib/words.js";
 
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
@@ -61,6 +61,10 @@ if (!index) {
   process.exit(1);
 }
 
+// Entry kept in search → the other volumes' listings of the same publication (filled by countContainers).
+const listedAgain = new Map();
+// Listing → the listing kept in search, for neighbours that name the other one.
+const keptOf = new Map();
 const containers = await countContainers(recordsPath);
 const merged = await mergedHeadings(recordsPath);
 let indexed = 0;
@@ -70,10 +74,14 @@ const lines = readline.createInterface({ input, crlfDelay: Infinity });
 for await (const line of lines) {
   if (!line.trim()) continue;
   const record = JSON.parse(line);
-  if (record.role !== "entry" || record.is_cross_listing) {
+  if (record.role !== "entry" || record.is_cross_listing || record.duplicate_of) {
     skipped += 1;
     continue;
   }
+  const again = listedAgain.get(record.id) || [];
+  // A title that names a place twice ("Brugge … Bruges") gave its code twice (317 entries, 36 of them for Bruges):
+  // the map counted those entries twice, the search once (reviewer, 9 Nov 2026). Each place once.
+  dedupePlaces(record);
   const citation = record.printed || compose(record);
   const when = chronology(record);
   const container = containerOf(record, containers);
@@ -104,13 +112,22 @@ for await (const line of lines) {
     url: `#/record/${encodeURIComponent(record.id)}`,
     // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
     // translations out and still count its hits exactly (the switch "also search machine translations").
-    content: `${[record.id, ...(record.former_ids || [])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}${keyWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
-      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}`,
+    // Every tagged word closes with "_" (``prefixed``), so a search can ask for the whole word: "aw_brugge_" does not
+    // find "bruggen" (reviewer, 9 Nov 2026), while "aw_brugg" still finds every word it begins. "aw_" is all the
+    // text, the translations' new words included; it stands after the translations' marker, so the page can tell
+    // a hit found only through them.
+    content: `${[record.id, ...(record.former_ids || []), ...again.flatMap((item) => [item.id, ...item.former])].join(" ")}\n${own}\n${fieldTokens(record)}${container ? ` hk_${container.hash}` : ""}${regionWords(record)}${keyWords(record)}\n${prefixed("og", own)} ${prefixed("ot", record.title)}${
+      translated ? `\n${TRANSLATED}\n${stripMarks(translated).slice(0, 2000)}\n${prefixed("ti", translatedTitle)}` : ""}\n${prefixed("aw", translated ? `${own}\n${stripMarks(translated).slice(0, 2000)}` : own)}`,
     language,
     meta: {
       id: record.id,
       // Ids the entry had in earlier releases (a repaired printed number), so old links still open it.
-      formerIds: (record.former_ids || []).join("|"),
+      formerIds: [...(record.former_ids || []), ...again.flatMap((item) => item.former)].join("|"),
+      // The ids of the other volumes' listings of the same publication (bhb/duplicates.py): ids of now, so they
+      // win over another entry's former id (2003-43255 is Jacquemin's listing now, and was Goddeeris's once).
+      listedIds: again.map((item) => item.id).join("|"),
+      // The other volumes that list the same publication: "year\tnumber\tprinted text|…" (bhb/duplicates.py).
+      alsoListed: again.map((item) => [item.year, item.number, presentCitation(item.printed).replace(/[|\t]/g, " ").slice(0, 600)].join("\t")).join("|"),
       title: (record.title || citation).slice(0, 180),
       citation: presentCitation(citation),
       year: record.bgb_year ? String(record.bgb_year) : "",
@@ -291,7 +308,21 @@ function yearOf(value) {
 
 function fieldTokens(record) {
   const authors = (record.persons || []).map((person) => [person.family, person.given, person.given_full].filter(Boolean).join(" ")).join(" ");
-  return [prefixed("ti", record.title), prefixed("au", authors), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
+  // A family name's particles joined to the word after them, as an author query joins them (``nameWords``):
+  // "Van der Weyden" and "Vander Weyden" both give au_vanderweyden_, "Dervaux-Van Ussel" au_vanussel_.
+  const joined = (record.persons || []).flatMap((person) => nameWords(person.family).map(({ word }) => word)).join(" ");
+  return [prefixed("ti", record.title), prefixed("au", `${authors} ${joined}`), prefixed("in", record.host?.title), prefixed("se", record.series?.title)].filter(Boolean).join(" ");
+}
+
+/** Each place of an entry once, its readable name with it. */
+function dedupePlaces(record) {
+  const ids = record.place_ids || [];
+  if (new Set(ids).size === ids.length) return;
+  const kept = new Map();
+  ids.forEach((id, index) => { if (!kept.has(id)) kept.set(id, (record.places || [])[index]); });
+  record.place_ids = [...kept.keys()];
+  if (record.places?.length === ids.length) record.places = [...kept.values()];
+  if (record.place_suggested?.length) record.place_suggested = [...new Set(record.place_suggested)];
 }
 
 /** The folded words of ``text`` that ``own`` lacks, each once, joined by spaces. */
@@ -306,7 +337,7 @@ function prefixed(tag, text) {
   const words = fold(String(text || "")).match(/[\p{L}\p{N}]+/gu) || [];
   return words
     .filter((word) => word.length > 1 && !seen.has(word) && seen.add(word))
-    .map((word) => `${tag}_${word}`)
+    .map((word) => `${tag}_${word}_`)
     .join(" ");
 }
 
@@ -321,7 +352,7 @@ function people(record) {
  * otherwise the host title within the same BGB year. Journals are left out.
  */
 function containerKey(record) {
-  if (record.role !== "entry" || record.is_cross_listing) return null;
+  if (record.role !== "entry" || record.is_cross_listing || record.duplicate_of) return null;
   if (record.type === "book") return record.id;
   if (record.type !== "chapter") return null;
   if (record.host?.id) return record.host.id;
@@ -334,7 +365,16 @@ async function countContainers(path) {
   const lines = readline.createInterface({ input: createReadStream(path, { encoding: "utf8" }), crlfDelay: Infinity });
   for await (const line of lines) {
     if (!line.trim()) continue;
-    const key = containerKey(JSON.parse(line));
+    const record = JSON.parse(line);
+    // The same publication listed again in another volume (``duplicate_of``, bhb/duplicates.py): its id and
+    // printed text go with the entry kept in search.
+    if (record.duplicate_of) {
+      const list = listedAgain.get(record.duplicate_of) || [];
+      list.push({ id: record.id, former: record.former_ids || [], year: record.bgb_year || "", number: record.print_number || "", printed: record.printed || "" });
+      listedAgain.set(record.duplicate_of, list);
+      keptOf.set(record.id, record.duplicate_of);
+    }
+    const key = containerKey(record);
     if (key) counts.set(key, (counts.get(key) || 0) + 1);
   }
   return counts;
@@ -473,7 +513,13 @@ async function writeWords(dir, all) {
 
 function similarLine(record) {
   const scores = record.similar_scores || [];
-  return (record.similar || []).map((id, index) => `${id} ${scores[index] ?? ""}`.trim()).join("|");
+  // A neighbour listed again in another volume is its kept listing, once (bhb/duplicates.py).
+  const seen = new Set([record.id]);
+  return (record.similar || [])
+    .map((id, index) => [keptOf.get(id) || id, scores[index]])
+    .filter(([id]) => !seen.has(id) && seen.add(id))
+    .map(([id, score]) => `${id} ${score ?? ""}`.trim())
+    .join("|");
 }
 
 /** A contribution split from its volume's printed contents names the volume, which is printed only at the head of that entry. */
@@ -779,7 +825,8 @@ async function writeKnownWords(indexDir, dir) {
   for (const file of await readdir(indexDir)) {
     const raw = gunzipSync(await readFile(`${indexDir}/${file}`)).subarray("pagefind_dcd".length);
     for (const word of chunkWords(raw)) {
-      if (!/^(?:[a-z]{2}_)?\p{L}+$/u.test(word)) continue;
+      // A field word closes with "_" (a whole word, ``prefixed``).
+      if (!/^(?:[a-z]{2}_\p{L}+_?|\p{L}+)$/u.test(word)) continue;
       const key = /^[a-z]{2}_/.test(word) ? word.slice(0, 5) : word.slice(0, 3);
       if (!shards.has(key)) shards.set(key, []);
       shards.get(key).push(word);

@@ -156,6 +156,9 @@ class Record:
     topic: str | None = None
     # Ids this entry had in earlier builds (a repaired printed number), so old links still find it (``bhb/ids.py``).
     former_ids: list[str] = field(default_factory=list)
+    # Another volume of the Bibliography lists the same publication again (``bhb/duplicates.py``): the entry kept in
+    # search, whose page shows this listing too. The printed text of both stays.
+    duplicate_of: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return _clean(asdict(self))

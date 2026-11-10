@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { citationHtml, contentWords, editDistance, foundThroughTranslation, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { nameWords } from "../src/lib/words.js";
 
 test("a year range matches any of its years, not all of them at once", () => {
   assert.deepEqual(yearFilter(1990, 1992), { any: ["1990", "1991", "1992"] });
@@ -11,22 +12,48 @@ test("a year range matches any of its years, not all of them at once", () => {
 });
 
 test("function words are optional, except in an author search", () => {
-  assert.equal(relaxedQuery("guibert de gembloux"), "guibert gembloux");
+  assert.equal(relaxedQuery("guibert de gembloux"), "aw_guibert_ aw_gembloux_");
   assert.equal(relaxedQuery("de smet", "author"), null);
   assert.equal(relaxedQuery("de la"), null);
   assert.equal(relaxedQuery("gembloux"), null);
 });
 
-test("a field search prefixes every word, and a hyphen does not exclude a word", () => {
-  assert.equal(searchQuery("Anne-Laure Van Bruaene", "author"), "au_Anne au_Laure au_Van au_Bruaene");
-  assert.equal(searchQuery("béguinages"), "beguinages");
+test("a field search tags every word, and a hyphen does not exclude a word", () => {
+  assert.equal(searchQuery("Anne-Laure Van Bruaene", "author"), "au_anne_ au_laure_ au_vanbruaene_");
+  assert.equal(searchQuery("béguinages"), "aw_beguinages_");
+});
+
+test("a word is matched whole: Brugge does not find bruggen, unless asked for", () => {
+  assert.equal(searchQuery("Brugge"), "aw_brugge_");
+  assert.equal(searchQuery("Brugge", "title"), "ti_brugge_");
+  assert.equal(searchQuery("brugg*"), "aw_brugg");
+  assert.equal(searchQuery("Brugge", "all", true, true), "aw_brugge");
+});
+
+test("an author's particles join the name after them, as the index joins them", () => {
+  assert.equal(searchQuery("van der Weyden", "author"), "au_vanderweyden_");
+  assert.equal(searchQuery("Vander Weyden", "author"), "au_vanderweyden_");
+  assert.equal(searchQuery("Vanderweyden", "author"), "au_vanderweyden_");
+  assert.equal(searchQuery("Weyden", "author"), "au_weyden_");
+  // Particles alone are the beginning of a name, not two words of two names (Derom & Van Doorne).
+  assert.equal(searchQuery("van der", "author"), "au_vander");
+  assert.equal(searchQuery("d'Otreppe", "author"), "au_dotreppe_");
+  assert.deepEqual(nameWords("Dervaux-Van Ussel").map((item) => item.word), ["dervaux", "vanussel"]);
 });
 
 test("without the translations, all text and title search the record's own words only", () => {
-  assert.equal(searchQuery("droit coutumier", "all", false), "og_droit og_coutumier");
-  assert.equal(searchQuery("gewoonterecht", "title", false), "ot_gewoonterecht");
-  assert.equal(searchQuery("Tollebeek", "author", false), "au_Tollebeek");
-  assert.equal(relaxedQuery("guibert de gembloux", "all", false), "og_guibert og_gembloux");
+  assert.equal(searchQuery("droit coutumier", "all", false), "og_droit_ og_coutumier_");
+  assert.equal(searchQuery("gewoonterecht", "title", false), "ot_gewoonterecht_");
+  assert.equal(searchQuery("Tollebeek", "author", false), "au_tollebeek_");
+  assert.equal(relaxedQuery("guibert de gembloux", "all", false), "og_guibert_ og_gembloux_");
+});
+
+test("a hit through a translation needs the whole word in the translation only", () => {
+  const content = "Les ponts de Bruges og_les_ og_ponts_\n⁂\nde bruggen van brugge";
+  assert.equal(foundThroughTranslation(content, "bruggen"), true);
+  assert.equal(foundThroughTranslation(content, "brugg"), false);
+  assert.equal(foundThroughTranslation(content, "brugg", true), true);
+  assert.equal(foundThroughTranslation(content, "ponts"), false);
 });
 
 test("content words are folded and leave out function words", () => {
@@ -75,9 +102,9 @@ test("an article's subtitle stays roman; only the journal is italic", () => {
   assert.match(html, /<em>Literary and Linguistic Computing<\/em>/);
 });
 
-test("a host missing from the export shows in the reader's language, with the reason", () => {
+test("a host missing from the export is left out of the line, not shown as a title", () => {
   const html = citationHtml("Vanthemsche (Guy). Transports. In: [host record not exported], 2008, p. 433-439.", { title: "Transports", host: "[host record not exported]", kind: "chapter" }, "", "", "", "[tijdschrift of boek niet in de export]", "Ontbreekt in de export.");
-  assert.ok(html.includes('<span class="derived" title="Ontbreekt in de export.">[tijdschrift of boek niet in de export]</span>'));
+  assert.equal(html, "Vanthemsche (Guy). Transports. 2008, p. 433-439.");
   assert.ok(!html.includes("host record not exported"));
 });
 
@@ -95,4 +122,10 @@ test("a printed entry without any year shows the year of the data, in brackets a
   // A year of its own, even another one, is left as printed.
   assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Liège, 1950, 12 p.", { pubyear: "1951" }, "", "", "", "", "", "", "x"), /\[1951\]/);
   assert.doesNotMatch(citationHtml("Dupont (A.). Titre. Liège, 12 p.", { pubyear: "" }, "", "", "", "", "", "", "x"), /\[/);
+});
+
+test("one-letter words are left out, as the index leaves them out", () => {
+  assert.equal(searchQuery("l'abbaye de Villers"), "aw_abbaye_ aw_de_ aw_villers_");
+  assert.equal(searchQuery("Jacquemin J.-P.", "author"), "au_jacquemin_");
+  assert.equal(searchQuery("d'Otreppe", "author"), "au_dotreppe_");
 });

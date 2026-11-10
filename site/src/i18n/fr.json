@@ -44,7 +44,7 @@
     "semantic": "Suggéré à partir de titres proches par le sens. Non vérifié à la main.",
     "semantic-heading": "Suggéré à partir des titres sous la même rubrique imprimée. Non vérifié à la main."
   },
-  "authorMatch": "Les noms sont cherchés tels qu’ils sont écrits. Les homonymes ne sont pas séparés et les variantes d’orthographe ne sont pas réunies.",
+  "authorMatch": "Les noms sont cherchés tels qu’ils sont écrits, leurs particules jointes (van der Weyden = Vander Weyden). Les homonymes ne sont pas séparés.",
   "themes": {
     "reference": "Bibliographies et sciences auxiliaires",
     "general": "Travaux généraux et historiographie",
@@ -314,5 +314,19 @@
   "freeToRead": "libre accès",
   "freeOpenAlex": "Selon OpenAlex, cette publication est en libre accès ; le lien DOI y mène. Vérifié automatiquement, pas à la main.",
   "freePersee": "Publiée sur Persée, où elle est en libre accès ; le lien DOI y mène.",
-  "fromOpenLibrary": "Trouvé automatiquement dans Open Library, d’après le titre, l’auteur et l’année ; seule une œuvre n’ayant qu’une édition est retenue. Non vérifié à la main."
+  "fromOpenLibrary": "Trouvé automatiquement dans Open Library, d’après le titre, l’auteur et l’année ; seule une œuvre n’ayant qu’une édition est retenue. Non vérifié à la main.",
+  "placeIndexLink": "{place} dans l’index des lieux : {n} publications",
+  "placeIndexWhy": "L’index des lieux donne les publications qui portent sur le lieu. Cette recherche dans le texte trouve toute notice qui contient le mot, aussi comme lieu d’édition ou dans le nom d’une revue.",
+  "andMore": "et {n} autres",
+  "wholeWords": "Mots entiers seulement. Non compris : {words}.",
+  "alsoLonger": "Inclure les mots plus longs",
+  "wholeWordsOnly": "Mots entiers seulement",
+  "particlesJoined": "Les particules sont jointes au nom : van der Weyden, Van der Weyden et Vander Weyden sont un même nom. La recherche par auteur trouve les personnes qui ont écrit ou édité, pas celles dont on parle.",
+  "searchAllText": "Chercher « {q} » dans tout le texte",
+  "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
+  "alsoListed": "Aussi dans un autre volume",
+  "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie, est réunie ici en une seule notice.",
+  "tierNote": "{whole} avec le mot entier d’abord, puis {more} par des mots plus longs : {words}.",
+  "tierDivider": "Trouvés par des mots plus longs : {words}",
+  "widening": "Recherche aussi des mots plus longs : {words} …"
 }

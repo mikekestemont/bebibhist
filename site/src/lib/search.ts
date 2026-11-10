@@ -1,4 +1,5 @@
-import { personName, personWord } from "./words.js";
+import { nameWords, personName, personWord } from "./words.js";
+export { nameWords };
 export interface Hit {
   url: string;
   excerpt: string;
@@ -6,6 +7,10 @@ export interface Hit {
   meta: {
     id: string;
     formerIds?: string;
+    /** The other volumes that list the same publication: "year\tnumber\tprinted text|…" (bhb/duplicates.py). */
+    alsoListed?: string;
+    /** The ids of those listings, which open this entry (ids of now, before any entry's former id). */
+    listedIds?: string;
     title: string;
     citation: string;
     year: string;
@@ -171,7 +176,11 @@ export function citationHtml(
   shortYearNote = "",
   missingYearNote = "",
 ): string {
-  const shown = withHostYear(presentCitation(citation || ""), meta.pubyear, meta.yearMachine);
+  // A journal or book still missing from the export has no name to show: the line leaves it out ("In: [host record
+  // not exported]," goes), and the record's own row says why (reviewer, 9 Nov 2026: it read as the journal's title).
+  const missing = (hostMissing || hostMissingNote) && meta.host === HOST_MISSING && meta.hostMatched !== "1";
+  const printed = presentCitation(citation || "");
+  const shown = withHostYear(missing ? withoutMissingHost(printed) : printed, meta.pubyear, meta.yearMachine);
   let html = escapeHtml(shown);
   if (meta.inVolume) html = withVolume(html, meta.inVolume, meta.host, volumeNote);
   if (meta.yearMachine === "1" && meta.pubyear && yearIn(shown, meta.pubyear)) {
@@ -186,7 +195,7 @@ export function citationHtml(
   const titleAt = meta.title ? html.indexOf(escapeHtml(meta.title.trim())) : -1;
   const after = html.search(/In:/) >= 0 ? html.search(/In:/) : meta.kind === "article" && titleAt >= 0 ? titleAt + escapeHtml(meta.title!.trim()).length : -1;
   if (after >= 0 && !meta.inVolume) {
-    for (const part of [meta.host, meta.hostSubtitle]) {
+    for (const part of [missing ? "" : meta.host, meta.hostSubtitle]) {
       const safe = escapeHtml(part?.trim() || "");
       const at = safe ? html.indexOf(safe, after) : -1;
       if (at >= 0) html = `${html.slice(0, at)}<em>${safe}</em>${html.slice(at + safe.length)}`;
@@ -199,8 +208,6 @@ export function citationHtml(
     const supplied = `<em title="${escapeHtml(hostNote)}">${escapeHtml(meta.host.trim())}</em>`;
     html = html.replace(HOST_MISSING, supplied);
   }
-  // A journal or book still missing from the export: the placeholder in the reader's language, with the reason.
-  if (hostMissing) html = html.replace(HOST_MISSING, `<span class="derived" title="${escapeHtml(hostMissingNote)}">${escapeHtml(hostMissing)}</span>`);
   // A book's or journal issue's title and subtitle are italic; an article's or chapter's stay roman.
   if (meta.kind === "book" || meta.kind === "journal-issue") {
     for (const part of [meta.title, meta.subtitle]) {
@@ -209,6 +216,15 @@ export function citationHtml(
     }
   }
   return html;
+}
+
+/** The line without the export's placeholder for a missing host, and the "In:" before it. */
+export function withoutMissingHost(html: string): string {
+  return html
+    .replace(/\s*\bIn:\s*\[host record not exported\]\s*[,.]?\s*/, " ")
+    .replace(/\s*\[host record not exported\]\s*[,.]?\s*/, " ")
+    .replace(/ {2,}/g, " ")
+    .trim();
 }
 
 /**
@@ -410,18 +426,46 @@ export function foldQuery(query: string): string {
 
 export type SearchField = "all" | "author" | "title" | "host" | "series";
 
+/** One word of a query as an index word: whole (``tag_word_``, the index's closing "_") or, with ``prefix``, every word it begins. */
+function indexWord(tag: string, word: string, prefix: boolean): string {
+  return prefix ? `${tag}_${word}` : `${tag}_${word}_`;
+}
+
 /**
- * A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would drop every Laure. Without
- * ``translations``, all text and title search the record's own words only, which the index repeats with a tag.
+ * The query as Pagefind words. Every word is matched whole (the index closes each with "_"): "Brugge" does not
+ * find "bruggen". A word ending in "*", or every word when ``prefix`` is set (the switch "also words that begin
+ * with"), finds the longer words it begins. A leading hyphen is Pagefind’s “exclude this word”, so Anne-Laure would
+ * drop every Laure: hyphens split words. Without ``translations``, all text and title search the record's own words.
  */
-export function searchQuery(query: string, field: SearchField = "all", translations = true): string {
+export function searchQuery(query: string, field: SearchField = "all", translations = true, prefix = false): string {
   // An author searched by the name as the author row writes it: that person, as one word (``personWord``).
   const name = field === "author" ? personName(query) : null;
   if (name) return personWord(name[0], name[1]);
-  const words = foldQuery(query).replace(/-/g, " ").split(/\s+/).filter(Boolean);
-  if (field === "all" && translations) return words.join(" ");
-  const tag = field === "all" ? "og" : field === "author" ? "au" : field === "title" ? (translations ? "ti" : "ot") : field === "series" ? "se" : "in";
-  return words.map((word) => `${tag}_${word}`).join(" ");
+  if (field === "author") return nameWords(query).map(({ word, prefix: open }) => indexWord("au", word, open || prefix)).join(" ");
+  const tag = fieldTag(field, translations);
+  return queryWords(query).map(({ word, prefix: open }) => indexWord(tag, word, open || prefix)).join(" ");
+}
+
+/** The index tag a search of ``field`` asks for (scripts/build-index.mjs). */
+export function fieldTag(field: SearchField, translations: boolean): string {
+  if (field === "all") return translations ? "aw" : "og";
+  if (field === "title") return translations ? "ti" : "ot";
+  if (field === "author") return "au";
+  return field === "series" ? "se" : "in";
+}
+
+/** The words of a text query, folded, with a trailing "*" read as "every word it begins". */
+export function queryWords(query: string): { word: string; prefix: boolean }[] {
+  return foldQuery(query)
+    .toLowerCase()
+    .split(/[\s\-–—'’]+/)
+    .flatMap((raw) => {
+      const star = /\*$/.test(raw);
+      // One letter ("l'abbaye", an initial) is no index word: the index keeps words of two letters or more.
+      return (raw.match(/[\p{L}\p{N}]+/gu) || [])
+        .map((word, index, all) => ({ word, prefix: star && index === all.length - 1 }))
+        .filter((item) => item.word.length > 1);
+    });
 }
 
 /**
@@ -440,16 +484,54 @@ const FUNCTION_WORDS = new Set(
     .split(" "),
 );
 
+/** The function words, for the page's notices. */
+export const FUNCTION_WORD_SET: ReadonlySet<string> = FUNCTION_WORDS;
+
 /**
  * The query without its function words, or null when nothing would change. An author search keeps them, since
  * de, van and le belong to the surname; so does a quoted query, and one made only of function words.
  */
-export function relaxedQuery(query: string, field: SearchField = "all", translations = true): string | null {
+export function relaxedQuery(query: string, field: SearchField = "all", translations = true, prefix = false): string | null {
   if (field === "author" || query.includes('"')) return null;
   const words = foldQuery(query).toLowerCase().replace(/-/g, " ").split(/\s+/).filter(Boolean);
   const kept = words.filter((word) => !FUNCTION_WORDS.has(word));
   if (kept.length === 0 || kept.length === words.length) return null;
-  return searchQuery(kept.join(" "), field, translations);
+  return searchQuery(kept.join(" "), field, translations, prefix);
+}
+
+/**
+ * The longer index words a whole-word search leaves out, per query word ("brugge" → bruggen, brugges …), the
+ * shortest first: the result says so and offers them (the reviewer's "bruggen" for Brugge, 9 Nov 2026). ``tag`` is the
+ * Pagefind tag of the search ("aw", "au" …). Only words of letters, of three letters or more, are looked up.
+ */
+export async function longerWords(words: string[], tag: string, limit = 6): Promise<{ word: string; longer: string[]; more: number }[]> {
+  const found: { word: string; longer: string[]; more: number }[] = [];
+  for (const word of words) {
+    if (word.length < 3 || !/^\p{L}+$/u.test(word)) continue;
+    const token = `${tag}_${word}`;
+    const list = await knownFile(token.slice(0, 5));
+    if (!list) continue;
+    const all: string[] = [];
+    for (let low = lowerBound(list, token); low < list.length && list[low].startsWith(token); low += 1) {
+      const candidate = list[low].slice(3).replace(/_$/, "");
+      if (candidate !== word && list[low].endsWith("_")) all.push(candidate);
+    }
+    // The nearest forms first ("bruggen", "brugges" before "bruggehooft"): the shortest, then in order.
+    const longer = [...all].sort((a, b) => a.length - b.length || (a < b ? -1 : 1)).slice(0, limit);
+    if (all.length) found.push({ word, longer, more: all.length - longer.length });
+  }
+  return found;
+}
+
+function lowerBound(list: string[], token: string): number {
+  let low = 0;
+  let high = list.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (list[middle] < token) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 /** Begins the machine-translated titles in a record's indexed content (``scripts/build-index.mjs``). */
@@ -460,15 +542,16 @@ function wordsOf(text: string): string[] {
 }
 
 /**
- * Whether a hit was found only through the machine translation of its title: a word of the query, or a word that
- * begins with it, is in the translations but nowhere else in the record.
+ * Whether a hit was found only through the machine translation of its title: a word of the query (or, with
+ * ``prefix``, a word that begins with it) is in the translations but nowhere else in the record.
  */
-export function foundThroughTranslation(content: string | undefined, query: string): boolean {
+export function foundThroughTranslation(content: string | undefined, query: string, prefix = false): boolean {
   const at = content ? content.indexOf(TRANSLATED) : -1;
   if (!content || at < 0) return false;
-  const own = wordsOf(content.slice(0, at));
+  // The record's own words end before the tagged copies ("ti_…", "og_…"), which repeat the translations too.
+  const own = wordsOf(content.slice(0, at)).filter((word) => !/^[a-z]{2}$/.test(word));
   const translated = wordsOf(content.slice(at));
-  const has = (words: string[], word: string) => words.some((candidate) => candidate.startsWith(word));
+  const has = (words: string[], word: string) => words.some((candidate) => (prefix ? candidate.startsWith(word) : candidate === word));
   return wordsOf(query)
     .filter((word) => word.length > 2 && !FUNCTION_WORDS.has(word))
     .some((word) => !has(own, word) && has(translated, word));
@@ -492,27 +575,24 @@ function knownFile(key: string): Promise<string[] | null> {
 }
 
 /**
- * The words of a Pagefind query that no word in the index equals or begins with. Pagefind 1.4, once the prefix
- * chunks are loaded, answers such a word with every word that shares its prefix (16,638 slow hits for an author
- * "vanthemse"), so a query holding one finds nothing and is not run. Only words of four letters or more are checked,
- * bare or with a field tag ("au_vanthemse"); anything else, and any word whose list cannot be read, counts as known.
+ * The words of a Pagefind query that are not in the index: a whole word ("aw_brugge_") that no index word equals, or
+ * a prefix ("aw_brugg") that no index word begins. Pagefind 1.4, once the prefix chunks are loaded, answers such a
+ * word with every word that shares its prefix (16,638 slow hits for an author "vanthemse"), so a query holding one
+ * finds nothing and is not run. Only words of four letters or more are checked, bare or with a field tag
+ * ("au_vanthemse"); anything else, and any word whose list cannot be read, counts as known.
  */
 export async function unknownWords(query: string): Promise<string[]> {
   const unknown: string[] = [];
   for (const token of query.toLowerCase().split(/\s+/).filter(Boolean)) {
     const tagged = /^[a-z]{2}_/.test(token);
-    const word = tagged ? token.slice(3) : token;
+    const whole = token.endsWith("_");
+    const word = (tagged ? token.slice(3) : token).replace(/_$/, "");
     if (word.length < 4 || !/^\p{L}+$/u.test(word)) continue;
     const list = await knownFile(tagged ? token.slice(0, 5) : token.slice(0, 3));
     if (list === null) continue;
-    let low = 0;
-    let high = list.length;
-    while (low < high) {
-      const middle = (low + high) >> 1;
-      if (list[middle] < token) low = middle + 1;
-      else high = middle;
-    }
-    if (!(low < list.length && list[low].startsWith(token))) unknown.push(token);
+    const low = lowerBound(list, token);
+    const found = whole ? low < list.length && list[low] === token : low < list.length && list[low].startsWith(token);
+    if (!found) unknown.push(token);
   }
   return unknown;
 }
@@ -563,12 +643,12 @@ export function editDistance(left: string, right: string, limit: number): number
  * (one edit for short words, two from eight letters), the most frequent first. Only the small file for the
  * word's first two letters is fetched, after the results are shown.
  */
-export async function spellingSuggestions(query: string): Promise<{ word: string; suggestion: string; count: number }[]> {
+export async function spellingSuggestions(query: string, prefix = false): Promise<{ word: string; suggestion: string; count: number }[]> {
   const found: { word: string; suggestion: string; count: number }[] = [];
-  for (const word of contentWords(query).map((item) => item.replace(/['’]/g, ""))) {
+  for (const word of contentWords(query).map((item) => item.replace(/['’*]/g, ""))) {
     if (word.length < 4 || /\d/.test(word)) continue;
     const file = await wordFile(/^[a-z]{2}/.test(word) ? word.slice(0, 2) : "_");
-    if (file.counts[word] || file.keys.some((key) => key.startsWith(word))) continue;
+    if (file.counts[word] || (prefix && file.keys.some((key) => key.startsWith(word)))) continue;
     const limit = word.length >= 8 ? 2 : 1;
     let best: { key: string; distance: number; count: number } | null = null;
     for (const key of file.keys) {
@@ -641,10 +721,12 @@ export async function searchBoth(
   strict: string | null,
   loose: string | null,
   options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
+  current: () => boolean = () => true,
 ): Promise<SearchResponse> {
   if (!loose || loose === strict) return pagefind.search(strict, options);
   const more = await pagefind.search(loose, options);
-  if (options.sort || more.results.length > STRICT_LIMIT) return more;
+  // A search no longer wanted (another began) does not start its second half: the worker computes one at a time.
+  if (options.sort || more.results.length > STRICT_LIMIT || !current()) return more;
   const all = await pagefind.search(strict, options);
   const first = new Set(all.results.map((result) => result.id));
   return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], filters: more.filters };
@@ -669,14 +751,18 @@ export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | 
   return match(response, id);
 }
 
-/** The entry with this id; else the one that had it before (a repaired printed number), so old links still work.
- * The entry that holds the id now comes first. */
+/** The entry with this id; else the entry that lists the same publication under it; else the one that had it before
+ * (a repaired printed number), so old links still work. The entry that holds the id now comes first. */
 async function match(response: SearchResponse, id: string): Promise<Hit | null> {
+  let listed: Hit | null = null;
   let former: Hit | null = null;
   for (const result of response.results.slice(0, 40)) {
     const data = await result.data();
     if (data.meta.id === id) return data;
+    // The same publication listed again in another volume: that listing's id is an id of now, and wins over an
+    // id another entry had in an earlier release.
+    if (!listed && (data.meta.listedIds || "").split("|").includes(id)) listed = data;
     if (!former && (data.meta.formerIds || "").split("|").includes(id)) former = data;
   }
-  return former;
+  return listed || former;
 }

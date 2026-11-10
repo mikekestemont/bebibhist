@@ -2,3 +2,7 @@ id,wrong,right,kind,checked_by,date,note
 bhb:1952-3791,Zuznkir,Zumkir,ocr,,2026-11-02,"Reported in a test session; the same author is printed as Zumkir elsewhere"
 bhb:2004-44992,Johan,Jeroen,ocr,,2026-11-09,"Kind ocr so that the citation reads right too (Mike); whether the printed volume has Johan is not known (no scan). The article's byline reads 'Jeroene Deploige, Universidad de Gante' (Cuadernos de Historia 22, 2002, pp. 31–52; https://cuadernosdehistoria.uchile.cl/index.php/CDH/article/view/47126): Jeroen Deploige. 'Johan' is already in the digitised volume (BGB_2004.xml, ref904)."
 bhb:2004-44992,Revista de Estudios Históricos,Cuadernos de Historia,ocr,,2026-11-09,"Kind ocr so that the citation reads right too (Mike). The journal is Cuadernos de Historia (Universidad de Chile), no. 22, December 2002, pp. 31–52 (the article's first page); the volume names another journal."
+bhb:2004-47383,Paraléllisme,Parallélisme,print,,2026-11-09,"Reviewer, 9 Nov 2026. The printed line keeps the volume's spelling; the title field reads Parallélisme."
+bhb:2004-45194,Fürungsschicht,Führungsschicht,print,,2026-11-09,"Reviewer, 9 Nov 2026. German Führungsschicht; the printed line keeps the volume's spelling."
+bhb:2002-40070,Maria-Elisabcth,Maria-Elisabeth,print,,2026-11-09,"Reviewer, 9 Nov 2026. The foundation is named after Maria-Elisabeth Belpaire, as the title of the same entry says."
+bhb:1957-9890,Magdelen,Magdalen,print,,2026-11-09,"Reviewer, 9 Nov 2026. Davies's article is on Rogier van der Weyden's Magdalen Reading (National Gallery, London)."

@@ -44,7 +44,7 @@
     "semantic": "Suggested from titles close in meaning. It has not been checked by hand.",
     "semantic-heading": "Suggested from the titles under the same printed heading. It has not been checked by hand."
   },
-  "authorMatch": "Names are matched as written. Namesakes are not separated, and spelling variants are not joined.",
+  "authorMatch": "Names are matched as written, with their particles joined (van der Weyden = Vander Weyden). Namesakes are not separated.",
   "themes": {
     "reference": "Reference and auxiliary sciences",
     "general": "General works and historiography",
@@ -314,5 +314,19 @@
   "freeToRead": "open access",
   "freeOpenAlex": "According to OpenAlex, this publication can be read free of charge; the DOI link leads to it. Checked automatically, not by hand.",
   "freePersee": "Published on Persée, where it can be read free of charge; the DOI link leads to it.",
-  "fromOpenLibrary": "Found automatically in Open Library, by title, author and year; only a work with a single edition is used. Not checked by hand."
+  "fromOpenLibrary": "Found automatically in Open Library, by title, author and year; only a work with a single edition is used. Not checked by hand.",
+  "placeIndexLink": "{place} in the place index: {n} publications",
+  "placeIndexWhy": "The place index lists the publications about the place. This text search finds every entry with the word, also as a place of publication or in a journal's name.",
+  "andMore": "and {n} more",
+  "wholeWords": "Whole words only. Not included: {words}.",
+  "alsoLonger": "Include longer words",
+  "wholeWordsOnly": "Whole words only",
+  "particlesJoined": "A name's particles are joined to it: van der Weyden, Van der Weyden and Vander Weyden are one name. A search by author finds the people who wrote or edited, not the people written about.",
+  "searchAllText": "Search all text for “{q}”",
+  "nameVariants": "This name is written in more than one way here:",
+  "alsoListed": "Also listed in another volume",
+  "alsoListedNote": "The same publication, printed again in another volume of the Bibliography, is shown here as one record.",
+  "tierNote": "{whole} with the whole word first, then {more} found through longer words: {words}.",
+  "tierDivider": "Found through longer words: {words}",
+  "widening": "Also looking for longer words: {words} …"
 }

@@ -2,7 +2,7 @@
   // The map of subjects: every entry a point, placed by its title's meaning (bhb topicmap), with named regions at
   // three levels, a search that lights up its hits, and filters by subject area, period and year of publication.
   // The points are drawn with WebGL (regl-scatterplot); the names, the tooltip and the panel are HTML on top.
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
   import { scaleLinear } from "d3-scale";
   import createScatterplot from "regl-scatterplot";
   import Waiting from "./Waiting.svelte";
@@ -338,6 +338,64 @@
     return shown;
   });
 
+  // A name the screen's edge would cut ("20th Century Politics an", reviewer, 9 Nov 2026), or the region's panel
+  // would cover, is hidden until it fits: its drawn box, measured once it is on the page, must lie inside the map.
+  let labelLayer = $state<HTMLDivElement | null>(null);
+  let measureTimer: ReturnType<typeof setTimeout> | undefined;
+  // The names measured as cut or covered (``measureLabels``), by region id.
+  let hiddenLabels = $state<Set<string>>(new Set());
+
+  /** Hides each name that is not wholly inside the map, or that the panel or the search box covers. */
+  function measureLabels() {
+    const layer = labelLayer;
+    if (!layer) return;
+    const frame = layer.getBoundingClientRect();
+    // The region's panel and the search box lie over the map: a name they would cover is hidden too.
+    const covers = [...(layer.parentElement?.querySelectorAll(".topics-panel, .topics-search") || [])].map((element) => element.getBoundingClientRect());
+    const hidden = new Set<string>();
+    for (const element of layer.children as HTMLCollectionOf<HTMLElement>) {
+      const box = element.getBoundingClientRect();
+      const inside = box.left >= frame.left + 2 && box.right <= frame.right - 2 && box.top >= frame.top + 2 && box.bottom <= frame.bottom - 2;
+      const covered = covers.some((cover) => box.left < cover.right && box.right > cover.left && box.top < cover.bottom && box.bottom > cover.top);
+      if (!inside || covered) hidden.add(element.dataset.region || "");
+    }
+    // State, not the element's style: Svelte writes each label's style again whenever the map moves.
+    if (hidden.size !== hiddenLabels.size || [...hidden].some((id) => !hiddenLabels.has(id))) hiddenLabels = hidden;
+  }
+
+  /** Measured once the map has stopped moving, not on every frame of a pan or zoom. */
+  function scheduleMeasure() {
+    clearTimeout(measureTimer);
+    measureTimer = setTimeout(() => void tick().then(measureLabels), 120);
+  }
+
+  // A name the screen's edge would cut ("20th Century Politics an", reviewer, 9 Nov 2026), or the region's panel
+  // would cover, is hidden until it fits: its drawn box, measured once it is on the page, must lie inside the map.
+  $effect(() => {
+    labels;
+    scheduleMeasure();
+  });
+
+  // The panel opens, closes and grows as its region's data arrive: the names are measured again each time.
+  $effect(() => {
+    const parent = labelLayer?.parentElement;
+    if (!parent) return;
+    const resized = new ResizeObserver(scheduleMeasure);
+    const watch = () => {
+      resized.disconnect();
+      for (const element of parent.querySelectorAll(".topics-panel, .topics-search")) resized.observe(element);
+      scheduleMeasure();
+    };
+    const changed = new MutationObserver(watch);
+    changed.observe(parent, { childList: true });
+    watch();
+    return () => {
+      changed.disconnect();
+      resized.disconnect();
+      clearTimeout(measureTimer);
+    };
+  });
+
   async function onPointOver(index: number) {
     if (!points) return;
     const x = screenX(points.x[index]);
@@ -583,14 +641,15 @@
       <div class="topics-status"><Waiting message={text.topicsLoading} large /></div>
     {/if}
 
-    <div class="topics-labels" aria-hidden="false">
+    <div class="topics-labels" aria-hidden="false" bind:this={labelLayer}>
       {#each labels as label (label.region.id)}
         <button
           type="button"
           class="topics-label level-{label.region.level}"
           class:faint={label.faint}
           class:chosen={chosen?.kind === "region" && chosen.id === label.region.id}
-          style="left: {label.x}px; top: {label.y}px; font-size: {label.size}px; max-width: {label.faint ? 18 : 14}em;"
+          data-region={label.region.id}
+          style="left: {label.x}px; top: {label.y}px; font-size: {label.size}px; max-width: {label.faint ? 18 : 14}em; visibility: {hiddenLabels.has(label.region.id) ? 'hidden' : 'visible'};"
           onclick={() => openRegion(label.region.id)}
         >{label.region.name?.[lang]}</button>
       {/each}

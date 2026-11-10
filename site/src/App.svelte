@@ -7,7 +7,8 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, escapeHtml, foundThroughTranslation, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, escapeHtml, fieldTag, foundThroughTranslation, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type SearchField } from "./lib/search";
+  import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
 
@@ -56,6 +57,8 @@
   type MapPlace = PlaceInfo & { key: string };
   let placeInfo = $state<Record<string, PlaceInfo>>({});
   let placesLoading: Promise<void> | null = null;
+  // Whether places.json has been read (or failed): until then a place chip shows "…", not the place's code.
+  let placesReady = $state(false);
   // The period chosen on the map (#/map?period=medieval): the counts of that period, and its historical layer.
   const MAP_PERIODS = ["ancient", "medieval", "burgundian", "early-modern", "contemporary"];
   let mapPeriod = $derived(path === "/map" && MAP_PERIODS.includes(params.get("period") || "") ? params.get("period")! : "");
@@ -96,7 +99,10 @@
       .then((places: Record<string, PlaceInfo>) => {
         placeInfo = places;
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        placesReady = true;
+      });
     return placesLoading;
   }
 
@@ -327,8 +333,12 @@
     params = new URLSearchParams(search);
     query = params.get("q") || "";
     fieldChoice = params.get("field") || "all";
+    // A record's page keeps the search it came from in the box: its words and its "Search in" (reviewer, 10 Nov
+    // 2026: the field went back to All text on every record).
     if (!query && (path.startsWith("/record/") || path.startsWith("/similar/"))) {
-      query = new URLSearchParams(sessionStorage.getItem("bhb-search") || "").get("q") || "";
+      const last = new URLSearchParams(sessionStorage.getItem("bhb-search") || "");
+      query = last.get("q") || "";
+      fieldChoice = last.get("field") || "all";
     }
   }
 
@@ -358,8 +368,16 @@
     return Object.keys(filters).length ? filters : undefined;
   }
 
+  // Counts up with every refresh: a search that is no longer the address's (another began meanwhile) is dropped, so
+  // the list and its filter counts always belong to the address in the bar (reviewer, 9 Nov 2026).
+  let refreshTicket = 0;
+  // The search, page, order and page size of the list on screen.
+  let listKey = "";
+
   async function refresh() {
     if (!engine) return;
+    const run = ++refreshTicket;
+    const current = () => run === refreshTicket;
     // Place names in the page language; until they arrive the names stored with each record are shown.
     if (path !== "/" && path !== "/about") void loadPlaces();
     if (path.startsWith("/record/")) {
@@ -368,6 +386,7 @@
       if (!record || record.meta.id !== id) record = known;
       loading = !record;
       const found = await findRecord(engine, id);
+      if (!current()) return;
       if (found) record = found;
       loading = false;
       return;
@@ -380,9 +399,11 @@
       }
       loading = true;
       const source = (await findRecord(engine, id)) || similarSource;
+      if (!current()) return;
       similarSource = source;
       const wanted = source ? similarOf(source.meta) : [];
       const found = await Promise.all(wanted.map(async (item) => ({ hit: recall(item.id) || (await findRecord(engine!, item.id)), score: item.score })));
+      if (!current()) return;
       similarHits = found.filter((item): item is { hit: Hit; score: number } => item.hit !== null);
       remember(similarHits.map((item) => item.hit));
       loading = false;
@@ -390,6 +411,7 @@
     }
     if (path === "/map") {
       await loadMap();
+      if (!current()) return;
       loading = false;
       return;
     }
@@ -424,9 +446,26 @@
       return;
     }
     sessionStorage.setItem("bhb-search", params.toString());
+    const nextScope = scopeOf(params);
+    // Another search (not another page or order of the same one): the previous list and counts are not this
+    // address's, so they go at once and the hourglass shows until this search's own arrive.
+    if (nextScope !== scope) {
+      hits = [];
+      listed = [];
+      total = 0;
+      counts = {};
+      notices = { longer: [], variants: [], place: null };
+      scope = "";
+    }
+    // Another page, order or page size of the same search: its counts stay (they are the same), but the list goes,
+    // so the hourglass shows rather than the previous page or order.
+    const shownKey = `${nextScope}|${params.get("page") || "1"}|${params.get("sort") || ""}|${params.get("per") || ""}`;
+    if (shownKey !== listKey) hits = [];
+    listKey = shownKey;
     if (hits.length === 0) {
       loading = true;
       await painted();
+      if (!current()) return;
     }
     const filters = activeFilters();
     const sort = sortOf(params.get("sort"));
@@ -446,21 +485,34 @@
       journal ? keyWord("jn", journal) : "",
       subject ? keyWord("sc", subject) : "",
     ].filter(Boolean).join(" ");
+    // Whole words first; then, unless the reader asked for whole words only, the entries found only through words
+    // that begin with the query's words ("bruggen" for Brugge), below them (Mike, 10 Nov 2026).
+    const wholeOnly = params.get("match") === "whole";
     const asked = [askedText ? searchQuery(askedText, field, translations) : "", within].filter(Boolean).join(" ") || null;
     const relaxed = askedText ? relaxedQuery(askedText, field, translations) : null;
     const loose = relaxed ? [relaxed, within].filter(Boolean).join(" ") : null;
     // A word that is not in the index finds nothing: say so at once rather than let Pagefind answer it with every
     // word sharing its prefix.
     const unknown = await unknownWords(loose || asked || "");
+    if (!current()) return;
     const response = unknown.length
       ? await nothingFound(engine)
       : await searchBoth(engine, asked, loose, {
           ...(filters ? { filters } : {}),
           ...(sort ? { sort } : {}),
-        });
+        }, current);
+    if (!current()) return;
     total = response.results.length;
     listed = response.results;
-    const nextScope = scopeOf(params);
+    wholeCount = total;
+    partialIds = new Set();
+    // The longer words of the index that the query's words begin, from the small word lists (no search).
+    const longer = askedText && !personName(askedText) ? await longerWords(contentQueryWords(askedText, field), fieldTag(field, translations)) : [];
+    if (!current()) return;
+    const widen = !wholeOnly && longer.length > 0;
+    const openAsked = askedText ? [searchQuery(askedText, field, translations, true), within].filter(Boolean).join(" ") : null;
+    const openRelaxed = askedText ? relaxedQuery(askedText, field, translations, true) : null;
+    const open = (openRelaxed ? [openRelaxed, within].filter(Boolean).join(" ") : null) || openAsked;
     if (nextScope !== scope) {
       counts = Object.fromEntries(
         Object.entries(response.filters || {}).map(([key, values]) => [key, { ...values }]),
@@ -470,7 +522,9 @@
     const ticket = ++yearTicket;
     if (!filters?.pubyear || unknown.length) yearCounts = { ...(response.filters?.pubyear || {}) };
     const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
-    hits = await Promise.all(slice.map((item) => item.data()));
+    const loaded = await Promise.all(slice.map((item) => item.data()));
+    if (!current()) return;
+    hits = loaded;
     // With a year range, the year filter shows the counts of every year, so it needs the same search without the
     // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
     // it waits until the results have been painted (a frame, then a task), or it would hold them back.
@@ -480,22 +534,157 @@
       const search = engine;
       requestAnimationFrame(() => setTimeout(() => {
         if (ticket !== yearTicket) return;
-        void search.search(loose || asked, {
+        void search.search(widen ? open : loose || asked, {
           ...(Object.keys(rest).length ? { filters: rest } : {}),
           ...(sort ? { sort } : {}),
         }).then((broad) => {
-          if (ticket === yearTicket) yearCounts = { ...(broad.filters?.pubyear || {}) };
+          if (ticket === yearTicket && current()) yearCounts = { ...(broad.filters?.pubyear || {}) };
         }).catch(() => {});
       }, 0));
     }
     // Checked after the results are shown, so it never delays them.
     const spellingFor = askedText;
     spelling = [];
-    if (askedText) spellingSuggestions(askedText).then((found) => {
-      if (spellingFor === [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ")) spelling = found;
+    if (askedText) spellingSuggestions(askedText, widen).then((found) => {
+      if (current() && spellingFor === [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ")) spelling = found;
     });
+    void searchNotices(askedText, field, hits, longer, current);
     remember(hits);
-    loading = false;
+    // A page that lies wholly after the whole-word entries waits, with the hourglass, for the second step.
+    loading = widen && (page - 1) * pageSize >= wholeCount;
+    if (widen && open) await widenSearch(open, { ...(filters ? { filters } : {}), ...(sort ? { sort } : {}) }, !filters?.pubyear, current);
+  }
+
+  // How many entries of the list have every word whole (they come first), and which shown hits came after them.
+  let wholeCount = $state(0);
+  let partialIds = $state<Set<string>>(new Set());
+  // True while the entries found through longer words are looked for.
+  let widening = $state(false);
+
+  /**
+   * The second step of a search: the entries found only through words that begin with the query's words, after the
+   * whole-word ones, in the same order (relevance or the chosen sort). The total and the filter counts are then
+   * those of the whole list, so they match what is shown.
+   */
+  async function widenSearch(open: string, options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> }, years: boolean, current: () => boolean) {
+    widening = true;
+    try {
+      const unknown = await unknownWords(open);
+      if (!current() || unknown.length) return;
+      const wide = await engine!.search(open, options);
+      if (!current()) return;
+      const first = new Set(listed.map((item) => item.id));
+      const extra = wide.results.filter((item) => !first.has(item.id));
+      if (!extra.length) return;
+      listed = [...listed, ...extra];
+      total = listed.length;
+      counts = Object.fromEntries(Object.entries(wide.filters || {}).map(([key, values]) => [key, { ...values }]));
+      if (years) yearCounts = { ...(wide.filters?.pubyear || {}) };
+      // The page shown may now hold entries of the second step (a short first step, or a later page).
+      const start = (page - 1) * pageSize;
+      const slice = listed.slice(start, start + pageSize);
+      if (start + slice.length > wholeCount) {
+        const loaded = await Promise.all(slice.map((item) => item.data()));
+        if (!current()) return;
+        hits = loaded;
+        partialIds = new Set(loaded.filter((_, index) => start + index >= wholeCount).map((hit) => hit.meta.id));
+        remember(hits);
+      }
+    } finally {
+      if (current()) {
+        widening = false;
+        loading = false;
+      }
+    }
+  }
+
+  /** The query's content words (for an author, the name's words with their particles joined), without "*" words. */
+  function contentQueryWords(askedText: string, field: SearchField): string[] {
+    return (field === "author" ? nameWords(askedText) : queryWords(askedText))
+      .filter((item) => !item.prefix && !FUNCTION_WORD_SET.has(item.word))
+      .map((item) => item.word);
+  }
+
+  /**
+   * What the result should say about how it matched (reviewer, 9 Nov 2026): the longer words a whole-word search
+   * left out ("bruggen" for Brugge) or a prefix search took in; an author's other spellings on the page; and, for
+   * a town's name, its publications in the place index, which the text search does not equal.
+   */
+  type Notices = { longer: { word: string; longer: string[]; more: number }[]; variants: string[]; place: { key: string; name: string; n: number } | null };
+  let notices = $state<Notices>({ longer: [], variants: [], place: null });
+
+  async function searchNotices(askedText: string, field: SearchField, shown: Hit[], longer: Notices["longer"], current: () => boolean) {
+    const next: Notices = { longer, variants: [], place: null };
+    if (field === "author" && askedText) next.variants = nameVariants(askedText, shown);
+    if (field === "all" && askedText && !params.getAll("place").length) {
+      await loadPlaces();
+      next.place = placeNamed(askedText);
+    }
+    if (current()) notices = next;
+  }
+
+  /** The spellings of the searched name among the authors and editors shown, when there is more than one. */
+  function nameVariants(asked: string, shown: Hit[]): string[] {
+    const person = personName(asked);
+    const wanted = person ? joinedKey(person[0]) : nameWords(asked).map((item) => item.word).join("");
+    if (!wanted) return [];
+    const seen = new Map<string, string>();
+    for (const hit of shown) {
+      for (const name of authorParts([hit.meta.authors, hit.meta.editors, hit.meta.hostEditors].filter(Boolean).join(", "))) {
+        const family = name.split(" (")[0];
+        const given = name.match(/\(([^)]+)\)/)?.[1] || "";
+        const key = joinedKey(family);
+        if (!(person ? key === wanted && joinedKey(given) === joinedKey(person[1]) : key === wanted || key.endsWith(wanted))) continue;
+        const shownAs = given ? `${family} (${given})` : family;
+        if (![...seen.values()].includes(shownAs)) seen.set(`${key}|${joinedKey(given)}|${shownAs}`, shownAs);
+      }
+    }
+    // Only spellings of one person count: the family name differs in its letters' case, spaces or particles.
+    const byPerson = new Map<string, string[]>();
+    for (const [key, name] of seen) {
+      const [family, given] = key.split("|");
+      const id = `${family}|${given.slice(0, 1)}`;
+      byPerson.set(id, [...(byPerson.get(id) || []), name]);
+    }
+    // One group per person, its spellings joined ("Van Der Eycken (Michel) · Van der Eycken (Michel)").
+    return [...byPerson.values()].filter((names) => names.length > 1).map((names) => names.join(" · "));
+  }
+
+  const joinedKey = foldKey;
+
+  /** A town or place of the place index whose name is the whole query ("Brugge", "Bruges"), with its count. */
+  function placeNamed(asked: string): { key: string; name: string; n: number } | null {
+    const wanted = joinedKey(asked);
+    if (wanted.length < 3) return null;
+    let best: { key: string; name: string; n: number } | null = null;
+    for (const [key, place] of Object.entries(placeInfo)) {
+      if (![place.fr, place.nl, place.de, place.en].some((name) => name && joinedKey(name) === wanted)) continue;
+      if (!best || place.n > best.n) best = { key, name: place[lang] || place.nl || place.fr, n: place.n };
+    }
+    return best;
+  }
+
+  /** The same address with whole words only, or with the longer words after them (the default). */
+  function matchHref(wholeOnly: boolean): string {
+    const next = new URLSearchParams(params);
+    if (wholeOnly) next.set("match", "whole");
+    else next.delete("match");
+    next.delete("page");
+    return `#/search?${next.toString()}`;
+  }
+
+  /** The longer words per query word: “brugge” → bruggen, brugges … and 17 more. */
+  function longerList(): string {
+    return notices.longer
+      .map((item) => `“${item.word}” → ${item.longer.join(", ")}${item.more ? ` ${text.andMore.replace("{n}", item.more.toLocaleString(lang))}` : ""}`)
+      .join("; ");
+  }
+
+  function allTextHref(): string {
+    const next = new URLSearchParams(params);
+    next.delete("field");
+    next.delete("page");
+    return `#/search?${next.toString()}`;
   }
 
   /** Whether the search crosses languages: all text and title search the titles' machine translations too. */
@@ -519,7 +708,8 @@
   /** A hit the query found only in its title's machine translation (indexed for search, never shown) says so. */
   function viaTranslation(hit: Hit): boolean {
     if (!translatable() || !withTranslations()) return false;
-    return foundThroughTranslation(hit.content, [query, ...params.getAll("more")].join(" "));
+    // A hit of the second step was found through a longer word: the translation is checked the same way.
+    return foundThroughTranslation(hit.content, [query, ...params.getAll("more")].join(" "), partialIds.has(hit.meta.id));
   }
 
   function scopeOf(search: URLSearchParams): string {
@@ -582,15 +772,19 @@
     const hostLabel = meta.kind === "article" ? text.journal : text.host;
     const work = meta.kind === "book" || meta.kind === "journal-issue";
     const editors = meta.hostEditors?.trim() || editorsBeforeHost(meta.citation || "", meta.host);
+    // The journal or book missing from the State Archives' export has no name: its row says so in words, not as a
+    // title in brackets (reviewer, 9 Nov 2026).
+    const hostMissing = meta.host === HOST_MISSING && !meta.journalTitle;
     const pairs: [string, string | undefined, boolean?][] = [
       [text.author, meta.authors],
-      // A collected volume's own editors; a chapter's editors are its host's, below.
-      [text.hostEditors, meta.editors],
+      // A collected volume's own editors; a chapter's editors are its host's, below, and are not listed twice
+      // (the citation pass sometimes gives them to the chapter as well).
+      [text.hostEditors, work || !sameNames(meta.editors, editors) ? meta.editors : ""],
       [text.fieldTitle, meta.title, work],
-      [text.subtitle, meta.subtitle ? capitalize(meta.subtitle) : undefined, work],
+      [text.subtitle, meta.subtitle ? capitalize(cleanLead(meta.subtitle)) : undefined, work],
       // An article's journal by the name of the journal list (the citation keeps the printed spelling).
-      [hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : meta.host === HOST_MISSING ? text.hostMissing : meta.host, true],
-      [text.hostSubtitle, meta.hostSubtitle ? capitalize(meta.hostSubtitle) : undefined, true],
+      [hostMissing ? text.fields.host : hostLabel, hostLabel === text.journal && meta.journalTitle ? meta.journalTitle : hostMissing ? text.hostMissingNote : meta.host, !hostMissing],
+      [text.hostSubtitle, meta.hostSubtitle ? capitalize(cleanLead(meta.hostSubtitle)) : undefined, true],
       [text.hostEditors, editors],
       [text.volume, meta.volume],
       [text.issue, meta.issue],
@@ -725,7 +919,6 @@
     if (label === text.issn) return identifierSource("issn", meta);
     if (label === text.kbrRecord) return identifierSource("kbr", meta);
     if (label === text.journal && meta.hostMatched === "1") return text.hostMatched;
-    if ((label === text.journal || label === text.host) && meta.host === HOST_MISSING && !meta.journalTitle) return text.hostMissingNote;
     if ((label === text.journal || label === text.host) && meta.hostFromIbid === "1") return text.hostFromIbid;
     if (label === text.pubyear && meta.yearMachine === "1") return text.yearFromHost;
     if ((label === text.place || label === text.publisher) && meta.imprintMachine === "1") return text.imprintFromHost;
@@ -758,6 +951,19 @@
       .replace(/^-|-$/g, "")
       .slice(0, 40);
     return slug ? `bhb-${slug}` : "bhb";
+  }
+
+  /** Two name lines with the same people, whatever their order: a chapter's editors and its volume's. */
+  function sameNames(left: string | undefined, right: string | undefined): boolean {
+    const set = (value: string | undefined) => new Set(authorParts(value || "").map((name) => joinedKey(name)));
+    const a = set(left);
+    const b = set(right);
+    return a.size > 0 && [...a].every((name) => b.has(name));
+  }
+
+  /** A parsed subtitle may keep the dash or stop that joined it to the title ("- De eerste voorstellingen …"). */
+  function cleanLead(value: string): string {
+    return value.replace(/^[\s\-–—.:;,]+/, "");
   }
 
   function capitalize(value: string): string {
@@ -1000,6 +1206,8 @@
     readRoute();
     // The subject tree needs no search index: it shows while the index loads, and when it cannot.
     if (path === "/browse") void loadSubjects();
+    // A place's name for its chip, while the index loads (it showed "Place: 31005" first, reviewer, 9 Nov 2026).
+    if (params.getAll("place").length) void loadPlaces();
     painted()
       .then(loadEngine)
       .then((loaded) => {
@@ -1018,6 +1226,32 @@
     };
   });
 </script>
+
+{#snippet matchNotes()}
+  {@const wholeOnly = params.get("match") === "whole"}
+  {#if notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
+    <div class="match-notes">
+      {#if notices.place}
+        <p><a href={placeHref(notices.place.key)}>{text.placeIndexLink.replace("{place}", placeLabel(notices.place.key, notices.place.name)).replace("{n}", notices.place.n.toLocaleString(lang))}</a> <span class="note">{text.placeIndexWhy}</span></p>
+      {/if}
+      {#if notices.longer.length}
+        {#if wholeOnly}
+          <p>{text.wholeWords.replace("{words}", longerList())} <a href={matchHref(false)}>{text.alsoLonger}</a></p>
+        {:else if widening}
+          <p class="widening">{text.widening.replace("{words}", longerList())}</p>
+        {:else if total > wholeCount}
+          <p>{text.tierNote.replace("{whole}", wholeCount.toLocaleString(lang)).replace("{more}", (total - wholeCount).toLocaleString(lang)).replace("{words}", longerList())} <a href={matchHref(true)}>{text.wholeWordsOnly}</a></p>
+        {/if}
+      {/if}
+      {#if searchField(fieldChoice) === "author" && query.trim() && !personName(query)}
+        <p>{text.particlesJoined} <a href={allTextHref()}>{text.searchAllText.replace("{q}", query.trim())}</a></p>
+      {/if}
+      {#if notices.variants.length}
+        <p>{text.nameVariants} {notices.variants.join("; ")}</p>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
 
 {#snippet listExporter()}
   <div class="results-export">
@@ -1331,6 +1565,17 @@
       {/if}
       {@render categoryBlock(record)}
       <p class="imprint">{text.printed}{record.meta.year ? ` · BGB ${record.meta.year}` : ""}{record.meta.number ? ` · ${record.meta.number}` : ""}</p>
+      {#if record.meta.alsoListed}
+        <!-- The same publication in another volume of the Bibliography: one record, both printings (reviewer, 9 Nov 2026). -->
+        <div class="also-listed">
+          <h2>{text.alsoListed}</h2>
+          <p class="also-note">{text.alsoListedNote}</p>
+          {#each record.meta.alsoListed.split("|").filter(Boolean) as line}
+            {@const [year, number, printed] = line.split("\t")}
+            <p><span class="also-where">BGB {year}{number ? ` · ${number}` : ""}</span> {printed}</p>
+          {/each}
+        </div>
+      {/if}
     {:else}
       <p>{text.notFound}</p>
     {/if}
@@ -1428,7 +1673,7 @@
       {#if params.getAll("place").length}
         <ul class="chips refine">
           {#each params.getAll("place") as key (key)}
-            <li><button type="button" onclick={() => removePlace(key)}>{text.placeChip} <em>{placeLabel(key)}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
+            <li><button type="button" onclick={() => removePlace(key)}>{text.placeChip} <em>{placeInfo[key] || !placesReady ? placeLabel(key, "…") : placeLabel(key)}</em> <span aria-hidden="true">×</span> <span class="sr-only">{text.removeChip}</span></button></li>
           {/each}
         </ul>
       {/if}
@@ -1468,12 +1713,18 @@
         <p>{text.missing}</p>
       {:else if total === 0}
         <p>{text.empty}</p>
+        {@render matchNotes()}
       {:else}
         <div class="results-head">
           <p class="count">{total.toLocaleString(lang)} {text.results}</p>
           {@render tools()}
         </div>
-        {#each hits as hit}
+        {@render matchNotes()}
+        {#each hits as hit, index}
+          <!-- The entries found only through longer words follow those with every word whole. -->
+          {#if (page - 1) * pageSize + index === wholeCount && total > wholeCount}
+            <p class="tier-divider">{text.tierDivider.replace("{words}", longerList())}</p>
+          {/if}
           {@render resultRow(hit)}
         {/each}
         <div class="results-foot">{@render tools()}</div>

@@ -2,9 +2,11 @@
 // site, serves it as Pages would (vite preview) and runs tests/search-checks.mjs against it.
 //   npm run verify             (index, build, checks)
 //   npm run verify -- --no-index   (the index in public/ is already built from these records)
+//   PORT=4174 npm run verify -- --no-index   (when port 4173 is taken)
 import { spawn } from "node:child_process";
 
-const PORT = 4173;
+// Another port with PORT=… (a preview of one's own may hold 4173).
+const PORT = Number(process.env.PORT) || 4173;
 // Under /bebibhist/, as GitHub Pages serves it; the checks refuse a site served at the root.
 const base = `http://localhost:${PORT}/bebibhist/`;
 

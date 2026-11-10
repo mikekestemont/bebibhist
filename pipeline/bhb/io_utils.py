@@ -114,4 +114,5 @@ def record_from_dict(data: dict) -> Record:
         period_suggested=list(data.get("period_suggested") or []),
         language_suggested=list(data.get("language_suggested") or []),
         former_ids=list(data.get("former_ids") or []),
+        duplicate_of=data.get("duplicate_of"),
     )

@@ -279,6 +279,11 @@ def main(argv: list[str] | None = None) -> None:
         path = build_dir() / "records.jsonl"
         records = read_jsonl(path)
         counts = apply_journals(records, repo_root() / "data" / "curated")
+        # The same publication listed in two volumes: one kept in search, the other linked to it (needs the
+        # journal ids, so it runs here).
+        from bhb.duplicates import link_duplicates
+
+        counts.update(link_duplicates(records))
         write_jsonl(path, records)
         print(f"journals: {counts} → {path}")
         return
@@ -306,6 +311,10 @@ def main(argv: list[str] | None = None) -> None:
         from bhb.corrections import apply_corrections
 
         counts["corrections applied again"] = apply_corrections(records, again=True)
+        # Split ligatures and lost line-break hyphens the model copied into the fields (bhb/repair.py).
+        from bhb.repair import repair_records
+
+        counts.update(repair_records(records))
         write_jsonl(path, records)
         print(f"citations: {counts} → {path}")
         return

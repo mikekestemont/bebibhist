@@ -998,3 +998,17 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 @media (prefers-reduced-motion: reduce) {
   .waiting .hourglass { animation: none; }
 }
+
+/* How a search matched: whole words or prefixes, a place's index, a name's particles and spellings. */
+.match-notes { color: #4a4d52; font-size: 15px; margin: 0.1rem 0 1rem; }
+.match-notes p { margin: 0 0 0.35rem; }
+.match-notes .note { color: #6b6e73; font-size: 14px; }
+
+/* The same publication listed in another volume of the Bibliography. */
+.also-listed { margin-top: 1.4rem; border-top: 1px solid #e3e4e6; padding-top: 0.8rem; }
+.also-listed h2 { font-size: 16px; margin: 0 0 0.4rem; }
+.also-listed p { font-size: 15px; margin: 0 0 0.4rem; color: #4a4d52; }
+.also-where { color: #6b6e73; font-variant-numeric: tabular-nums; margin-right: 0.3rem; }
+.also-listed .also-note { color: #6b6e73; font-size: 14px; }
+/* Where the entries found only through longer words begin. */
+.tier-divider { margin: 1.2rem 0 0.6rem; padding-top: 0.6rem; border-top: 1px solid #e3e4e6; color: #6b6e73; font-size: 14px; }

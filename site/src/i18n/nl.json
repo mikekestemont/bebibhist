@@ -44,7 +44,7 @@
     "semantic": "Voorgesteld op basis van inhoudelijk verwante titels. Niet met de hand gecontroleerd.",
     "semantic-heading": "Voorgesteld op basis van de titels onder dezelfde gedrukte rubriek. Niet met de hand gecontroleerd."
   },
-  "authorMatch": "Namen worden gezocht zoals ze geschreven zijn. Naamgenoten worden niet onderscheiden en spellingvarianten worden niet samengevoegd.",
+  "authorMatch": "Namen worden gezocht zoals ze geschreven zijn, met hun tussenvoegsels samengevoegd (van der Weyden = Vander Weyden). Naamgenoten worden niet onderscheiden.",
   "themes": {
     "reference": "Bibliografieën en hulpwetenschappen",
     "general": "Algemene werken en historiografie",
@@ -314,5 +314,19 @@
   "freeToRead": "open access",
   "freeOpenAlex": "Volgens OpenAlex is deze publicatie gratis te lezen; de DOI-link leidt ernaartoe. Automatisch nagegaan, niet met de hand.",
   "freePersee": "Gepubliceerd op Persée, waar ze gratis te lezen is; de DOI-link leidt ernaartoe.",
-  "fromOpenLibrary": "Automatisch gevonden in Open Library, op titel, auteur en jaar; alleen een werk met één enkele uitgave wordt gebruikt. Niet met de hand gecontroleerd."
+  "fromOpenLibrary": "Automatisch gevonden in Open Library, op titel, auteur en jaar; alleen een werk met één enkele uitgave wordt gebruikt. Niet met de hand gecontroleerd.",
+  "placeIndexLink": "{place} in de plaatsindex: {n} publicaties",
+  "placeIndexWhy": "De plaatsindex geeft de publicaties over de plaats. Deze zoekactie in de tekst vindt elke beschrijving met het woord, ook als plaats van uitgave of in de naam van een tijdschrift.",
+  "andMore": "en {n} andere",
+  "wholeWords": "Alleen hele woorden. Niet meegerekend: {words}.",
+  "alsoLonger": "Langere woorden meenemen",
+  "wholeWordsOnly": "Alleen hele woorden",
+  "particlesJoined": "Tussenvoegsels horen bij de naam: van der Weyden, Van der Weyden en Vander Weyden zijn één naam. Zoeken op auteur vindt wie schreef of uitgaf, niet over wie geschreven werd.",
+  "searchAllText": "“{q}” zoeken in alle tekst",
+  "nameVariants": "Deze naam wordt hier op meer dan één manier geschreven:",
+  "alsoListed": "Ook in een ander volume",
+  "alsoListedNote": "Dezelfde publicatie, nog eens opgenomen in een ander volume van de Bibliografie, staat hier als één beschrijving.",
+  "tierNote": "{whole} met het hele woord eerst, dan {more} via langere woorden: {words}.",
+  "tierDivider": "Gevonden via langere woorden: {words}",
+  "widening": "Zoekt ook naar langere woorden: {words} …"
 }

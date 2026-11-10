@@ -225,3 +225,18 @@ def test_apply_keeps_the_ocr_fixes_for_search_and_the_printed_text_as_it_is():
     apply_citations([record], {"bhb:1998-1": answer}, {})
     assert record.ocr_corrected == ["Dendermonde"]
     assert "Dcndcrmonde" in record.printed and record.title == "Dcndcrmonde in de 18de eeuw"
+
+
+def test_a_cited_chapter_takes_its_volumes_parsed_imprint_and_year():
+    from bhb.citations import resync_cited_hosts
+    from bhb.model import Host, Publisher, Record
+
+    volume = Record(id="bhb:2005-50772", source="print-straive", bgb_year=2005, type="book", year=2005,
+                    publisher=Publisher("Tervuren; Gent", "Musée royal d’Afrique centrale; Snoeck"))
+    chapter = Record(id="bhb:2005-50762", source="print-straive", bgb_year=2005, type="chapter",
+                     host=Host(id="bhb:2005-50772", publisher=Publisher("Tervuren", "Gent, Musée royal d’Afrique centrale / Snoeck")))
+    chapter.provenance.flags.append("host-from-cross-ref")
+    counts = resync_cited_hosts([volume, chapter], {"bhb:2005-50762": {"answer": {"publishers": []}}})
+    assert chapter.host.publisher == Publisher("Tervuren; Gent", "Musée royal d’Afrique centrale; Snoeck")
+    assert chapter.year == 2005 and "year-from-host" in chapter.provenance.flags
+    assert counts == {"imprints taken from the volume": 1, "years taken from the volume": 1}

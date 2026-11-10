@@ -9,6 +9,7 @@ import csv
 import json
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from rapidfuzz.fuzz import token_set_ratio
@@ -208,12 +209,38 @@ def themes_from_label(code: str, label_fr: str) -> list[str]:
     return ["general"]
 
 
+def english_path() -> Path:
+    """The English of each French heading of the classification, written by hand (``data/curated/scheme_en.csv``)."""
+    return repo_root() / "data" / "curated" / "scheme_en.csv"
+
+
+@lru_cache(maxsize=1)
+def english_headings() -> dict[str, str]:
+    path = english_path()
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["label_fr"].strip(): row["label_en"].strip() for row in csv.DictReader(handle) if row.get("label_en")}
+
+
+_FOOTNOTE = re.compile(r"\s*\([⁰¹²³⁴⁵⁶⁷⁸⁹]+\)\s*$")
+
+
 def draft_english(label_fr: str) -> str:
-    """Draft English for a French scheme label. Untranslated words stay in French."""
+    """Draft English for a French scheme label: each heading's English from ``scheme_en.csv``, else the word list's
+    draft, in which untranslated words stay in French (the parents of "Les partis" read "la economic life", reviewer,
+    9 Nov 2026). Still a draft: not reviewed by the Commission."""
     if not label_fr:
         return ""
     parts = [leaf_label(piece).strip() for piece in label_fr.split("/")]
-    return " / ".join(_translate_piece(piece) for piece in parts if piece)
+    table = english_headings()
+    out = []
+    for piece in parts:
+        if not piece:
+            continue
+        bare = _FOOTNOTE.sub("", piece)
+        out.append(table.get(piece) or table.get(bare) or _translate_piece(piece))
+    return " / ".join(out)
 
 
 def agreement_score(heading: str, code: str, scheme: dict[str, SchemeEntry]) -> float:

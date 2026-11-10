@@ -1,4 +1,4 @@
-import { presentCitation, type Hit } from "./search";
+import { HOST_MISSING, presentCitation, withoutMissingHost, type Hit } from "./search";
 
 export type ExportKind = "txt" | "bibtex" | "ris" | "mods";
 
@@ -89,11 +89,22 @@ function bundle(hits: Hit[], kind: ExportKind, source: string, sourceLabel: stri
 
 const writers: Record<ExportKind, (hit: Hit, source: string, sourceLabel: string) => string> = {
   txt: (hit, source, sourceLabel) =>
-    `${presentCitation(hit.meta.citation || hit.meta.title || "")}\n\n${sourceLabel}: ${source}\n${DATA_RIGHTS}\n`,
-  bibtex: (hit, source) => bibtex(hit, source),
-  ris: (hit, source) => ris(hit, source),
-  mods: (hit, source) => mods(hit, source),
+    `${presentCitation(cleaned(hit).meta.citation || hit.meta.title || "")}\n\n${sourceLabel}: ${source}\n${DATA_RIGHTS}\n`,
+  bibtex: (hit, source) => bibtex(cleaned(hit), source),
+  ris: (hit, source) => ris(cleaned(hit), source),
+  mods: (hit, source) => mods(cleaned(hit), source),
 };
+
+/** No journal or book named for one missing from the export, and no dash or stop before a subtitle. */
+function cleaned(hit: Hit): Hit {
+  const meta = { ...hit.meta };
+  if (meta.host === HOST_MISSING) {
+    meta.host = "";
+    meta.citation = withoutMissingHost(meta.citation || "");
+  }
+  for (const key of ["subtitle", "hostSubtitle"] as const) if (meta[key]) meta[key] = meta[key]!.replace(/^[\s\-–—.:;,]+/, "");
+  return { ...hit, meta };
+}
 
 function bibtex(hit: Hit, source: string): string {
   const meta = hit.meta;

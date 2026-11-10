@@ -896,6 +896,8 @@ def _text(value) -> str | None:
 
 def _imprint(publishers):
     """One imprint from the model's list: a bilingual or shared imprint keeps all its places and names, joined."""
+    from collections import Counter
+
     from bhb.model import Publisher
 
     places = list(dict.fromkeys(place for p in publishers or [] if (place := _text(p.get("place")))))
@@ -1033,6 +1035,44 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
             counts["title changed"] += record.title != before[1]
             counts["year changed"] += record.year != before[2]
         counts["university press named"] += name_presses(record)
+    counts.update(resync_cited_hosts(records, answers))
+    return dict(counts)
+
+
+def resync_cited_hosts(records, answers: dict[str, dict]) -> dict[str, int]:
+    """A chapter linked to its volume through ``Cfr. n°`` (``host-from-cross-ref``) whose own line prints no imprint
+    takes its volume's imprint and year as the citation pass parsed them. The build copied the volume's imprint
+    before that pass, as the rules had read it: Couttenier's chapter in Vellut, La mémoire du Congo, had "Tervuren"
+    as place and "Gent, Musée royal …/ Snoeck" as publisher, and no year (reviewer, 9 Nov 2026). Both stay marked as
+    taken from the volume."""
+    from collections import Counter
+
+    from bhb.model import Publisher
+
+    by_id = {record.id: record for record in records}
+    counts: Counter[str] = Counter()
+    for record in records:
+        if record.role != "entry" or not record.host or not record.host.id:
+            continue
+        if "host-from-cross-ref" not in record.provenance.flags:
+            continue
+        volume = by_id.get(record.host.id)
+        if volume is None:
+            continue
+        item = answers.get(record.id)
+        printed_imprint = _imprint(((item or {}).get("answer") or {}).get("publishers")) if item else None
+        if not printed_imprint and volume.publisher and (volume.publisher.place or volume.publisher.name):
+            fresh = Publisher(volume.publisher.place, volume.publisher.name)
+            if record.host.publisher != fresh:
+                record.host.publisher = fresh
+                counts["imprints taken from the volume"] += 1
+        if not record.year and volume.year:
+            record.year = int(volume.year)
+            if not record.host.year:
+                record.host.year = str(volume.year)
+            if "year-from-host" not in record.provenance.flags:
+                record.provenance.flags.append("year-from-host")
+            counts["years taken from the volume"] += 1
     return dict(counts)
 
 

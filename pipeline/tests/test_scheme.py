@@ -68,3 +68,11 @@ def test_english_labels_are_marked_as_drafts():
     drafts = [entry for entry in scheme.values() if entry.label_en]
     assert drafts
     assert all("draft" in entry.note for entry in drafts)
+
+
+def test_english_headings_come_from_the_hand_written_table():
+    from bhb.scheme import draft_english
+
+    assert draft_english("Histoire par époques / Epoque des principautés médiévales") == "History by period / The period of the medieval principalities"
+    assert draft_english("La vie économique et sociale") == "Economic and social life"
+    assert draft_english("Folklore (⁵)") == "Folklore"

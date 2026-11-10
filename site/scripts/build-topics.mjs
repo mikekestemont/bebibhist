@@ -24,7 +24,9 @@ const lines = readline.createInterface({ input: createReadStream(recordsPath, { 
 for await (const line of lines) {
   if (!line.trim()) continue;
   const record = JSON.parse(line);
-  if (record.role !== "entry" || record.is_cross_listing || record.topic_xy?.length !== 2 || !cellIndex.has(record.topic)) continue;
+  // A listing linked to another of the same publication (``duplicate_of``) is left out, as in search, so that a
+  // region's count is its search's.
+  if (record.role !== "entry" || record.is_cross_listing || record.duplicate_of || record.topic_xy?.length !== 2 || !cellIndex.has(record.topic)) continue;
   placed.push(record);
 }
 

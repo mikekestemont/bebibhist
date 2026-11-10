@@ -50,6 +50,22 @@ const checks = [
   { name: "a matched DOI on a record page", hash: "#/record/bhb%3Avs-1180580", selector: "a.derived[href^='https://doi.org/']", contains: /10\.1484/ },
   // A word that is not in the index finds nothing at once (it used to match every word with its prefix, in 11 s).
   { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/, limitMs: 5000 },
+  // The reviewer's report of 9 Nov 2026. A word is matched whole: Brugge does not find a Wespelaar bridge article.
+  // Whole words come first (Mike, 10 Nov 2026): the entries found only through a longer word follow them.
+  { name: "whole words first (Brugge, the bridges after)", hash: "#/search?q=Brugge", count: [4500, 6500], lacks: /Wespelaarse bruggen/ },
+  { name: "whole words only, when asked (abbaye)", hash: "#/search?q=abbaye&match=whole", count: [2000, 3200] },
+  { name: "longer words below a line when no word is whole (brugg)", hash: "#/search?q=brugg", selector: ".tier-divider", contains: /brugge/ },
+  { name: "the words a whole-word search left out are named", hash: "#/search?q=Brugge", selector: ".match-notes", contains: /bruggen/ },
+  { name: "a word with * finds the words it begins (brugg*)", hash: "#/search?q=brugg*", count: [5000, 7000] },
+  // A name with its particles is one name: van der Weyden finds Vander Weyden.
+  { name: "a name with particles (van der Weyden, author)", hash: "#/search?q=van%20der%20Weyden&field=author", count: [3, 40], contains: /Weyden/ },
+  { name: "particles alone begin a name (van der, author)", hash: "#/search?q=van%20der&field=author&per=100", count: [1500, 4000], lacks: /Derom \(|Dereere \(/ },
+  // The map's count of a place is its search's (Bruges counted 36 entries twice).
+  { name: "a place's count is the map's (Bruges)", hash: "#/search?place=nis%3A31005", count: [2500, 3000], samePlace: "nis:31005" },
+  // A search begun while another runs shows its own list and counts, not the first one's.
+  { name: "a second search replaces the first (Les partis, then World Wars)", hash: "#/search?subject=III.D.2.a.2.b.1.", then: "#/search?topic=r1.15", count: [7000, 8500], lacks: /N-VA|Lahaut/ },
+  { name: "a missing journal is not shown as a title", hash: "#/record/bhb%3Avs-1191434", selector: ".fields", lacks: /not in the export\]|niet in de export\]|absent de l’export\]/ },
+  { name: "the same chapter in two volumes is one record", hash: "#/record/bhb%3A2003-43255", selector: ".also-listed", contains: /Jacquemin/ },
 ];
 
 const browser = await chromium.launch();
@@ -69,8 +85,15 @@ for (const check of checks) {
   page.on("requestfailed", (request) => request.url().includes("/pagefind/") && note(`failed ${request.url()}`));
   try {
     await page.goto(base + check.hash);
+    // A second search started while the first still runs: the list and counts must be the second's.
+    if (check.then) {
+      await page.waitForTimeout(check.after ?? 1500);
+      await page.evaluate((hash) => { location.hash = hash; }, check.then);
+    }
     if (check.count) {
       await page.waitForSelector(".count", { timeout: LIMIT_MS });
+      // The entries found through longer words come in a second step: the count is read once it is done.
+      await page.waitForFunction(() => !document.querySelector(".widening"), null, { timeout: LIMIT_MS });
       const text = await page.textContent(".count");
       const count = Number((text || "").replace(/[^\d]/g, ""));
       if (count < check.count[0] || count > check.count[1]) problem = `count ${count} outside ${check.count.join("–")}`;
@@ -86,6 +109,11 @@ for (const check of checks) {
         const all = (await page.locator(".result .citation").allTextContents()).join(" ");
         if (check.lacks.test(all)) problem = `a hit matches ${check.lacks}`;
       }
+      if (!problem && check.samePlace) {
+        const places = await (await fetch(new URL("places.json", base))).json();
+        const expected = places[check.samePlace]?.n;
+        if (count !== expected) problem = `count ${count}, the map says ${expected}`;
+      }
     } else {
       await page.waitForSelector(check.selector, { timeout: check.limitMs || LIMIT_MS });
       if (check.atLeast) {
@@ -100,6 +128,10 @@ for (const check of checks) {
       if (!problem && check.contains) {
         const text = await page.textContent(check.selector);
         if (!check.contains.test(text || "")) problem = `"${(text || "").slice(0, 60)}" does not match ${check.contains}`;
+      }
+      if (!problem && check.lacks) {
+        const text = await page.textContent(check.selector);
+        if (check.lacks.test(text || "")) problem = `"${check.selector}" matches ${check.lacks}`;
       }
     }
   } catch (error) {

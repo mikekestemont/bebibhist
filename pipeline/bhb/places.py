@@ -347,9 +347,12 @@ def title_places(records, rows: dict[str, dict[str, str]], labels: dict[str, lis
         found = matcher.find(_title(record))
         if not found:
             continue
-        record.place_ids = [f"nis:{code}" for _, code in found]
-        record.places = [rows[code]["label_nl"] or rows[code]["label_fr"] for _, code in found]
+        # A title that names a place twice ("Brugge … Bruges") gives its code once: the map counted such entries
+        # twice (36 for Bruges, reviewer, 9 Nov 2026).
+        codes = list(dict.fromkeys(code for _, code in found))
+        record.place_ids = [f"nis:{code}" for code in codes]
+        record.places = [rows[code]["label_nl"] or rows[code]["label_fr"] for code in codes]
         record.place_suggested = list(record.place_ids)
         counts["entries with title places"] += 1
-        counts["title places"] += len(found)
+        counts["title places"] += len(codes)
     return dict(counts)
