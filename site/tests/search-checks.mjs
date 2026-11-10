@@ -41,7 +41,8 @@ const checks = [
   // The classification's three parts (I., II., III.), with their names.
   { name: "browse by subject", hash: "#/browse", selector: ".tree > li", atLeast: 3, contains: /Bibliogra(?:f|ph)/ },
   // A subject of the classification, from the subject tree or a record's tag; a subject holds its sub-subjects.
-  { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [150, 400] },
+  // Wider since 10 Nov 2026: old headings respelled from year to year, and the finance headings of 1993–2007, take this code.
+  { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [450, 750] },
   { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [7000, 11000] },
   { name: "place filter (Gent, indexed and from titles)", hash: "#/search?place=nis%3A44021", count: [2400, 3400] },
   { name: "a place suggested from the title", hash: "#/record/bhb%3A1995-11621", selector: ".tag-link.tag-suggested", contains: /Gh?ent|Gand/ },
