@@ -1317,7 +1317,7 @@
 
 {#snippet categoryBlock(hit: Hit)}
   {@const specific = (lang === "nl" ? hit.meta.specificNl : lang === "en" ? hit.meta.specificEn : hit.meta.specificFr) || hit.meta.specificFr || ""}
-  {#if hit.meta.themes || specific}
+  {#if hit.meta.themes || specific || hit.meta.alsoSubjects}
     <p class="category-line">
       <span class="theme">{text.subjects}</span>
       {#if hit.meta.themes}{@render facetValues("theme", hit.meta.themes, hit.meta.themesSuggested || "")}{/if}
@@ -1335,6 +1335,15 @@
           title={hit.meta.specificMachine === "1" ? text.suggestedValue : text.asPrinted}
         >{specific}</span>
       {/if}
+      <!-- The entry's further codes (State Archives' catalogue, a heading naming two codes, a printed "voir aussi"). -->
+      {#each (hit.meta.alsoSubjects || "").split("|").filter(Boolean) as entry (entry)}
+        {@const [code, fr, nl, en, machine] = entry.split("\t")}
+        <a
+          class={machine === "1" ? "tag tag-narrow tag-link tag-suggested" : "tag tag-narrow tag-link"}
+          href={`#/search?subject=${encodeURIComponent(code)}`}
+          title={`${machine === "1" ? `${text.suggestedValue} ` : ""}${text.bhbCode} ${code} — ${text.subjectLink}`}
+        >{(lang === "nl" ? nl : lang === "en" ? en : fr) || fr}</a>
+      {/each}
     </p>
   {/if}
   {#if hit.meta.periods}

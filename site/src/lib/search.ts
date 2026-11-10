@@ -76,6 +76,7 @@ export interface Hit {
     specificEn?: string;
     specificFrom?: string;
     specificMachine?: string;
+    alsoSubjects?: string;
     themesSuggested?: string;
     periods?: string;
     periodsSuggested?: string;

@@ -32,6 +32,11 @@ const knownPath = new URL("../public/known", import.meta.url).pathname;
 // Every indexed word with its number of entries and its most common spelling, for "Did you mean …?".
 const words = new Map();
 
+// The sources of an entry's further codes of the classification: the State Archives' catalogue, a heading naming two
+// codes, a printed "voir aussi". A heading model's or classifier's runner-up guess is left out: it is an alternative,
+// not a second subject.
+const SECOND_SOURCES = new Set(["vsmart", "heading-rule", "see-also"]);
+
 /**
  * Wordings that only name one of the broad subject areas (or say "general"): the subject tags already say this, so
  * they are not shown as a finer subject. Everything else in a code's label or a printed heading is finer
@@ -112,6 +117,7 @@ for await (const line of lines) {
   const translatedTitle = newWords(translations, record.title || "");
   countWords(translated ? `${content}\n${translated}` : content);
   const own = stripMarks(content).slice(0, 4000);
+  const specific = specificMeta(record, scheme, merged);
   const response = await index.addCustomRecord({
     url: `#/record/${encodeURIComponent(record.id)}`,
     // The record's own words once more with a tag ("og_", "ot_" for the title), so a search can leave the
@@ -139,7 +145,8 @@ for await (const line of lines) {
       section: (record.section_path || []).slice(-1)[0] || "",
       source: record.source || "",
       ...categoryMeta(record, scheme),
-      ...specificMeta(record, scheme, merged),
+      ...specific,
+      ...alsoSubjectsMeta(record, scheme, specific.specificFrom),
       // Authors only: a preface's writer, a translator or an illustrator has a row of their own (Guy Vanthemsche,
       // 10 Nov 2026: the writer of a preface read as a co-author). The catalogue's compilers are the volume's editors.
       authors: nameLine((record.persons || []).filter((person) => !NOT_AUTHOR.has(person.role))).slice(0, 300),
@@ -656,13 +663,43 @@ function specificMeta(record, labels, merged = new Map()) {
   return { specificFr: fr, specificNl: nl || fr, specificEn: fr, specificFrom: "printed", specificMachine: "" };
 }
 
-/** The entry's code of the classification (as its finer subject shows it) and the codes above it, finest first. */
-function codeChain(record) {
-  const coded = (record.categories || []).filter((item) => item.code && scheme[item.code]);
+/**
+ * The entry's codes of the classification: the one its finer subject shows, then the others (SECOND_SOURCES).
+ */
+function subjectCodes(record, labels = scheme) {
+  const coded = (record.categories || []).filter((item) => item.code && labels[item.code]);
   const primary = coded.find((item) => item.primary) || [...coded].sort((left, right) => right.code.length - left.code.length)[0];
+  if (!primary) return [];
+  return [primary, ...coded.filter((item) => item !== primary && SECOND_SOURCES.has(item.source))];
+}
+
+/** The codes of the entry (subjectCodes) and every code above them, without repeats; the first code's chain first. */
+function codeChain(record) {
   const chain = [];
-  for (let code = primary ? currentCode(primary.code) : ""; code && scheme[code] && !chain.includes(code); code = scheme[code].parent) chain.push(code);
+  for (const item of subjectCodes(record)) {
+    for (let code = currentCode(item.code); code && scheme[code] && !chain.includes(code); code = scheme[code].parent) chain.push(code);
+  }
   return chain;
+}
+
+/**
+ * The entry's other subjects of the classification, as "code\tfr\tnl\ten\tmachine|…": the last part of each further
+ * code's label, when it says more than a broad subject area and than the finer subject already shown or a code above it.
+ */
+function alsoSubjectsMeta(record, labels, shown) {
+  // The shown subject and the codes above it: a further code among them says nothing more.
+  const seen = new Set();
+  for (let code = shown || ""; code && !seen.has(code); code = labels[code]?.parent || "") seen.add(code);
+  const parts = [];
+  for (const item of subjectCodes(record, labels).slice(1)) {
+    const code = currentCode(item.code);
+    const names = labelled(labels, item.code);
+    const fr = lastPart(names.fr);
+    if (!fr || BROAD_WORDINGS.has(wording(fr)) || seen.has(code)) continue;
+    seen.add(code);
+    parts.push([code, fr, lastPart(names.nl) || fr, lastPart(names.en) || fr, item.machine ? "1" : ""].map((value) => value.replace(/[|\t]/g, " ")).join("\t"));
+  }
+  return parts.length ? { alsoSubjects: parts.join("|") } : {};
 }
 
 /** Codes that some printed volumes of 1993–2008 numbered otherwise, to the code of the current classification
