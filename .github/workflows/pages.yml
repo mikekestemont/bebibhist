@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,10 +82,26 @@ jobs:
         with:
           path: site/dist
 
+      # Pages copies about 200,000 files (one search fragment per record). Mostly that takes half a minute, but twice
+      # on 10 Nov 2026 it stayed "syncing_files" until the deployment was cancelled after 10 minutes (a longer timeout
+      # set here made no difference), and a second deployment of the same build went through. So a stalled first
+      # attempt is followed by a second one; the job fails only when both do.
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        # Pages copies about 200,000 files: on 10 Nov 2026 it was still syncing them when the default 10 minutes ran
-        # out, and the deployment was cancelled.
+        continue-on-error: true
         with:
-          timeout: 1800000
+          timeout: 600000
+
+      - name: Wait before the second attempt
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "first deployment failed; trying once more" >> "$GITHUB_STEP_SUMMARY"
+          sleep 60
+
+      - name: Deploy to GitHub Pages (second attempt)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 600000
