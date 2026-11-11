@@ -451,7 +451,7 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
 
 **B. Search behaviour**
 
-8. **Names in all-text search.** A search for a name in "all text" also finds the chapters of volumes the person
+8. **Done 11 Nov 2026:** a name searched in all text lists what someone of that name wrote or edited first, when that is at least a quarter of the hits, with a link to the author search (`docs/DECISIONS.md`). **Names in all-text search.** A search for a name in "all text" also finds the chapters of volumes the person
    edited (Bisschop under Vanthemsche, `bhb:vs-1250412`) and hyphenated names ("Sieben" finds "Jansen-Sieben",
    `bhb:1999-28307`). The author field already excludes both. Rank entries where the name is an author first, and,
    when the words match an author, offer "only as author" next to the results.
@@ -512,7 +512,8 @@ which also stops 31 chapter authors from being read as editors (103 entries chan
     where it has one.
 18. (Dropped, Mike, 5 Nov 2026: too much hand work for what it gives.) **Variant names of persons in titles** ("Godelieve" / "Godeliph" of Gistel): a list of name variants, added at
     indexing as the place synonyms are, starting with saints and rulers; Wikidata gives many of the variants.
-19. **Historical territories on the map**: their borders changed over time; start with the dioceses, whose borders
+19. **Done** (confirmed by Mike, 11 Nov 2026: the map has a layer of historical territories and one of dioceses).
+    **Historical territories on the map**: their borders changed over time; start with the dioceses, whose borders
     were steadier, after the foreign places.
 
 Order: 1, 2, 3, 4, 6, 7 first (rules, a day or two, then a release); then 8 and 11; then 5, 9, 10, 12, 13; 14 after
@@ -529,7 +530,14 @@ the places, and an entry with its DOI or KBR link. Build it once the site is sta
 fixes of §4f and the new State Archives export), from real screens of the site; the source goes in the repository,
 the video beside the site, not in git.
 
-## 4h. To do before the next citation pass: translations copied from a neighbouring title (Mike, 9 Nov 2026)
+## 4h. Done: translations copied from a neighbouring title (Mike, 9 Nov 2026; built 9 Nov, in the data since `data-2026-11-10`)
+
+**Done.** Steps 1–4 below are in the code (`bhb citations` checks every title translation and translates a flagged
+one again for its title alone, also as part of the pass; commits 03cd21e, 012d9cc) and in the data. One change to
+step 2: a translation made again is kept even when the check still objects, since about half the objections were
+about style. The search checks (`site/tests/search-checks.mjs`) check that a search for "Deploige" no longer
+lists the 1979 Vatican articles (`bhb:1979-33187` to `-33190`). The three changes listed at the end of this section are in the data too: no entry has Latin as its
+language, and no entry without a year has a linked volume that has one (checked on the build of 10 Nov 2026).
 
 A search for "Deploige" (within results, newest first) lists entries that do not mention him, "found via a machine
 translation". The model translates titles 25 to a request (`ask_titles`), and within a request it sometimes gives an

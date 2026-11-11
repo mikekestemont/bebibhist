@@ -765,6 +765,35 @@ export async function relatedByMeaning(
     .slice(0, limit);
 }
 
+/**
+ * The share of an all-text search's hits on which its words are a name of the entry's authors or editors, from
+ * which those entries come first. On the build of 10 Nov 2026 a surname is an author word on 44–90 % of the entries
+ * that hold it (Pirenne 44 %, Vanthemsche 57 %, Janssens 83 %), a town, a king or a word under 15 % (Gent and
+ * Brugge under 1 %, Bisschop 2 %, Leopold 14 %), so "Gent" keeps its order and "Vanthemsche" lists his own work
+ * before the chapters of the volumes he edited (plan §4f, point 8).
+ */
+export const AUTHOR_SHARE = 0.25;
+
+/**
+ * The query as a search of the people's words, whole (``au_vanthemsche_``), as the author field reads it (particles
+ * joined), or null when it is no name: a quoted phrase, a "*", or only particles.
+ */
+export function authorQuery(query: string): string | null {
+  if (/["*]/.test(query)) return null;
+  const words = nameWords(query).filter((item) => !item.prefix);
+  return words.length ? words.map(({ word }) => indexWord("au", word, false)).join(" ") : null;
+}
+
+/**
+ * ``results`` with the hits in ``authored`` first, each part in its own order, when they are at least
+ * ``AUTHOR_SHARE`` of them (and at least two); else null, and the order stays.
+ */
+export function authorsFirst<T extends { id: string }>(results: T[], authored: ReadonlySet<string>): T[] | null {
+  const first = results.filter((result) => authored.has(result.id));
+  if (first.length < 2 || first.length < AUTHOR_SHARE * results.length || first.length === results.length) return null;
+  return [...first, ...results.filter((result) => !authored.has(result.id))];
+}
+
 /** Above this many hits the strict search is skipped: it is the slow one, since a function word ("de", "la") is
  * on most entries, and among thousands of hits its ordering adds little. */
 export const STRICT_LIMIT = 2000;

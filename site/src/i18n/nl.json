@@ -108,7 +108,9 @@
   "similar": "Gelijkaardige publicaties",
   "similarWhy": "Publicaties waarvan de titel qua betekenis het dichtst bij deze ligt, over de talen heen",
   "similarFor": "Qua betekenis het dichtst bij:",
-  "similarNone": "Voor deze titel werden geen gelijkaardige publicaties gevonden.",
+  "similarNone": "Voor deze titel werden geen voldoende gelijkaardige publicaties gevonden: geen andere titel in de bibliografie ligt qua betekenis dicht genoeg.",
+  "similarNoneShort": "Geen voldoende gelijkaardige publicaties",
+  "similarNoneWhy": "Geen andere titel in de bibliografie ligt qua betekenis dicht genoeg bij deze om getoond te worden.",
   "related": "Verwant in betekenis (proef)",
   "relatedNote": "Publicaties die inhoudelijk dicht bij de eerste 20 resultaten liggen maar niet al uw zoekwoorden bevatten, bijvoorbeeld titels in een andere taal. Ze komen uit de gelijkaardige publicaties van die resultaten; de meest verwante staan bovenaan.",
   "relatedNone": "Voor deze zoekopdracht werden geen verwante publicaties gevonden.",
@@ -158,7 +160,7 @@
       "title": "Hoe de resultaten geordend zijn",
       "paragraphs": [
         "Een zoekopdracht vindt de vermeldingen die elk woord bevatten dat u typt, waar het ook staat: in de bibliografische beschrijving, de namen, het tijdschrift of de rubriek. Korte woorden zoals <em>de</em>, <em>van</em>, <em>la</em> of <em>of</em> zijn facultatief: eerst komen de vermeldingen met alle woorden, daarna die waarin alleen zulke woorden ontbreken. Bij een zoekopdracht op auteur blijven ze behouden, omdat ze tot de familienaam behoren.",
-        "Daarbinnen zet <em>Relevantie</em> de vermeldingen vooraan waarin uw woorden zeldzaam zijn in de hele bibliografie en vaak voorkomen in de vermelding zelf. De lengte van een vermelding telt een beetje mee. Dit is een statistische volgorde, geen oordeel over het belang: u kunt de resultaten ook ordenen op jaar van verschijnen, op jaargang van de bibliografie, op auteur of op titel.",
+        "Daarbinnen zet <em>Relevantie</em> de vermeldingen vooraan waarin uw woorden zeldzaam zijn in de hele bibliografie en vaak voorkomen in de vermelding zelf. De lengte van een vermelding telt een beetje mee. Een naam die u in alle tekst zoekt, geeft eerst de publicaties die iemand met die naam schreef of uitgaf, als die een flink deel van de resultaten zijn. Dit is een statistische volgorde, geen oordeel over het belang: u kunt de resultaten ook ordenen op jaar van verschijnen, op jaargang van de bibliografie, op auteur of op titel.",
         "Namen worden vergeleken zoals ze gedrukt zijn. Naamgenoten worden niet onderscheiden en verschillende spellingen van één naam niet samengevoegd; probeer dus de varianten die u kent."
       ]
     },
@@ -326,6 +328,9 @@
   "wholeWordsOnly": "Alleen hele woorden",
   "particlesJoined": "Tussenvoegsels horen bij de naam: van der Weyden, Van der Weyden en Vander Weyden zijn één naam. Zoeken op auteur vindt wie schreef of uitgaf, niet over wie geschreven werd.",
   "searchAllText": "“{q}” zoeken in alle tekst",
+  "authorsFirst": "Eerst de {n} publicaties die iemand met deze naam schreef of uitgaf, dan die waarin de naam alleen voorkomt.",
+  "authorsFound": "{n} van deze publicaties zijn geschreven of uitgegeven door iemand met deze naam.",
+  "onlyAsAuthor": "Zoeken op auteur",
   "nameVariants": "Deze naam wordt hier op meer dan één manier geschreven:",
   "alsoListed": "Ook elders in de Bibliografie",
   "alsoListedNote": "Dezelfde publicatie, nog eens opgenomen in een ander volume van de Bibliografie of onder een andere rubriek van hetzelfde volume, staat hier als één beschrijving.",

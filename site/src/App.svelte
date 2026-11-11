@@ -7,7 +7,7 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, FUNCTION_WORD_SET, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -504,8 +504,31 @@
           ...(sort ? { sort } : {}),
         }, current);
     if (!current()) return;
-    total = response.results.length;
-    listed = response.results;
+    // A name searched in all text: the entries the name wrote or edited come first, then those that only mention it
+    // (a chapter of a volume the person edited, a title about them), each in its own order (plan §4f, point 8). A
+    // second, small search of the people's words tells them apart; the counts stay those of the whole list.
+    let results = response.results;
+    authorIds = new Set();
+    authorCount = 0;
+    const named = field === "all" && askedText && !personName(askedText) && !unknown.length && results.length > 1 ? authorQuery(askedText) : null;
+    if (named && !(await unknownWords(named)).length) {
+      const byAuthor = await engine.search([named, within].filter(Boolean).join(" "), filters ? { filters } : {});
+      if (!current()) return;
+      const authored = new Set(byAuthor.results.map((result) => result.id));
+      const ordered = authorsFirst(results, authored);
+      if (ordered) {
+        // The hits of this list that are author hits (the author search can find a few more, through a given name
+        // written out from KBR's catalogue).
+        authorCount = results.filter((result) => authored.has(result.id)).length;
+        // A list sorted by year keeps its order; it still offers the author search.
+        if (!sort) {
+          results = ordered;
+          authorIds = authored;
+        }
+      }
+    }
+    total = results.length;
+    listed = results;
     // The longer words of the index that the query's words begin, from the small word lists (no search), for the note.
     const words = askedText && !personName(askedText) ? contentQueryWords(askedText, field) : [];
     const tag = fieldTag(field, translations);
@@ -519,12 +542,13 @@
     }
     const ticket = ++yearTicket;
     if (!filters?.pubyear || unknown.length) yearCounts = { ...(response.filters?.pubyear || {}) };
-    const slice = response.results.slice((page - 1) * pageSize, page * pageSize);
+    const slice = results.slice((page - 1) * pageSize, page * pageSize);
     const loaded = await Promise.all(slice.map((item) => item.data()));
     if (!current()) return;
     hits = loaded;
-    // The hits shown that lack a word whole were found through a longer word: the line before them says so.
-    partialIds = new Set(longer.length ? loaded.filter((hit) => !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
+    // The hits shown that lack a word whole were found through a longer word: the line before them says so. The
+    // author hits come first, matched by the whole name, so the line never falls among them.
+    partialIds = new Set(longer.length ? loaded.filter((hit) => !authorIds.has(hit.meta.id) && !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
     // With a year range, the year filter shows the counts of every year, so it needs the same search without the
     // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
     // it waits until the results have been painted (a frame, then a task), or it would hold them back.
@@ -555,6 +579,18 @@
 
   // The hits shown that were found only through a longer word (they follow the whole-word hits).
   let partialIds = $state<Set<string>>(new Set());
+  // The hits of a name searched in all text whose authors or editors bear it, listed first, and how many the author
+  // search finds (0 when the words are no name: fewer than AUTHOR_SHARE of the hits).
+  let authorIds = $state<Set<string>>(new Set());
+  let authorCount = $state(0);
+
+  /** The same search by author, from the first page. */
+  function authorHref(): string {
+    const next = new URLSearchParams(params);
+    next.set("field", "author");
+    next.delete("page");
+    return `#/search?${next.toString()}`;
+  }
 
   /** Whether a record's indexed words hold each of ``words`` whole, under the search's tag ("aw" for "aw_brugge_"). */
   function hasWholeWords(stored: IndexWords | undefined, words: string[], tag: string): boolean {
@@ -1201,8 +1237,11 @@
 
 {#snippet matchNotes()}
   {@const wholeOnly = params.get("match") === "whole"}
-  {#if notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
+  {#if authorCount || notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
     <div class="match-notes">
+      {#if authorCount}
+        <p>{(authorIds.size ? text.authorsFirst : text.authorsFound).replace("{n}", authorCount.toLocaleString(lang))} <a href={authorHref()}>{text.onlyAsAuthor}</a></p>
+      {/if}
       {#if notices.place}
         <p><a href={placeHref(notices.place.key)}>{text.placeIndexLink.replace("{place}", placeLabel(notices.place.key, notices.place.name)).replace("{n}", notices.place.n.toLocaleString(lang))}</a> <span class="note">{text.placeIndexWhy}</span></p>
       {/if}
@@ -1417,6 +1456,15 @@
       </svg>
       <span>{text.similar}</span>
     </a>
+  {:else}
+    <!-- Neighbours below the floor (bhb/similar.py, MIN_SCORE) are not kept: the reader is told there are none worth
+         showing, rather than left to wonder where the wand went (Mike, 11 Nov 2026). -->
+    <span class="wand wand-none" title={text.similarNoneWhy}>
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M2.5 13.5l7.5-7.5M9 5l2 2M12 1.5v2.5M10.75 2.75h2.5M14 6v2M13 7h2M6 1.5v2M5 2.5h2" />
+      </svg>
+      <span>{text.similarNoneShort}</span>
+    </span>
   {/if}
 {/snippet}
 

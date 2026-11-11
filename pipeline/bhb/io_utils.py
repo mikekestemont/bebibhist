@@ -115,4 +115,8 @@ def record_from_dict(data: dict) -> Record:
         language_suggested=list(data.get("language_suggested") or []),
         former_ids=list(data.get("former_ids") or []),
         duplicate_of=data.get("duplicate_of"),
+        # The map of subjects (``bhb topicmap apply``): without these, a step run after it (``bhb similar`` on
+        # 11 Nov 2026) wrote the records back without their places on the map, and a region found nothing.
+        topic_xy=[float(value) for value in data.get("topic_xy") or []],
+        topic=data.get("topic"),
     )

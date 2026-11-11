@@ -50,6 +50,21 @@ def test_apply_writes_ids_and_scores_that_survive_a_round_trip():
     assert restored.similar_scores == [0.91, 0.88]
 
 
+def test_apply_leaves_out_neighbours_below_the_floor():
+    from bhb.similar import MIN_SCORE
+
+    kept, emptied = _record("bhb:2000-1", "Les béguinages"), _record("bhb:2000-4", "Theodoor Sevens")
+    kept.similar, emptied.similar = ["stale"], ["stale"]
+    found = {
+        "bhb:2000-1": [("bhb:2000-2", 0.71), ("bhb:2000-3", MIN_SCORE), ("bhb:2000-5", MIN_SCORE - 0.01)],
+        "bhb:2000-4": [("bhb:2000-6", 0.52)],  # "The Seven Sacraments": a shared word, not a subject
+    }
+    assert apply([kept, emptied], found) == 1
+    assert kept.similar == ["bhb:2000-2", "bhb:2000-3"]
+    assert kept.similar_scores == [0.71, MIN_SCORE]
+    assert emptied.similar == [] and emptied.similar_scores == []
+
+
 def test_language_of_reads_function_words_and_leaves_bilingual_titles_out():
     from bhb.similar import language_of
 

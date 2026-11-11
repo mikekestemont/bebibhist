@@ -46,6 +46,13 @@ _DUTCH = frozenset("het een van en op voor naar uit bij met over tot".split())
 # too lightly. Common words are left out because they tie a title to others in its own language.
 LEXICAL_WEIGHT = 0.1
 RARE_TITLES = 50
+
+# Neighbours scoring below MIN_SCORE are not stored, so the wand shows fewer of them, or none. Set on
+# 11 Nov 2026 from a blind check of 120 pairs drawn evenly from 0.45-0.70: below 0.60, 53 % of the neighbours
+# had nothing to do with their title (a shared word or genre: "Theodoor Sevens" ~ "The Seven Sacraments"),
+# from 0.60 to 0.70, 23 %, with no further gain up to 0.70. The floor drops 7.4 % of the neighbours; 1.6 % of
+# the entries keep none. The scores have no gap to set it by: they are unimodal around 0.69.
+MIN_SCORE = 0.60
 _SHORT_WORDS = _FRENCH | _DUTCH | frozenset("the and with from into dans sous entre zijn door naar onder tegen".split())
 
 
@@ -208,10 +215,11 @@ def _top_candidates(matrix: np.ndarray, wanted: int, chunk: int):
         yield start, columns, np.take_along_axis(scores, columns, axis=1)
 
 
-def apply(records: list[Record], found: dict[str, list[tuple[str, float]]]) -> int:
+def apply(records: list[Record], found: dict[str, list[tuple[str, float]]], floor: float = MIN_SCORE) -> int:
+    """Store each record's neighbours that score at least ``floor``; return how many records keep any."""
     count = 0
     for record in records:
-        pairs = found.get(record.id, [])
+        pairs = [(record_id, score) for record_id, score in found.get(record.id, []) if score >= floor]
         record.similar = [record_id for record_id, _ in pairs]
         record.similar_scores = [score for _, score in pairs]
         count += bool(pairs)
@@ -279,11 +287,14 @@ def write_report(path: Path, records: list[Record], vectors: Vectors, found: dic
     by_id = {record.id: record for record in records}
     firsts = np.array([pairs[0][1] for pairs in found.values() if pairs]) if found else np.zeros(0)
     tenths = np.array([pairs[-1][1] for pairs in found.values() if pairs]) if found else np.zeros(0)
+    all_scores = np.array([score for pairs in found.values() for _, score in pairs])
     lines = [
         "# Similar publications",
         "",
         f"Model: `{model_name}`. Text: title, subtitle, translated title, English machine translation. Entries with neighbours: {len(found)}.",
-        "No cosine floor yet: every record keeps its top neighbours, so the floor can be set from this check.",
+        f"Floor: neighbours below {MIN_SCORE:.2f} are not stored ({float((all_scores < MIN_SCORE).mean()) if len(all_scores) else 0.0:.1%} of them); "
+        f"entries left with none: {sum(1 for pairs in found.values() if pairs and pairs[0][1] < MIN_SCORE)}. "
+        "The figures and the sample below show the neighbours before the floor.",
         "",
         "| Cosine | 1st neighbour | last neighbour |",
         "|---|---:|---:|",

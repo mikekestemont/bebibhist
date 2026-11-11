@@ -108,7 +108,9 @@
   "similar": "Similar publications",
   "similarWhy": "Publications whose titles are closest in meaning to this one, across languages",
   "similarFor": "Closest in meaning to:",
-  "similarNone": "No similar publications were found for this record.",
+  "similarNone": "No sufficiently similar publications were found for this record: no other title in the bibliography is close enough in meaning.",
+  "similarNoneShort": "No sufficiently similar publications",
+  "similarNoneWhy": "No other title in the bibliography is close enough in meaning to this one to be worth showing.",
   "related": "Related by meaning (trial)",
   "relatedNote": "Publications close in meaning to the first 20 results that do not contain all your search words, for instance titles in another language. They come from the similar publications of those results; the closest come first.",
   "relatedNone": "No related publications were found for this search.",
@@ -158,7 +160,7 @@
       "title": "How results are ordered",
       "paragraphs": [
         "A search finds the entries that contain every word you type, wherever it occurs: in the citation, the names, the journal or the heading. Short words such as <em>de</em>, <em>van</em>, <em>la</em> or <em>of</em> are optional: the entries with every word come first, then the entries that miss only such words. A search for an author keeps them, because they belong to the surname.",
-        "Within that, <em>Relevance</em> puts first the entries in which your words are rare in the bibliography as a whole and occur often in the entry itself. The length of an entry counts a little. This is a statistical order, not a judgement of importance: you can sort the results by publication year, by volume of the bibliography, by author or by title instead.",
+        "Within that, <em>Relevance</em> puts first the entries in which your words are rare in the bibliography as a whole and occur often in the entry itself. The length of an entry counts a little. A name searched in all text first lists the publications that someone of that name wrote or edited, when they are a fair share of the results. This is a statistical order, not a judgement of importance: you can sort the results by publication year, by volume of the bibliography, by author or by title instead.",
         "Names are matched as they are printed. Namesakes are not told apart, and different spellings of one name are not joined, so try the variants you know."
       ]
     },
@@ -326,6 +328,9 @@
   "wholeWordsOnly": "Whole words only",
   "particlesJoined": "A name's particles are joined to it: van der Weyden, Van der Weyden and Vander Weyden are one name. A search by author finds the people who wrote or edited, not the people written about.",
   "searchAllText": "Search all text for “{q}”",
+  "authorsFirst": "First the {n} publications that someone of this name wrote or edited, then those that only mention the name.",
+  "authorsFound": "{n} of these publications were written or edited by someone of this name.",
+  "onlyAsAuthor": "Search by author",
   "nameVariants": "This name is written in more than one way here:",
   "alsoListed": "Also listed elsewhere in the Bibliography",
   "alsoListedNote": "The same publication, printed again in another volume of the Bibliography or under another heading of the same volume, is shown here as one record.",

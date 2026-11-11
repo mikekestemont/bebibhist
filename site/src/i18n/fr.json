@@ -108,7 +108,9 @@
   "similar": "Publications similaires",
   "similarWhy": "Publications dont le titre est le plus proche par le sens, toutes langues confondues",
   "similarFor": "Les plus proches par le sens de :",
-  "similarNone": "Aucune publication similaire n’a été trouvée pour cette notice.",
+  "similarNone": "Aucune publication suffisamment similaire n’a été trouvée pour cette notice : aucun autre titre de la bibliographie n’est assez proche par le sens.",
+  "similarNoneShort": "Pas de publication suffisamment similaire",
+  "similarNoneWhy": "Aucun autre titre de la bibliographie n’est assez proche de celui-ci par le sens pour être montré.",
   "related": "Proches par le sens (essai)",
   "relatedNote": "Publications proches par le sens des 20 premiers résultats qui ne contiennent pas tous vos mots de recherche, par exemple des titres dans une autre langue. Elles proviennent des publications similaires de ces résultats ; les plus proches viennent en premier.",
   "relatedNone": "Aucune publication proche n’a été trouvée pour cette recherche.",
@@ -158,7 +160,7 @@
       "title": "Ordre des résultats",
       "paragraphs": [
         "Une recherche trouve les notices qui contiennent chacun des mots saisis, où qu’ils figurent : dans la référence, les noms, la revue ou la rubrique. Les mots courts comme <em>de</em>, <em>van</em>, <em>la</em> ou <em>of</em> sont facultatifs : les notices qui contiennent tous les mots viennent d’abord, puis celles où seuls ces mots manquent. Une recherche par auteur les conserve, car ils font partie du nom de famille.",
-        "Ensuite, <em>Pertinence</em> place en tête les notices où vos mots sont rares dans l’ensemble de la bibliographie et fréquents dans la notice elle-même. La longueur de la notice compte un peu. C’est un ordre statistique, non un jugement d’importance : vous pouvez aussi trier les résultats par année de publication, par volume de la bibliographie, par auteur ou par titre.",
+        "Ensuite, <em>Pertinence</em> place en tête les notices où vos mots sont rares dans l’ensemble de la bibliographie et fréquents dans la notice elle-même. La longueur de la notice compte un peu. Un nom cherché dans tout le texte donne d’abord les publications qu’une personne de ce nom a écrites ou éditées, quand elles forment une bonne part des résultats. C’est un ordre statistique, non un jugement d’importance : vous pouvez aussi trier les résultats par année de publication, par volume de la bibliographie, par auteur ou par titre.",
         "Les noms sont comparés tels qu’ils sont imprimés. Les homonymes ne sont pas distingués et les graphies différentes d’un même nom ne sont pas réunies : essayez donc les variantes que vous connaissez."
       ]
     },
@@ -326,6 +328,9 @@
   "wholeWordsOnly": "Mots entiers seulement",
   "particlesJoined": "Les particules sont jointes au nom : van der Weyden, Van der Weyden et Vander Weyden sont un même nom. La recherche par auteur trouve les personnes qui ont écrit ou édité, pas celles dont on parle.",
   "searchAllText": "Chercher « {q} » dans tout le texte",
+  "authorsFirst": "D’abord les {n} publications qu’une personne de ce nom a écrites ou éditées, puis celles qui ne font que citer le nom.",
+  "authorsFound": "{n} de ces publications ont été écrites ou éditées par une personne de ce nom.",
+  "onlyAsAuthor": "Chercher par auteur",
   "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
   "alsoListed": "Aussi ailleurs dans la Bibliographie",
   "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie ou sous une autre rubrique du même volume, est réunie ici en une seule notice.",

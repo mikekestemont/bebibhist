@@ -24,6 +24,9 @@ const checks = [
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
+  // A name in all text lists what the name wrote or edited first (plan §4f, point 8): Bisschop's chapter in a volume
+  // Vanthemsche edited (bhb:vs-1250412) was among his own work; now it follows the 145 of his own, at about 173.
+  { name: "a name in all text, its own work first (Vanthemsche)", hash: "#/search?q=vanthemsche&per=100", count: [250, 450], first: /Vanthemsche/, lacks: /Bisschop/ },
   // A name as an author link writes it is that person: not an entry whose Paul and whose Bertrand are two people.
   // Sébastien's feedback, 9 Nov 2026: an entry that prints no year shows the year of the data, marked as supplied;
   // and the year chart is as wide as the slider's track.

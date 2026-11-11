@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { AUTHOR_SHARE, authorQuery, authorsFirst, citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
 import { nameWords } from "../src/lib/words.js";
 
 test("a year range matches any of its years, not all of them at once", () => {
@@ -151,4 +151,29 @@ test("one-letter words are left out, as the index leaves them out", () => {
   assert.equal(searchQuery("l'abbaye de Villers"), "aw_abbaye_ aw_de_ aw_villers_");
   assert.equal(searchQuery("Jacquemin J.-P.", "author"), "au_jacquemin_");
   assert.equal(searchQuery("d'Otreppe", "author"), "au_dotreppe_");
+});
+
+test("a name searched in all text is also searched as the people's whole words, particles joined", () => {
+  assert.equal(authorQuery("Vanthemsche"), "au_vanthemsche_");
+  assert.equal(authorQuery("Guy Vanthemsche"), "au_guy_ au_vanthemsche_");
+  assert.equal(authorQuery("van der Weyden"), "au_vanderweyden_");
+  assert.equal(authorQuery("Jansen-Sieben"), "au_jansen_ au_sieben_");
+  // A quoted phrase, a "*" or only particles is no name to look up.
+  assert.equal(authorQuery('"De Smet"'), null);
+  assert.equal(authorQuery("vanthem*"), null);
+  assert.equal(authorQuery("van der"), null);
+});
+
+test("author hits come first only when they are a fair share of the hits (plan §4f, point 8)", () => {
+  const hits = (ids: string[]) => ids.map((id) => ({ id }));
+  // Vanthemsche: Bisschop's chapter in a volume he edited (bhb:vs-1250412) follows his own work.
+  const found = hits(["bhb:vs-1250412", "a", "b", "c"]);
+  assert.deepEqual(authorsFirst(found, new Set(["a", "b", "c"]))?.map((hit) => hit.id), ["a", "b", "c", "bhb:vs-1250412"]);
+  // Gent: a few authors named Van Gent among thousands of entries on the town keep the order.
+  const town = hits(Array.from({ length: 100 }, (_, i) => `g${i}`));
+  assert.equal(authorsFirst(town, new Set(["g7", "g40", "g99"])), null);
+  assert.ok(AUTHOR_SHARE > 0.14 && AUTHOR_SHARE < 0.44);
+  // Nothing to move: every hit an author hit, or one alone.
+  assert.equal(authorsFirst(hits(["a", "b"]), new Set(["a", "b"])), null);
+  assert.equal(authorsFirst(hits(["a", "b", "c"]), new Set(["b"])), null);
 });
