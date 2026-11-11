@@ -576,6 +576,34 @@ Found in a round of searches (9 Nov 2026), for the next release: 1,263 entries w
 volume editors' ORCIDs (Vanderputten) and ORCIDs before 2000 within 30 years of a person's first iD; all three reach
 the data with the next release.
 
+## 4i. Candidates for 2018–2023 from VABB-SHW, for review in Zotero (decided 9 Nov 2026, model improved 11 Nov 2026)
+
+The bibliography stops at 2017 until the State Archives' next export. Meanwhile, `bhb candidates vabb` proposes the
+publications of the Flemish Academic Bibliography (VABB-SHW, CC BY 4.0) of 2018–2023 that the bibliography would
+include. The list is internal: it goes to an inbox in the Commission's Zotero library once that is set up, where an
+editor reviews it (Mike, 11 Nov 2026). It is not shown on the site and not put in a data release.
+
+- **Model** (`bhb/vabb_candidates.py`): the pilot's logistic regression (1 Nov), now with what the bibliography already
+  knows (an author, journal or series of earlier volumes; decided 1 Nov but never passed to the command). Measured
+  on 2006–2008, years the printed volumes cover completely (about half of VABB's History publications of those years
+  are in the bibliography, against 15–36 % in the incomplete V-Smart years, which made the pilot's measure on
+  2013–2014 a poor one), trained on the other years of 2000–2017: average precision 0.61 (the pilot's features,
+  measured the same way, 0.60; the pilot reported 0.56 on 2013–2014); at 0.8, precision 0.61 and recall 0.62 by the
+  matches alone. Belgian places from the gazetteer as a feature added nothing (0.604) and are left out.
+- **Precision read by hand.** Of 40 "false positives" of 2006–2008 at 0.8, about 9 were in the bibliography under a
+  title the matcher missed, 16 clearly belonged, 9 were borderline and 5 out of scope. Of 40 candidates of
+  2018–2023, 30 clearly belong, 8 are borderline and 2 are out of scope (Chinese expositions, the "common city").
+- **Output.** At 0.8: 1,497 candidates (2018: 329 … 2023: 156); the 3,125 VABB publications already matched to an
+  entry are left out. `build/candidates/vabb.jsonl` (and `vabb.csv`) hold what VABB gives, in fields that map onto a
+  Zotero item: people as the bibliography writes them ("Verelst (Karin)"), title, journal or book, year, pages, DOI,
+  ISBN, ISSN, the VABB record at anet.be, and the model's score. `build/` is not in git.
+
+Next, when the Zotero library exists (`ZOTERO_PLAN.md` in the internal notes): write the candidates into its inbox
+collection (through the Zotero web API, or as an RIS file to import), each tagged with its source and score.
+Open: (a) VABB is Flemish and academic only; the francophone repositories (ORBi, DIAL, DI-fusion, through OAI-PMH)
+could feed the same inbox. (b) V-Smart already holds more than 8,000 references a year for 2019–2023: when the
+State Archives' export comes, the candidates are matched against it first.
+
 ## 5. Order, effort and stop points
 
 | Step | Effort | Stop point |

@@ -50,6 +50,11 @@ class Publication:
     disciplines: list[str] = field(default_factory=list)
     language: str = ""
     series: str = ""
+    # For showing a candidate: authors and editors as the bibliography writes them, "Verelst (Karin)", and the
+    # publication's page in the VABB catalogue (anet.be).
+    names: list[str] = field(default_factory=list)
+    editor_names: list[str] = field(default_factory=list)
+    url: str = ""
 
     def as_item(self) -> dict:
         """The publication as a Crossref item, for ``bhb.identifiers.score``."""
@@ -87,6 +92,20 @@ def _family(name: str) -> str:
     return family.title() if family.isupper() else family
 
 
+def _person(name: str) -> str:
+    """A VABB name as the bibliography writes it: "VERELST, KARIN" → "Verelst (Karin)", "VAN DEN EECKHOUT,
+    PATRICIA" → "Van den Eeckhout (Patricia)", "Gerwen, Van, Jef [1952 - 2002]" → "Van Gerwen (Jef)"."""
+    family = _family(name)
+    if not family:
+        return ""
+    # A particle after "Van" or "De" is written small, as in the printed volumes (Van den, Van der, De la).
+    family = re.sub(r"\b(Van|De) (Den|Der|De|La|Le)\b", lambda match: f"{match.group(1)} {match.group(2).lower()}", family)
+    parts = [part.strip() for part in re.sub(r"\[[^\]]*\]", "", name).split(",") if part.strip()]
+    given = parts[-1] if len(parts) >= 2 and family.lower() != parts[-1].lower() and not family.lower().startswith(parts[-1].lower()) else ""
+    given = given.title() if given.isupper() else given
+    return f"{family} ({given})" if given else family
+
+
 def load(root: Path) -> dict[str, Publication]:
     """Every VABB publication of the downloaded editions, by id."""
     pubs: dict[str, Publication] = {}
@@ -110,6 +129,7 @@ def load(root: Path) -> dict[str, Publication]:
                 doi=normalise_doi(row.get("vabb_publications_doi")),
                 language=row.get("vabb_publications_language") or "",
                 series=row.get("vabb_publications_bookseries") or "",
+                url=row.get("vabb_publications_url") or "",
             )
             if not pubs[pid].container and pubs[pid].type == "article":
                 pubs[pid].container = row.get("vabb_publications_pubjour") or ""
@@ -145,9 +165,12 @@ def load(root: Path) -> dict[str, Publication]:
                 target = pub.families if row["vabb_authors_type"] == "Author" else pub.editors if row["vabb_authors_type"] == "Editor" else None
                 if target is not None:
                     target.append(_family(row["vabb_authors_name"]))
+                    (pub.names if target is pub.families else pub.editor_names).append(_person(row["vabb_authors_name"]))
             else:
-                pub.families = [_family(name) for name in (row.get("vabb_authors_authors") or "").split(";") if name.strip()]
-                pub.editors = [_family(name) for name in (row.get("vabb_authors_editors") or "").split(";") if name.strip()]
+                authors = [name for name in (row.get("vabb_authors_authors") or "").split(";") if name.strip()]
+                editors = [name for name in (row.get("vabb_authors_editors") or "").split(";") if name.strip()]
+                pub.families, pub.editors = [_family(name) for name in authors], [_family(name) for name in editors]
+                pub.names, pub.editor_names = [_person(name) for name in authors], [_person(name) for name in editors]
         # Each edition lists a publication's people completely, so the first edition that has them is kept.
         named.update(pub.id for pub in pubs.values() if pub.families or pub.editors)
     # IX and 15 name an article's journal only through its ISSN.

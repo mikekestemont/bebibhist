@@ -125,8 +125,8 @@ def main(argv: list[str] | None = None) -> None:
 
     cands = sub.add_parser("candidates", help="publications the bibliography may lack, from other sources")
     cands_sub = cands.add_subparsers(dest="candidates_command", required=True)
-    cvabb = cands_sub.add_parser("vabb", help="VABB-SHW candidates for 2018–2023: build/candidates/vabb.csv and vabb-pilot.md")
-    cvabb.add_argument("--threshold", type=float, default=0.8)
+    cvabb = cands_sub.add_parser("vabb", help="VABB-SHW candidates for 2018–2023, for review (internal): build/candidates/vabb.csv, vabb.jsonl and vabb-pilot.md")
+    cvabb.add_argument("--threshold", type=float, default=None, help="score from which a publication is proposed (default: vabb_candidates.THRESHOLD)")
 
     journals = sub.add_parser("journals", help="one name per journal (docs/JOURNAL_PROPOSAL.md)")
     journals_sub = journals.add_subparsers(dest="journals_command", required=True)
@@ -252,7 +252,9 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{len(rows)} proposals ({sum(row['field'] == 'author' for row in rows)} author names) → {out}")
         return
     if args.command == "candidates" and args.candidates_command == "vabb":
-        _candidates_vabb(args.threshold)
+        from bhb.vabb_candidates import THRESHOLD
+
+        _candidates_vabb(THRESHOLD if args.threshold is None else args.threshold)
         return
     if args.command == "identifiers" and args.identifiers_command == "kbr-harvest":
         from bhb.identifiers import USER_AGENT
@@ -690,16 +692,25 @@ def _identifiers_vabb(limit: int | None) -> None:
 
 def _candidates_vabb(threshold: float) -> None:
     import csv
+    import json
     from collections import Counter
 
     from bhb.vabb import load
-    from bhb.vabb_candidates import CANDIDATE_YEARS, TEST_YEARS, TRAIN_YEARS, candidates, labels, train_and_measure
+    from bhb.vabb_candidates import CANDIDATE_YEARS, TEST_YEARS, TRAIN_YEARS, candidates, known_from, labels, candidate_row, train_and_measure
 
     pubs = load(build_dir() / "external")
-    evaluation, model, _ = train_and_measure(pubs, labels(build_dir() / "identifiers" / "vabb.csv"))
-    found = candidates(pubs, model, threshold)
+    listed = labels(build_dir() / "identifiers" / "vabb.csv")
+    # What the bibliography already knows (authors, journals, series of earlier volumes) is a feature (1 Nov 2026).
+    known = known_from(read_jsonl(build_dir() / "records.jsonl"), repo_root() / "data" / "curated" / "journals.csv")
+    evaluation, model, _ = train_and_measure(pubs, listed, known)
+    found = candidates(pubs, model, threshold, known, frozenset(listed))
     out = build_dir() / "candidates"
     out.mkdir(parents=True, exist_ok=True)
+    # One candidate a line, for review in a Zotero inbox once the Commission's Zotero library is set up (Mike, 11 Nov
+    # 2026). Internal: neither the site nor the data release carries the candidates.
+    with (out / "vabb.jsonl").open("w", encoding="utf-8") as handle:
+        for pub, score in found:
+            handle.write(json.dumps(candidate_row(pub, score), ensure_ascii=False) + "\n")
     with (out / "vabb.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["vabb_id", "score", "year", "type", "authors", "title", "container", "disciplines", "language", "doi", "isbn", "issn"])
@@ -708,15 +719,17 @@ def _candidates_vabb(threshold: float) -> None:
                              "; ".join(pub.disciplines), pub.language, pub.doi or "", ";".join(pub.isbn), ";".join(pub.issn)])
     per_year = Counter(pub.year for pub, _ in found)
     lines = [
-        "# VABB-SHW candidates: pilot", "",
-        f"Trained on {TRAIN_YEARS.start}–{TRAIN_YEARS.stop - 1} ({evaluation.train} VABB publications, {evaluation.train_positive} in the "
-        f"bibliography), measured on {TEST_YEARS.start}–{TEST_YEARS.stop - 1} ({evaluation.test}, {evaluation.test_positive} in the bibliography).",
+        "# VABB-SHW candidates", "",
+        f"Trained on {min(TRAIN_YEARS)}–{max(TRAIN_YEARS)} without the measured years ({evaluation.train} VABB publications, {evaluation.train_positive} in the "
+        f"bibliography), measured on {TEST_YEARS.start}–{TEST_YEARS.stop - 1}, years the printed volumes cover completely ({evaluation.test}, "
+        f"{evaluation.test_positive} in the bibliography).",
         f"Average precision {evaluation.average_precision:.2f}. Precision is a lower bound: a publication the matcher missed, or one the",
         "bibliography should have taken, counts as a false positive.", "",
         "| Threshold | Precision | Recall | Proposed |", "|---|---:|---:|---:|",
         *[f"| {t:.2f} | {p:.2f} | {r:.2f} | {n} |" for t, p, r, n in evaluation.rows], "",
         f"Candidates for {CANDIDATE_YEARS.start}–{CANDIDATE_YEARS.stop - 1} at {threshold:.2f}: {len(found)} "
-        f"({', '.join(f'{year}: {per_year[year]}' for year in sorted(per_year))}), in `vabb.csv`.",
+        f"({', '.join(f'{year}: {per_year[year]}' for year in sorted(per_year))}), in `vabb.csv` and `vabb.jsonl` (for review, internal); "
+        f"{len(listed)} VABB publications already matched to an entry are left out.",
     ]
     (out / "vabb-pilot.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))

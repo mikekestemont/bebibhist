@@ -5,10 +5,15 @@ which the bibliography does not have yet. A relevance model says which of them t
 learns from the years both cover: a VABB publication matched to an entry (``build/identifiers/vabb.csv``) is one
 the bibliography took, the others are ones it did not (or that the matcher missed, which makes the measured
 precision a lower bound). It is a logistic regression on the title's words, the VABB disciplines, the journal or
-book, the type and the language; no language model.
+book, the type, the language and what the bibliography already knows (an author, a journal or a series from
+earlier volumes); no language model.
 
-The model is trained on earlier years and measured on later ones it has not seen, then applied to 2018–2023. The
-candidates are machine-proposed and are not entries of the bibliography.
+The model is measured on 2006–2008, years the printed volumes cover completely (about half of VABB's History
+publications of those years are in the bibliography; in the incomplete V-Smart years 2009–2017, 15–36 %, so those
+years make a poor answer key), trained on every other year of 2000–2017, then trained on all of them and applied to
+2018–2023 (the prefill, decided on 9 Nov 2026). The candidates are machine-proposed and
+are not entries of the bibliography: they are for review in a Zotero inbox, once the Commission's Zotero library is
+set up, and neither the site nor the data release carries them.
 """
 
 from __future__ import annotations
@@ -20,9 +25,13 @@ from pathlib import Path
 from bhb.journals import spelling_key
 from bhb.textutil import fold
 
-TRAIN_YEARS = range(2003, 2013)
-TEST_YEARS = range(2013, 2015)
+TEST_YEARS = range(2006, 2009)
+TRAIN_YEARS = frozenset(range(2000, 2018)) - frozenset(TEST_YEARS)
 CANDIDATE_YEARS = range(2018, 2024)
+# Measured on 2006–2008 (11 Nov 2026): precision 0.61 and recall 0.62 by the matches alone. Read by hand, a quarter
+# of the "false positives" were in the bibliography under a title the matcher missed and two fifths belonged in it,
+# so about 85–90 % of what the model proposes at this score belongs in the bibliography.
+THRESHOLD = 0.8
 
 
 @dataclass
@@ -142,7 +151,38 @@ def train_and_measure(pubs: dict, positive: set[str], known: Known | None = None
     return evaluation, final, list(zip(test_pubs, scores, y_test))
 
 
-def candidates(pubs: dict, model, threshold: float, known: Known | None = None) -> list[tuple[object, float]]:
-    chosen = [pub for pub in pubs.values() if pub.year in CANDIDATE_YEARS]
+def candidates(pubs: dict, model, threshold: float, known: Known | None = None, listed: frozenset[str] = frozenset()) -> list[tuple[object, float]]:
+    """The publications of ``CANDIDATE_YEARS`` scoring at least ``threshold``, best first; those already matched to an
+    entry (``listed``: a V-Smart year can hold a publication of 2018) are left out."""
+    chosen = [pub for pub in pubs.values() if pub.year in CANDIDATE_YEARS and pub.id not in listed]
+    if not chosen:
+        return []
     scores = model.predict_proba([features(pub, known) for pub in chosen])[:, 1]
     return sorted(((pub, float(score)) for pub, score in zip(chosen, scores) if score >= threshold), key=lambda pair: -pair[1])
+
+
+SOURCE = "VABB-SHW (ECOOM), CC BY 4.0"
+
+
+def candidate_row(pub, score: float) -> dict:
+    """A candidate for review, with only what VABB gives: every value is VABB's, the score the model's. The fields map
+    onto a Zotero item (creators, title, publication or book title, date, pages, DOI, ISBN, ISSN, URL)."""
+    row = {
+        "id": pub.id,
+        "score": round(float(score), 3),
+        "year": pub.year,
+        "type": pub.type,
+        "authors": [name for name in pub.names if name],
+        "editors": [name for name in pub.editor_names if name],
+        "title": pub.title,
+        "container": pub.container,
+        "series": pub.series,
+        "pages": pub.pages,
+        "language": pub.language,
+        "disciplines": list(pub.disciplines),
+        "doi": pub.doi,
+        "isbn": list(pub.isbn),
+        "issn": list(pub.issn),
+        "url": pub.url or f"https://anet.be/record/opacvabbg/{pub.id}/E",
+    }
+    return {key: value for key, value in row.items() if value not in (None, "", [])}

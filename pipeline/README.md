@@ -12,6 +12,7 @@ python3.12 -m venv .venv                     # pinned in .python-version
 .venv/bin/bhb similar        # similar publications (bge-m3 + rare-word TF-IDF); vectors cached in build/vectors/
 .venv/bin/bhb topicmap layout # the map of subjects: UMAP of the English translations, regions (needs the topicmap extra)
 .venv/bin/bhb topicmap names  # names the regions with a local model (Mistral Small 3.2, mlx-lm): data/curated/topic_regions.json
+.venv/bin/bhb candidates vabb  # VABB-SHW candidates for 2018–2023, for review in a Zotero inbox (internal: not on the site, not in a release)
 .venv/bin/pytest
 ```
 
