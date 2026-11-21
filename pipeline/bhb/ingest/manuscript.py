@@ -58,6 +58,7 @@ _PAGE_RANGE = re.compile(r"\bpp?\.\s*[\dIVXLCivxlc]+(?:\s*[-–]\s*[\dIVXLCivxlc
 _EXTENT = re.compile(r"\b\d+\s*p\.\s*$|\[s\.p\.\]")
 # The journal ends at the first comma followed by a volume, an issue or a year: "Le Moyen Âge, 126, 2020, …".
 _JOURNAL_END = re.compile(r",\s*(?=(?:[IVXLCDM]+|\d+[a-z]?(?:\s*[-/]\s*\d+)?|(?:19|20)\d{2})\s*(?:,|\(|$))")
+_THEME_AFTER_PAGES = re.compile(r"(\bpp?\.\s*[\dIVXLCivxlc]+(?:\s*[-–]\s*[\dIVXLCivxlc]+)?)\s*(\(.+\))\s*$")
 _PAGES_TAIL = re.compile(r",?\s*(pp?\.\s*.+|\[?s\.\s?p\.\]?)$")
 _YEAR_PART = re.compile(r"((?:19|20)\d{2})(?:\s*\([^)]*\))?")
 
@@ -198,6 +199,12 @@ def _spans(paragraph: Paragraph, bold: bool) -> list[tuple[int, int]]:
 
 _NAME = re.compile(r"\s*(?:,|;|\bet\b|\ben\b|&)?\s*([^,;()]+?)\s*\(([^)]*)\)((?:\s*\([^)]*\))*)")
 _EDITOR_ROLE = re.compile(r"^(?:[ée]ds?|r[ée]ds?|dir|hrsg|co[oö]rd|a cura di|ed\. lit|eindred)\.?$", re.IGNORECASE)
+# The roles of the AI pass that the schema lacks (``bhb.citations._PARSER_ROLES``).
+_OTHER_ROLES = (
+    (re.compile(r"^(?:pr[ée]face|preface|voorwoord|vorwort|inleiding|introduction|avant-propos)\.?$", re.IGNORECASE), "preface"),
+    (re.compile(r"^(?:ill|illustr|illustrations?|illustraties)\.?$", re.IGNORECASE), "illustrator"),
+    (re.compile(r"^(?:comp|compil|samenst|samengesteld)\.?$", re.IGNORECASE), "compiler"),
+)
 
 
 def bold_names(prefix: str) -> list[dict[str, str | None]]:
@@ -218,8 +225,19 @@ def bold_names(prefix: str) -> list[dict[str, str | None]]:
             marks.append(given)
             given = None
         role = "editor" if any(_EDITOR_ROLE.match(mark) for mark in marks) else "author"
-        persons.append({"family": family, "given": given, "role": role})
+        for pattern, other in _OTHER_ROLES:
+            if any(pattern.match(mark) for mark in marks):
+                role = other
+        if role == "editor":
+            # "M'Bokolo (Elikia), Sabakinu Kivilu (Jacob) (dir.)": the mark covers the names before it that have none.
+            for earlier in reversed(persons):
+                if earlier.get("marked"):
+                    break
+                earlier["role"] = "editor"
+        persons.append({"family": family, "given": given, "role": role, "marked": bool(marks)})
         rest = rest[match.end():].strip()
+    for person in persons:
+        del person["marked"]
     return persons
 
 
@@ -238,7 +256,7 @@ def parse_entry(paragraph: Paragraph) -> ParsedCitation:
     # Authors: the bold prefix, when it parses as names and the rules found other ones.
     if bold and bold[0][0] <= 2:
         persons = bold_names(text[bold[0][0]:bold[0][1]])
-        if persons and [p["family"] for p in persons] != [p["family"] for p in parsed.persons]:
+        if persons and [(p["family"], p["role"]) for p in persons] != [(p["family"], p["role"]) for p in parsed.persons]:
             parsed.persons = persons
             parsed.flags.append("persons-from-bold")
     if not italic:
@@ -262,6 +280,11 @@ def parse_entry(paragraph: Paragraph) -> ParsedCitation:
         return parsed
     body, trailing = _take_trailing_brackets(rest.strip())
     body = body.strip(" .")
+    # A theme issue in brackets after the pages ("…, pp. 443-463 (Lembré (Stéphane) (dir.). Terres de travail …)")
+    # is a note, not part of the journal.
+    if themed := _THEME_AFTER_PAGES.search(body):
+        trailing = _tidy(" ".join(filter(None, (themed.group(2), trailing))))
+        body = body[: themed.start(2)].strip(" .")
     article = _article_tail(body) if _PAGE_RANGE.search(body) and not _EXTENT.search(body) else None
     same_title = _same(parsed.title, title)
     if same_title and (article is None or (parsed.type == "article" and _same(parsed.host_title, article[0]))):

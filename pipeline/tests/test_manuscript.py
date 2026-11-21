@@ -167,3 +167,19 @@ def test_heading_codes_follow_the_open_parent():
     assert codes("D. Époque contemporaine – Hedendaagse tijd") == "III.D."
     assert codes("3. 1940 – 1945") == "III.D.3."  # a dash between years does not split French from Dutch
     assert codes("9. Rien de tel – Niets daarvan") is None
+
+
+def test_roles_in_the_bold_names():
+    names = bold_names("M’Bokolo (Elikia), Sabakinu Kivilu (Jacob) (dir.), Gryseels (Guido) (préface). ")
+    assert [(p["family"], p["role"]) for p in names] == [("M’Bokolo", "editor"), ("Sabakinu Kivilu", "editor"),
+                                                         ("Gryseels", "preface")]
+
+
+def test_a_theme_issue_after_the_pages_is_a_note(tmp_path):
+    themed = entry("Lekéal (Farid). ", "Protéger les personnes les plus vulnérables au travail ? ",
+                   "Revue du Nord : Histoire, 102, 2020, 435, pp. 443-463 (Lembré (Stéphane) (dir.). Terres de travail).")
+    records, _ = load(write_docx(tmp_path / "BGBBHB2020def.docx", [*PARAGRAPHS[:5], themed, *PARAGRAPHS[5:]]))
+    record = next(r for r in records if r.persons and r.persons[0].family == "Lekéal")
+    assert record.type == "article" and record.host.title == "Revue du Nord : Histoire"
+    assert (record.host.volume, record.host.issue, record.host.pages, record.year) == ("102", "435", "443-463", 2020)
+    assert record.note.startswith("(Lembré (Stéphane) (dir.). Terres de travail")
