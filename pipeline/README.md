@@ -50,6 +50,18 @@ Born-digital yearly PDF (no outline). Writes `build/print-pdf/BGB_2008.xml` in t
 
 ### `bhb.ingest.vsmart` — catalogue exports 2009–2017
 
+### `bhb.ingest.manuscript` — the editor's Word manuscripts (2018–2023)
+
+`bhb ingest manuscript` reads the newest `.docx` per year in `<raw>/manuscripts/` (`BGBBHB2020def.docx` and the
+like: the editor's manuscripts in the old print layout, never printed) into `build/manuscript.jsonl`, and prints a
+report per file. The notice before the first heading and the tables of contents after the last entry are skipped.
+The rule parser reads each entry; the italic title, the italic book of a chapter and the bold authors then correct
+it, with the flags `title-from-italics`, `host-from-italics`, `imprint-from-format` and `persons-from-bold`. Ids are
+`bhb:<year>-m<n>`, the entry's place in the manuscript; `provenance.xml_id` is a hash of its text, so a revised file of
+the same name keeps the ids of unchanged entries through `bhb.ids`. The records are not merged into the build yet.
+Hosts missing from the V-Smart export: `bhb identifiers opac-hosts` fetches them from the State Archives' public
+catalogue (`bhb.opac_harvest`), one request per 5 s, cached in `build/external/opac/`.
+
 ### `bhb.ingest.persee_pdf` — print volumes from Persée PDFs
 
 Rebuilds one BGB year from the decade PDFs on rbph-btfg.be into the same JATS-like structure as the

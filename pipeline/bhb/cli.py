@@ -37,6 +37,8 @@ def main(argv: list[str] | None = None) -> None:
     pdfvol = ingest_sub.add_parser("pdfvol", help="1964, 1965 and 2008 from PDF")
     pdfvol.add_argument("--out", type=Path)
     pdfvol.add_argument("--skip-convert", action="store_true", help="do not rebuild BGB_2008.xml")
+    manuscript = ingest_sub.add_parser("manuscript", help="the editor's Word manuscripts (2018–2023) in <raw>/manuscripts; not merged into the build")
+    manuscript.add_argument("--out", type=Path)
     vsmart = ingest_sub.add_parser("vsmart", help="State Archives exports, 2009–2017")
     vsmart.add_argument("--out", type=Path)
 
@@ -115,6 +117,9 @@ def main(argv: list[str] | None = None) -> None:
     openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
     openlib.add_argument("--hosts", action="store_true", help="the collected volumes of chapters instead: build/identifiers/openlibrary-hosts.csv")
     identifiers_sub.add_parser("kbr-harvest", help="harvest KBR's Belgian Bibliography (OAI-PMH) by date windows into build/external/kbr; resumable")
+    opac = identifiers_sub.add_parser("opac-hosts", help="fetch the host records missing from the V-Smart export from the State Archives' public catalogue into build/external/opac; slow, resumable")
+    opac.add_argument("--interval", type=float, default=None, help="seconds between requests (default 5)")
+    opac.add_argument("--limit", type=int, default=None, help="only the first N, for a trial")
     kbr = identifiers_sub.add_parser("kbr", help="match books and volumes to the KBR harvest (build/identifiers/kbr.csv), then fetch their ermes records")
     kbr.add_argument("--offline", action="store_true", help="match only; fetch no ermes records")
     vabb = identifiers_sub.add_parser("vabb", help="match entries from 1999 on to the VABB-SHW open data in build/external; write build/identifiers/vabb.csv")
@@ -263,6 +268,20 @@ def main(argv: list[str] | None = None) -> None:
         fetched = harvest(build_dir() / "external" / "kbr", fetcher(USER_AGENT))
         print(f"kbr: {fetched} pages fetched now → {build_dir() / 'external' / 'kbr'}")
         return
+    if args.command == "identifiers" and args.identifiers_command == "opac-hosts":
+        from bhb.identifiers import USER_AGENT
+        from bhb import opac_harvest
+
+        numbers = opac_harvest.missing_hosts(build_dir() / "records.jsonl")[: args.limit]
+        folder = build_dir() / "external" / "opac" / "records"
+        print(f"opac: {len(numbers)} missing host records", flush=True)
+        interval = opac_harvest.INTERVAL if args.interval is None else args.interval
+        counts = opac_harvest.harvest(numbers, folder, opac_harvest.Session(USER_AGENT), interval=interval)
+        hosts = [r for r in opac_harvest.parse_folder(folder) if r["number"] in set(numbers)]
+        out = build_dir() / "external" / "opac" / "hosts.jsonl"
+        out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in hosts), encoding="utf-8")
+        print(f"opac: {counts} → {out} ({len(hosts)} records)")
+        return
     if args.command == "identifiers" and args.identifiers_command == "kbr":
         _identifiers_kbr(args.offline)
         return
@@ -388,6 +407,17 @@ def main(argv: list[str] | None = None) -> None:
         records = ingest_pdf(convert=not args.skip_convert)
         count = write_jsonl(args.out or build_dir() / "pdfvol.jsonl", records)
         print(f"pdfvol: {count} records")
+        return
+    if args.command == "ingest" and args.source == "manuscript":
+        from bhb.ingest.manuscript import load_manuscript, manuscript_paths
+
+        records: list[Record] = []
+        for path in manuscript_paths(raw_root() / "manuscripts"):
+            year_records, report = load_manuscript(path)
+            print(f"  {path.name}: {json.dumps(report, ensure_ascii=False)}")
+            records.extend(year_records)
+        count = write_jsonl(args.out or build_dir() / "manuscript.jsonl", records)
+        print(f"manuscript: {count} records")
         return
     if args.command == "ingest" and args.source == "vsmart":
         records, labels = ingest_vsmart_records()
