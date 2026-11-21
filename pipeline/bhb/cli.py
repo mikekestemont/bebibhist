@@ -1270,7 +1270,7 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, checked_ocr_fixes, copied_values, credit,
+    from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
                                is_collected_volume, make_batches, tidy)
     from bhb.ocr_compare import vocabulary
 
@@ -1326,7 +1326,7 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         for record_id, answer in found.items():
             record = records[record_id]
             answer = tidy(answer, record.printed, record.bgb_year)
-            answer["ocr_fixes"] = checked_ocr_fixes(answer, record.printed, counts)
+            answer["ocr_fixes"] = [] if born_digital(record) else checked_ocr_fixes(answer, record.printed, counts)
             answers[record_id] = answer
     review = Counter()
     with (out / "answers.jsonl").open("w", encoding="utf-8") as handle, (out / "review.csv").open("w", encoding="utf-8", newline="") as sheet:

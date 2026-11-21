@@ -240,3 +240,13 @@ def test_a_cited_chapter_takes_its_volumes_parsed_imprint_and_year():
     assert chapter.host.publisher == Publisher("Tervuren; Gent", "Musée royal d’Afrique centrale; Snoeck")
     assert chapter.year == 2005 and "year-from-host" in chapter.provenance.flags
     assert counts == {"imprints taken from the volume": 1, "years taken from the volume": 1}
+
+
+def test_no_ocr_fix_for_a_born_digital_volume():
+    from bhb.citations import born_digital
+    from bhb.model import Record
+
+    assert born_digital(Record(id="bhb:2016-p1", source="print-pdf", bgb_year=2016))
+    assert born_digital(Record(id="bhb:2008-60300", source="print-pdf", bgb_year=2008))
+    assert not born_digital(Record(id="bhb:1964-6374", source="print-pdf", bgb_year=1964))
+    assert not born_digital(Record(id="bhb:1990-1", source="print-straive", bgb_year=1990))

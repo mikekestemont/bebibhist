@@ -805,6 +805,12 @@ def draft_hint(record) -> str:
     return "draft: " + " | ".join(parts)
 
 
+def born_digital(record) -> bool:
+    """The printed volumes from 2008 on are read from their own PDF text, not from a scan: what looks like an OCR
+    error there is the printed spelling, so no OCR fix is kept (1964 and 1965 come from Persée's scans)."""
+    return record.source == "print-pdf" and (record.bgb_year or 0) >= 2008
+
+
 def checked_ocr_fixes(answer: dict, printed: str, counts=None) -> list[dict]:
     """The model's OCR fixes that pass a rule: one word, printed as such, one or two letters changed, no digits; and,
     given the bibliography's word counts (``bhb.ocr_compare.vocabulary``), a printed word that hardly occurs
@@ -1028,7 +1034,8 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
         if item is not None and record.printed:
             before = (record.type, record.title, record.year)
             apply_answer(record, item, frozenset(contributors.get(record.id, ())))
-            record.ocr_corrected = [fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
+            record.ocr_corrected = [] if born_digital(record) else [
+                fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
             counts["parsed"] += 1
             counts["OCR fixes for search"] += len(record.ocr_corrected)
             counts["type changed"] += record.type != before[0]
