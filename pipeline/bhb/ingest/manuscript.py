@@ -426,6 +426,30 @@ class HeadingCodes:
         return code
 
 
+def code_sections(records: list[Record], scheme: dict[str, SchemeEntry] | None = None) -> int:
+    """Give the records of one printed volume, in order, the scheme code of their deepest heading (``HeadingCodes``),
+    as the manuscripts' entries get theirs: the volumes from 2009 number their headings as irregularly. Returns how
+    many records got a code."""
+    codes = HeadingCodes(scheme)
+    previous: list[str] = []
+    current: str | None = None
+    coded = 0
+    for record in records:
+        path = list(record.section_path)
+        if path != previous:
+            shared = 0
+            while shared < min(len(path), len(previous)) and path[shared] == previous[shared]:
+                shared += 1
+            current = None if shared < len(path) else current
+            for heading in path[shared:]:
+                current = codes(heading)
+            previous = path
+        if current and not record.bhb_codes:
+            record.bhb_codes = [current]
+            coded += 1
+    return coded
+
+
 def year_of(path: Path) -> int | None:
     match = _YEAR_FILE.search(path.stem)
     return int(match.group(1)) if match else None

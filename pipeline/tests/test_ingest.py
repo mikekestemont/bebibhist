@@ -545,3 +545,44 @@ def test_a_year_of_publication_after_a_place_stays_the_year(tmp_path: Path):
         <article-title>Kerk aan de rivier</article-title> <year>1944</year>, 30 pp. <source>Heusden</source>."""
     record = load_jats(_volume(tmp_path, 1955, citation), "print-straive")[0]
     assert record.title == "Kerk aan de rivier" and record.year == 1944
+
+
+def test_six_digit_numbers_from_2013():
+    lines = [
+        PdfLine(1, "VI. ARTS – KUNSTEN"),
+        PdfLine(1, "99999 Vissers (Rony). De laatste vijfcijferige. FARO, 6, 2013, 4, pp. 30-35."),
+        PdfLine(1, "100000 Van de Vloed (Luc). Cinema Astoria rond 1925. De Kijkuit, 35, 2007, pp. 20-21."),
+    ]
+    blocks = segment(lines, [fold("ARTS – KUNSTEN")])
+    assert [block.number for block in blocks if block.kind == "entry"] == ["99999", "100000"]
+
+
+def test_an_unnumbered_volume_starts_an_entry_at_the_margin():
+    from bhb.ingest.pdf_volume import segment_unnumbered
+
+    labels = [fold("Archivéconomie, muséographie, bibliothéconomie – Archivistiek, museumkunde, bibliotheconomie")]
+    lines = [
+        PdfLine(1, "Avertissement : un manuel pour une nouvelle méthode de travail.", 0),
+        PdfLine(2, "1. Archivéconomie, muséographie, bibliothéconomie – Archivistiek, museumkunde, bibliotheconomie", 64),
+        PdfLine(2, "Vanden Daelen (Veerle), Edmond (Jennifer), Links (Petra). Sustainable digital", 0),
+        PdfLine(2, "archival catalogues. Brussels, Hal-Inria, 2016, 40 p.", 14),
+        PdfLine(2, "de Waha (Michel). L'apport de la morphogenèse urbaine. Namur, 2016, 12 p.", 0),
+        PdfLine(2, "d’Osta (Jean). 14-18 Bruxelles occupée. Bruxelles, 2016, 90 p.", 0),
+        PdfLine(2, "Redactie. Een nieuw archief. Heemkring, 12, 2016, 3, pp. 4-5.", 0),
+        PdfLine(3, "Velle (Karel). Archieven [Inhoud : Topstukkendecreet,", 0),
+        PdfLine(3, "Inhoud : Cultureel erfgoed, Vlaanderen]. Brussel, 2016, 30 p.", 14),
+        PdfLine(4, "INHOUDSTAFEL", 0),
+        PdfLine(4, "Archivistiek ............ 3", 0),
+    ]
+    entries = [block for block in segment_unnumbered(lines, labels) if block.kind == "entry"]
+    assert [block.number for block in entries] == ["p1", "p2", "p3", "p4", "p5"]
+    assert entries[0].text.endswith("Brussels, Hal-Inria, 2016, 40 p.")
+    assert entries[4].text.startswith("Velle (Karel)") and "Topstukkendecreet" in entries[4].text
+
+
+def test_yearly_volumes_link_to_the_pdf_itself():
+    from bhb.ingest.jats import pdf_link
+
+    assert pdf_link(2008, 5).url == "https://www.rbph-btfg.be/dowload_PDFs/BGB_2008.pdf#page=5"
+    assert pdf_link(2016).url == "https://www.rbph-btfg.be/dowload_PDFs/BGB_2016.pdf"
+    assert pdf_link(1975).url.endswith("BGB_1970-79.php")

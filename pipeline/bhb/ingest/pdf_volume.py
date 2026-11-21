@@ -21,14 +21,14 @@ from rapidfuzz import fuzz, process
 from bhb.sections import heading_level
 from bhb.textutil import fold
 
-# 2008 print numbers are five digits (the series is in the 60,000s). A four-digit
-# line is a year or a page count, not an entry. Particles such as "de", "van" and
+# 2008 print numbers are five digits (the series is in the 60,000s); from 2013 they pass 100,000 and have six. A
+# four-digit line is a year or a page count, not an entry. Particles such as "de", "van" and
 # "vanden" are printed in lowercase; some titles start with a year ("750e", "100 jaar").
 _PARTICLE = (
     r"(?:van der|van den|van de|vanden|de la|de|van|der|den|ten|ter|du|des|von|af|d'|l')"
 )
 _ENTRY = re.compile(
-    rf"^(\d{{5}})(bis|ter|quater)?\s+((?:{_PARTICLE}\s+)?(?:[A-ZÀ-Ý«“\"\[]|\d).*)$"
+    rf"^(\d{{5,6}})(bis|ter|quater)?\s+((?:{_PARTICLE}\s+)?(?:[A-ZÀ-Ý«“\"\[]|\d).*)$"
 )
 _HEADER = re.compile(
     r"^(?:Bibliographie de l'Histoire de Belgique|Bibliografie van de Geschiedenis van België)\s*$",
@@ -47,6 +47,7 @@ _HEADING = re.compile(rf"^{_NUMBER}\s+\S")
 class PdfLine:
     page: int
     text: str
+    x: float = 0.0  # left edge, relative to the page's text margin (unnumbered volumes only)
 
 
 @dataclass
@@ -62,8 +63,12 @@ class Block:
 def convert_pdf(pdf: Path, out: Path, year: str = "2008") -> dict:
     lines = extract_lines(pdf)
     blocks = segment(lines, known_heading_labels())
+    numbered = sum(block.kind == "entry" for block in blocks) >= 50
+    if not numbered:
+        # From 2016 the volumes print no numbers: an entry starts at the text margin, its other lines are indented.
+        blocks = segment_unnumbered(extract_positioned_lines(pdf), known_heading_labels())
     out.parent.mkdir(parents=True, exist_ok=True)
-    _write_jats(blocks, out, year, pdf.name)
+    _write_jats(blocks, out, year, pdf.name, numbered=numbered)
     entries = [block for block in blocks if block.kind == "entry"]
     report = {
         "year": year,
@@ -77,6 +82,9 @@ def convert_pdf(pdf: Path, out: Path, year: str = "2008") -> dict:
     return report
 
 
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
 def extract_lines(pdf: Path) -> list[PdfLine]:
     import pymupdf
 
@@ -84,7 +92,8 @@ def extract_lines(pdf: Path) -> list[PdfLine]:
     lines: list[PdfLine] = []
     for index, page in enumerate(document):
         for raw in page.get_text().splitlines():
-            text = raw.strip()
+            # Some yearly volumes (2010) carry control characters in their text layer; XML cannot hold them.
+            text = _CONTROL.sub("", raw).strip()
             if not text or _HEADER.match(text) or _PAGE_MARK.match(text):
                 continue
             lines.append(PdfLine(index + 1, text))
@@ -121,6 +130,73 @@ def segment(lines: list[PdfLine], labels: list[str] | None = None) -> list[Block
             skipping_note = True
             continue
         if skipping_note:
+            continue
+        if not blocks:
+            continue
+        blocks[-1].lines.append(line.text)
+        blocks[-1].text = _join(blocks[-1].lines)
+    _assign_levels(blocks)
+    return blocks
+
+
+# An entry of an unnumbered volume opens with its author ("Vanden Daelen (Veerle), …", "de Waha (Michel).") or "S.n.".
+_AUTHOR_START = re.compile(rf"^(?:(?:{_PARTICLE})\s+|[dl][’'])?[A-ZÀ-Ý][^()]{{0,60}}\([^)]{{1,40}}\)|^S\.\s?n\.")
+_ENDED = re.compile(r"[.\])»”]\s*$")
+# The table of contents after the last entry: a line with its title alone ("INHOUDSTAFEL", "TABLE DES MATIÈRES …"),
+# not a note in an entry ("[Inhoud : Topstukkendecreet, …]").
+_CONTENTS = re.compile(r"^(?:Table des matières|Inhoudstafel|Inhoudsopgave)[\s.\d]*$", re.IGNORECASE)
+
+
+def extract_positioned_lines(pdf: Path) -> list[PdfLine]:
+    """Lines with their left edge relative to the page's text margin (the leftmost of its long lines)."""
+    import pymupdf
+
+    document = pymupdf.open(pdf)
+    lines: list[PdfLine] = []
+    for index, page in enumerate(document):
+        found: list[tuple[float, str]] = []
+        for block in page.get_text("dict")["blocks"]:
+            for line in block.get("lines", []):
+                text = _CONTROL.sub("", "".join(span["text"] for span in line["spans"])).strip()
+                if text and not _HEADER.match(text) and not _PAGE_MARK.match(text):
+                    found.append((line["bbox"][0], text))
+        long_lines = [x for x, text in found if len(text) > 40]
+        margin = min(long_lines) if long_lines else 0.0
+        lines.extend(PdfLine(index + 1, text, x - margin) for x, text in found)
+    return lines
+
+
+def segment_unnumbered(lines: list[PdfLine], labels: list[str] | None = None, margin: float = 2.0) -> list[Block]:
+    """Headings and entries of a volume without entry numbers. An entry is numbered by its place, ``p1``, ``p2``…"""
+    known = known_heading_labels() if labels is None else labels
+    first = next((i for i, line in enumerate(lines) if line.x <= margin and _AUTHOR_START.match(line.text)), 0)
+    start = first
+    while start > 0 and (_is_heading(lines[start - 1].text, known) or _is_bare_heading(lines[start - 1].text, known)):
+        start -= 1
+    blocks: list[Block] = []
+    count = 0
+    for line in lines[start:]:
+        if _CONTENTS.match(line.text):
+            break
+        if blocks and blocks[-1].kind == "heading" and blocks[-1].text.endswith("-"):
+            blocks[-1].lines.append(line.text)
+            blocks[-1].text = _join(blocks[-1].lines)
+            continue
+        if _is_heading(line.text, known) or (blocks and blocks[-1].kind == "heading" and _is_bare_heading(line.text, known)):
+            blocks.append(Block("heading", line.text, line.page, lines=[line.text]))
+            continue
+        author = bool(_AUTHOR_START.match(line.text))
+        if line.x <= margin and line.text[:1].islower() and not author and blocks and blocks[-1].kind == "heading":
+            blocks[-1].lines.append(line.text)  # a heading wrapped onto a second line ("… van de politiek")
+            blocks[-1].text = _join(blocks[-1].lines)
+            continue
+        # The other lines of an entry are indented, so a line at the margin starts one: an author ("d’Osta (Jean)"),
+        # or a corporate author or title ("Redactie.", "Heemkundekring Onsenoort.") once the entry before has ended.
+        starts = line.x <= margin and (author or (not line.text[:1].islower() and (
+            not blocks or blocks[-1].kind == "heading" or (len(line.text) > 12 and _ENDED.search(blocks[-1].text)))))
+        if starts:
+            count += 1
+            blocks.append(Block("entry", line.text, line.page, f"p{count}", lines=[line.text]))
             continue
         if not blocks:
             continue
@@ -240,12 +316,15 @@ def _assign_levels(blocks: list[Block]) -> None:
         block.level = level
 
 
-def _write_jats(blocks: list[Block], out: Path, year: str, source_name: str) -> None:
+def _write_jats(blocks: list[Block], out: Path, year: str, source_name: str, numbered: bool = True) -> None:
     article = etree.Element("article")
     article.set("article-type", "bibliography")
     front = etree.SubElement(article, "front")
     meta = etree.SubElement(front, "article-meta")
     etree.SubElement(meta, "article-id", {"pub-id-type": "bgb-year"}).text = year
+    if not numbered:
+        # The entries carry their place ("p12") as id and no label: ``bhb.ingest.jats`` gives them that id.
+        etree.SubElement(meta, "article-id", {"pub-id-type": "numbering"}).text = "none"
     back = etree.SubElement(article, "back")
     parents = {0: back}
     current = back
@@ -260,7 +339,8 @@ def _write_jats(blocks: list[Block], out: Path, year: str, source_name: str) -> 
             continue
         ref = etree.SubElement(current, "ref", {"id": f"ref{block.number}"})
         ref.set("specific-use", f"pdf-page:{block.page}")
-        etree.SubElement(ref, "label").text = block.number
+        if numbered:
+            etree.SubElement(ref, "label").text = block.number
         etree.SubElement(ref, "mixed-citation", {"publication-type": "unknown"}).text = block.text
     etree.ElementTree(article).write(str(out), xml_declaration=True, encoding="utf-8", pretty_print=True)
     del source_name

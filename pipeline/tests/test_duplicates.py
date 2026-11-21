@@ -80,3 +80,38 @@ def test_chapters_of_a_volume_listed_twice_point_to_the_kept_listing():
     assert first.duplicate_of == "bhb:2005-2"
     assert chapter.host.id == "bhb:2005-2"
     assert counts["chapters moved to the kept volume"] == 1
+
+
+def test_a_printed_entry_of_2012_points_to_the_catalogues_record():
+    catalogue = Record(id="bhb:vs-1202178", source="vsmart", bgb_year=2012, type="article",
+                       title="Auteursherkenning met rijmwoorden in de Middelnederlandse Arthur- en Karelepiek",
+                       subtitle="Eerherstel voor Icarus?", persons=[Person("Kestemont", "Mike", "author")],
+                       host=Host(title="Tijdschrift voor Nederlandse Taal- en Letterkunde", pages="135-159"),
+                       bhb_codes=["III.B.1.d."])
+    printed = Record(id="bhb:2012-85123", source="print-pdf", bgb_year=2012, type="article",
+                     title="Auteursherkenning met rijmwoorden in de Middelnederlandse Arthur- en Karelepiek : "
+                           "Eerherstel voor Icarus?", persons=[Person("Kestemont", "M.", "author")],
+                     host=Host(title="TNTL", pages="135-159"),
+                     section_path=["III. Histoire par époques – Geschiedenis in tijdvakken"])
+    only_printed = Record(id="bhb:2012-85124", source="print-pdf", bgb_year=2012, type="article",
+                          title="Een titel die de catalogus niet kent", persons=[Person("Kestemont", "M.", "author")])
+    other_year = Record(id="bhb:2013-91800", source="print-pdf", bgb_year=2013, type="article",
+                        title=printed.title, persons=[Person("Kestemont", "M.", "author")])
+    counts = link_duplicates([catalogue, printed, only_printed, other_year])
+    assert printed.duplicate_of == "bhb:vs-1202178" and catalogue.duplicate_of is None
+    assert only_printed.duplicate_of is None and other_year.duplicate_of is None
+    assert counts["printed entries linked to their catalogue record"] == 1
+    # The printed heading joins the catalogue's record.
+    assert catalogue.secondary_sections == [printed.section_path]
+
+
+def test_an_exact_pair_keeps_the_catalogues_record_too():
+    from bhb.model import Provenance
+
+    catalogue = Record(id="bhb:vs-1", source="vsmart", bgb_year=2010, type="book", title="Een boek over Brugge in 1900",
+                       year=2010, persons=[Person("Peeters", "Jan", "author")])
+    printed = Record(id="bhb:2010-70001", source="print-pdf", bgb_year=2010, type="book",
+                     title="Een boek over Brugge in 1900", year=2010, persons=[Person("Peeters", "Jan", "author")],
+                     isbn=["9789000000000"], publisher=Publisher("Brugge", "Uitgeverij"), extent="200 p.")
+    link_duplicates([catalogue, printed])
+    assert printed.duplicate_of == "bhb:vs-1" and catalogue.duplicate_of is None

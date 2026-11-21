@@ -247,8 +247,11 @@ def categories_for(
         add(None, source, 1.0, False, theme=approved_theme, as_primary=True)
 
     # The catalogue's own codes, or a manuscript heading's code read from its label (``bhb.ingest.manuscript``).
-    code_source = "heading-label" if record.source == "manuscript" else "vsmart"
+    # The printed volumes from 2009 carry their heading's code the same way (``bhb ingest pdfyears``).
+    code_source = "heading-label" if record.source in ("manuscript", "print-pdf") else "vsmart"
     for index, code in enumerate(record.bhb_codes):
+        if any(category.code == code for category in categories):
+            continue  # the crosswalk already gave it
         add(code, code_source, 1.0, False, as_primary=not primary and index == 0)
 
     for other in secondary_rows:
@@ -690,7 +693,7 @@ def _apply_model(records, groups, by_key, model, classes, theme_map, tau_theme) 
 
     targets: list[tuple[Record, str, bool]] = []
     for record in records:
-        if record.role != "entry" or record.is_cross_listing or (record.source in ("vsmart", "manuscript") and record.bhb_codes):
+        if record.role != "entry" or record.is_cross_listing or (record.source in ("vsmart", "manuscript", "print-pdf") and record.bhb_codes):
             continue
         text = document_text(record)
         if not text:

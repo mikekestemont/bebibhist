@@ -183,3 +183,18 @@ def test_a_theme_issue_after_the_pages_is_a_note(tmp_path):
     assert record.type == "article" and record.host.title == "Revue du Nord : Histoire"
     assert (record.host.volume, record.host.issue, record.host.pages, record.year) == ("102", "435", "443-463", 2020)
     assert record.note.startswith("(Lembré (Stéphane) (dir.). Terres de travail")
+
+
+def test_a_printed_volumes_entries_take_their_headings_code():
+    from bhb.ingest.manuscript import code_sections
+    from bhb.model import Record
+
+    top = "I. Bibliographies et sciences auxiliaires – Bibliografieën en hulpwetenschappen"
+    records = [Record(id=f"bhb:2016-p{n}", source="print-pdf", bgb_year=2016, section_path=path) for n, path in enumerate([
+        [top, "A. Bibliographies courantes"],
+        [top, "A. Bibliographies courantes"],
+        [top, "A. Bibliographies courantes", "2. Méthodologie"],
+        [top, "Z. Rien de tel"],
+    ], 1)]
+    assert code_sections(records, SCHEME) == 3
+    assert [r.bhb_codes for r in records] == [["I.A."], ["I.A."], ["I.A.2."], []]

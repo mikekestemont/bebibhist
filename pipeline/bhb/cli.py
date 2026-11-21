@@ -37,6 +37,8 @@ def main(argv: list[str] | None = None) -> None:
     pdfvol = ingest_sub.add_parser("pdfvol", help="1964, 1965 and 2008 from PDF")
     pdfvol.add_argument("--out", type=Path)
     pdfvol.add_argument("--skip-convert", action="store_true", help="do not rebuild BGB_2008.xml")
+    pdfyears = ingest_sub.add_parser("pdfyears", help="the printed yearly volumes 2009–2017 from PDF (data/raw/pdf/BGB_<year>.pdf); not merged into the build")
+    pdfyears.add_argument("--out", type=Path)
     manuscript = ingest_sub.add_parser("manuscript", help="the editor's Word manuscripts (2018–2023) in <raw>/manuscripts; not merged into the build")
     manuscript.add_argument("--out", type=Path)
     vsmart = ingest_sub.add_parser("vsmart", help="State Archives exports, 2009–2017")
@@ -44,9 +46,11 @@ def main(argv: list[str] | None = None) -> None:
 
     merge = sub.add_parser("merge", help="combine the three JSON Lines files")
     merge.add_argument("--with-manuscripts", action="store_true", help="also merge build/manuscript.jsonl (the editor's unpublished Word manuscripts)")
+    merge.add_argument("--with-print-years", action="store_true", help="also merge build/pdfyears.jsonl (the printed volumes 2009–2017)")
     merge.add_argument("--out", type=Path)
     build_parser = sub.add_parser("build", help="ingest every source, merge, and categorise")
     build_parser.add_argument("--with-manuscripts", action="store_true", help="also ingest and merge the editor's unpublished Word manuscripts (2018–2023)")
+    build_parser.add_argument("--with-print-years", action="store_true", help="also ingest and merge the printed volumes 2009–2017 (linked to the catalogue's records by bhb journals apply)")
 
     categorise = sub.add_parser("categorise", help="assign period and theme")
     categorise_sub = categorise.add_subparsers(dest="categorise_command", required=True)
@@ -195,7 +199,7 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     if args.command == "build":
-        build(with_manuscripts=args.with_manuscripts)
+        build(with_manuscripts=args.with_manuscripts, with_print_years=args.with_print_years)
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
@@ -420,6 +424,11 @@ def main(argv: list[str] | None = None) -> None:
         count = write_jsonl(args.out or build_dir() / "pdfvol.jsonl", records)
         print(f"pdfvol: {count} records")
         return
+    if args.command == "ingest" and args.source == "pdfyears":
+        records = ingest_pdf_years()
+        count = write_jsonl(args.out or build_dir() / "pdfyears.jsonl", records)
+        print(f"pdfyears: {count} records")
+        return
     if args.command == "ingest" and args.source == "manuscript":
         records = ingest_manuscripts()
         count = write_jsonl(args.out or build_dir() / "manuscript.jsonl", records)
@@ -432,7 +441,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"vsmart: {count} records, {len(labels)} classification codes")
         return
     if args.command == "merge":
-        merged, labels = _merge_from_disk(with_manuscripts=args.with_manuscripts)
+        merged, labels = _merge_from_disk(with_manuscripts=args.with_manuscripts, with_print_years=args.with_print_years)
         _emit(merged, labels, args.out)
         return
     if args.command == "gold" and args.gold_command == "sample":
@@ -444,7 +453,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.error(f"unknown command {args.command}")
 
 
-def build(with_manuscripts: bool = False) -> list[Record]:
+def build(with_manuscripts: bool = False, with_print_years: bool = False) -> list[Record]:
     straive = ingest_straive()
     write_jsonl(build_dir() / "straive.jsonl", straive)
     pdf = ingest_pdf(convert=True)
@@ -455,8 +464,11 @@ def build(with_manuscripts: bool = False) -> list[Record]:
     manuscript = ingest_manuscripts() if with_manuscripts else None
     if manuscript is not None:
         write_jsonl(build_dir() / "manuscript.jsonl", manuscript)
+    print_years = ingest_pdf_years() if with_print_years else None
+    if print_years is not None:
+        write_jsonl(build_dir() / "pdfyears.jsonl", print_years)
     merged, labels = merge_records(straive, pdf, vsmart, labels, manuscript=manuscript,
-                                   catalogue_hosts=_catalogue_hosts())
+                                   catalogue_hosts=_catalogue_hosts(), print_years=print_years)
     from bhb.ids import carry_former_ids, migrate_ids, previous_ids
 
     renumbered = carry_former_ids(merged, previous_ids(build_dir() / "records.jsonl"))
@@ -509,6 +521,26 @@ def ingest_pdf(convert: bool = True) -> list[Record]:
     return records
 
 
+def ingest_pdf_years(years: range = range(2009, 2018)) -> list[Record]:
+    """The printed yearly volumes 2009–2017, for the entries the V-Smart exports lack; converted under build/."""
+    records: list[Record] = []
+    for year in years:
+        pdf = raw_root() / "data" / "raw" / "pdf" / f"BGB_{year}.pdf"
+        if not pdf.is_file():
+            print(f"  missing {pdf.name}")
+            continue
+        generated = build_dir() / "print-pdf" / f"BGB_{year}.xml"
+        report = convert_pdf(pdf, generated, str(year))
+        year_records = load_jats(generated, "print-pdf")
+        from bhb.ingest.manuscript import code_sections
+
+        coded = code_sections(year_records)
+        print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
+              f"{coded} with the code of their heading")
+        records.extend(year_records)
+    return records
+
+
 def ingest_vsmart_records() -> tuple[list[Record], dict]:
     directory = raw_root() / "exports Rijksarchief"
     return load_vsmart(directory)
@@ -534,7 +566,7 @@ def _catalogue_hosts() -> dict[int, dict]:
         return {row["number"]: row for row in map(json.loads, lines) if row.get("number")}
 
 
-def _merge_from_disk(with_manuscripts: bool = False) -> tuple[list[Record], dict]:
+def _merge_from_disk(with_manuscripts: bool = False, with_print_years: bool = False) -> tuple[list[Record], dict]:
     folder = build_dir()
     labels: dict = {}
     label_path = folder / "bhb_codes.json"
@@ -546,6 +578,7 @@ def _merge_from_disk(with_manuscripts: bool = False) -> tuple[list[Record], dict
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
         manuscript=read_jsonl(folder / "manuscript.jsonl") if with_manuscripts else None,
+        print_years=read_jsonl(folder / "pdfyears.jsonl") if with_print_years else None,
         catalogue_hosts=_catalogue_hosts(),
     )
 

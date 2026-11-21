@@ -23,6 +23,8 @@ import dataclasses
 import re
 from collections import Counter, defaultdict
 
+from rapidfuzz import fuzz
+
 from bhb.textutil import fold
 
 _DIGITS = re.compile(r"\d+")
@@ -68,7 +70,10 @@ def link_duplicates(records) -> dict[str, int]:
     for key, group in groups.items():
         if len(group) < 2:
             continue
-        kept = max(group, key=_richness)
+        # A printed entry of 2009–2017 and the catalogue's record of it: the catalogue's is kept, as in
+        # ``link_print_to_catalogue``.
+        paired = any(_printed_catalogue_year(record) for record in group)
+        kept = max(group, key=lambda record: (paired and record.source == "vsmart", _richness(record)))
         for record in group:
             if record is kept:
                 continue
@@ -80,6 +85,9 @@ def link_duplicates(records) -> dict[str, int]:
             else:
                 counts[f"{key[2]}s listed again"] += 1
         counts["publications listed more than once"] += 1
+    linked = link_print_to_catalogue(records)
+    if linked:
+        counts["printed entries linked to their catalogue record"] = linked
     # A chapter linked (Cfr. n°) to a volume's listing that is not kept points to the kept one, so the volume and
     # its chapters stay together on the site.
     kept_of = {record.id: record.duplicate_of for record in records if record.duplicate_of}
@@ -108,3 +116,55 @@ def _take_subjects(kept, other) -> None:
                 values.append(value)
                 if value in others_suggested:
                     suggested.append(value)
+
+
+PRINTED_CATALOGUE_YEARS = range(2009, 2018)
+
+
+def _printed_catalogue_year(record) -> bool:
+    return record.source == "print-pdf" and record.bgb_year in PRINTED_CATALOGUE_YEARS
+TITLE_AGREE = 85
+
+
+def _words(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", fold(text or "")))
+
+
+def _first_family(record) -> str:
+    return _words(record.persons[0].family) if record.persons else ""
+
+
+def link_print_to_catalogue(records) -> int:
+    """Link an entry of a printed volume of 2009–2017 to the State Archives' record of the same publication.
+
+    Those years are both printed (``bhb ingest pdfyears``) and in the catalogue's exports; the export lacks about a
+    third of the printed entries. The catalogue's record is kept, since it holds the subject codes and the structured
+    fields, and the printed entry points to it; the printed heading joins the kept record's subjects
+    (``_take_subjects``). A pair has the same volume year and first author (or none), and titles that agree (the
+    catalogue's title and subtitle against the printed title, word-set ratio 85 or more); each catalogue record takes
+    one printed entry, the closest."""
+    catalogue: dict[tuple, list] = defaultdict(list)
+    for record in records:
+        if (record.source == "vsmart" and record.role == "entry" and record.title and record.bgb_year in PRINTED_CATALOGUE_YEARS
+                and not record.duplicate_of):
+            catalogue[(record.bgb_year, _first_family(record))].append(record)
+    used: set[str] = set()
+    linked = 0
+    for record in records:
+        if (record.source != "print-pdf" or record.bgb_year not in PRINTED_CATALOGUE_YEARS or record.role != "entry"
+                or record.is_cross_listing or not record.title or record.duplicate_of):
+            continue
+        title = _words(record.title)
+        best, best_score = None, 0.0
+        for other in catalogue.get((record.bgb_year, _first_family(record)), ()):
+            if other.id in used:
+                continue
+            score = fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
+            if score >= TITLE_AGREE and score > best_score:
+                best, best_score = other, score
+        if best is not None:
+            used.add(best.id)
+            record.duplicate_of = best.id
+            _take_subjects(best, record)
+            linked += 1
+    return linked

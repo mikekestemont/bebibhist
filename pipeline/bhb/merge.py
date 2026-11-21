@@ -29,13 +29,16 @@ def merge_records(
     corrections: list[dict[str, str]] | None = None,
     manuscript: list[Record] | None = None,
     catalogue_hosts: dict[int, dict] | None = None,
+    print_years: list[Record] | None = None,
 ) -> tuple[list[Record], dict[str, dict[str, str | None]]]:
     """Combine the sources. Hand corrections (``data/curated/corrections.csv``, or ``corrections``) come first.
 
-    ``manuscript`` holds the editor's Word manuscripts (``bhb.ingest.manuscript``), merged only when asked.
+    ``manuscript`` holds the editor's Word manuscripts (``bhb.ingest.manuscript``), merged only when asked; so does
+    ``print_years``, the printed yearly volumes 2009–2017 (``bhb ingest pdfyears``), whose entries the journals step
+    links to the catalogue's records of the same publications (``bhb.duplicates.link_print_to_catalogue``).
     ``catalogue_hosts`` are host records missing from the export, fetched from the public catalogue by number
     (``bhb.opac_harvest.parse``): they name the journal or the book the entries point to."""
-    records = [*straive, *pdf, *vsmart, *(manuscript or [])]
+    records = [*straive, *pdf, *(print_years or []), *vsmart, *(manuscript or [])]
     apply_corrections(records, corrections)
     by_id = {record.id: record for record in records}
     link_cited_hosts(records, by_id)
