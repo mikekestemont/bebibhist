@@ -1275,6 +1275,10 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
     from bhb.ocr_compare import vocabulary
 
     all_records = read_jsonl(build_dir() / "records.jsonl")
+    # The requests carry the local language step's reading as a hint, so the cached answers are found only with it.
+    if not any(record.language_suggested for record in all_records if record.source.startswith("print")):
+        raise SystemExit("citations run: no entry has a suggested language; run `bhb language apply` first, or every "
+                         "request differs from the cached ones and is paid for again")
     records = {record.id: record for record in all_records}
     wanted = lambda record: not years or record.bgb_year in years
     to_parse = {record.id for record in all_records if record.source.startswith("print") and record.printed and wanted(record) and (
