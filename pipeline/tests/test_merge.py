@@ -274,3 +274,19 @@ def test_catalogue_hosts_fill_an_existing_build_and_win_over_a_matched_name():
         assert record.host.title == "Tijdschrift voor Nederlandse Taal- en Letterkunde"
         assert "host-unresolved" not in record.provenance.flags and "host-title-matched" not in record.provenance.flags
         assert "Tijdschrift voor Nederlandse Taal- en Letterkunde" in record.printed
+
+
+def test_a_journals_successors_are_left_out_of_its_name():
+    from bhb.merge import fill_from_catalogue
+
+    record = Record(id="bhb:vs-1", source="vsmart", bgb_year=2012, type="article", title="Fikse uitbreiding",
+                    host=Host(id="bhb:vs-944624"))
+    fetched = {"MainTitle": "Mededelingen van het Navorsingscentrum [voortgezet als = continué par] Berichtenblad "
+                            "[30-50] [voortgezet als = continué par] CEGESOMA Berichtenblad", "bibtype": "as"}
+    assert fill_from_catalogue(record, fetched)
+    assert record.host.title == "Mededelingen van het Navorsingscentrum"
+    other = Record(id="bhb:vs-2", source="vsmart", bgb_year=2012, type="article", title="Iets",
+                   host=Host(id="bhb:vs-5262"))
+    assert fill_from_catalogue(other, {"MainTitle": "Der Archivar : Mitteilungsblatt für deutsches Archivwesen "
+                                                    "[voortgezet als = continué par] Archivar", "bibtype": "as"})
+    assert (other.host.title, other.host.subtitle) == ("Der Archivar", "Mitteilungsblatt für deutsches Archivwesen")

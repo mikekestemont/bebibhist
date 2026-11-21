@@ -83,6 +83,9 @@ def merge_records(
     return records, labels
 
 
+_SUCCESSORS = re.compile(r"\s*\[(?:voortgezet als|continué par|continued as)\b[^\]]*\].*$", re.IGNORECASE)
+
+
 def _vs_number(host_id: str) -> int | None:
     return int(host_id.removeprefix("bhb:vs-")) if host_id.startswith("bhb:vs-") and host_id[7:].isdigit() else None
 
@@ -97,6 +100,10 @@ def fill_from_catalogue(record: Record, fetched: dict) -> bool:
     if host is None:
         return False
     first = (fetched.get("MainTitle") or "").split("\n", 1)[0].strip()
+    # A journal that changed its name lists its successors: "Mededelingen van het Navorsings- … [voortgezet als =
+    # continué par] Berichtenblad … [voortgezet als = continué par] CEGESOMA Berichtenblad". The entry's journal is
+    # the first.
+    first = _SUCCESSORS.sub("", first).strip()
     if not first:
         return False
     title, _, subtitle = first.partition(" : ")
