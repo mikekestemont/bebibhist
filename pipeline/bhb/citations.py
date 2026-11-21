@@ -35,6 +35,8 @@ from rapidfuzz import fuzz
 from bhb.textutil import fold
 
 API = "https://openrouter.ai/api/v1/chat/completions"
+# True for a dry run: a request not in the cache is not sent (its reply is empty, with the error "offline").
+OFFLINE = False
 REFERER = "https://github.com/mikekestemont/bebibhist"
 # Raised whenever the prompt or the schema changes; the cache is keyed on the whole request anyway.
 PROMPT_VERSION = "3"
@@ -263,6 +265,8 @@ def call(body: dict, cache: Path) -> Reply:
     seconds = 0.0
     if cached:
         data = json.loads(path.read_text(encoding="utf-8"))
+    elif OFFLINE:
+        return Reply(None, body["model"], None, 0.0, 0, 0, 0, 0.0, False, "offline: not in the cache, not sent")
     else:
         encoded = json.dumps(body).encode()
         headers = {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json", "HTTP-Referer": REFERER, "X-Title": "bebibhist"}
@@ -319,7 +323,7 @@ def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
         return {entry["id"]: entry for entry in entries}, replies
     if reply.content is not None:
         reply.error = reply.error or "ids do not match"
-    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+    if len(batch.items) == 1 or (reply.error or "").startswith(("HTTP 4", "offline")):
         return {}, replies  # a refused request (a parameter the model does not take) fails alone as well
     answers: dict[str, dict] = {}
     before = batch.before
@@ -331,13 +335,32 @@ def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
     return answers, replies
 
 
+def _titles_body(items: list[Item], model: str, reasoning: str | None = None, provider: str | None = None) -> dict:
+    user = "\n".join(f"[{item.id}] ({'+'.join(item.hints) or '?'}) {item.printed}" for item in items)
+    return request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider)
+
+
+def title_request_cached(items: list[Item], model: str, cache: Path) -> bool:
+    """Whether ``ask_titles`` would find this request in the cache (nothing is sent)."""
+    body = _titles_body(items, model)
+    return (cache / f"{hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}.json").exists()
+
+
+def previous_translations(path: Path) -> dict[str, dict]:
+    """The rows of an earlier run's ``translations.jsonl`` that name the title they were made from (``source``, with
+    the ``languages`` read then), by id; rows without it are left out, so their titles are translated again."""
+    if not path.is_file():
+        return {}
+    rows = (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+    return {row["id"]: row for row in rows if row.get("source")}
+
+
 def ask_titles(items: list[Item], model: str, cache: Path, reasoning: str | None = None,
                provider: str | None = None) -> tuple[dict[str, dict], Reply]:
     """Translations of title-only items (``Item.printed`` holds the title, ``Item.hints`` the languages the local
     identifier read), checked per id like a batch. The model gives all three; a translation into a language of the
     title, or one that only copies the title, is dropped by rule."""
-    user = "\n".join(f"[{item.id}] ({'+'.join(item.hints) or '?'}) {item.printed}" for item in items)
-    reply = call(request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider), cache)
+    reply = call(_titles_body(items, model, reasoning, provider), cache)
     titles = (reply.content or {}).get("titles") or []
     if [title.get("id") for title in titles] != [item.id for item in items]:
         reply.error = reply.error or "ids do not match"
@@ -844,7 +867,7 @@ def ask_parse(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
         return {entry["id"]: entry for entry in entries}, replies
     if reply.content is not None:
         reply.error = reply.error or "ids do not match"
-    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+    if len(batch.items) == 1 or (reply.error or "").startswith(("HTTP 4", "offline")):
         return {}, replies
     answers: dict[str, dict] = {}
     before = batch.before

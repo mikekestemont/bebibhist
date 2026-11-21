@@ -174,6 +174,7 @@ def main(argv: list[str] | None = None) -> None:
     crun.add_argument("--years", type=int, nargs="*", help="only these print years (a test run)")
     crun.add_argument("--workers", type=int, default=6)
     crun.add_argument("--no-translate", action="store_true")
+    crun.add_argument("--dry-run", action="store_true", help="send nothing: count what is in the cache and what would be asked (written to run-dry/)")
     capply = citations_sub.add_parser("apply", help="write the full pass's fields and title translations into build/records.jsonl (after bhb build)")
     capply.add_argument("--run", default="run", help="the run's folder under build/citations/")
     cocr = citations_sub.add_parser("ocr", help="compare STRAIVE with the Persée digitisation of 1960–69 and score the model's OCR fixes on it")
@@ -334,7 +335,7 @@ def main(argv: list[str] | None = None) -> None:
         _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
         return
     if args.command == "citations" and args.citations_command == "run":
-        _citations_run(args.model, args.years, args.workers, not args.no_translate)
+        _citations_run(args.model, args.years, args.workers, not args.no_translate, args.dry_run)
         return
     if args.command == "citations" and args.citations_command == "apply":
         from bhb.citations import apply_citations, load_answers, load_translations
@@ -1258,20 +1259,26 @@ def _citations_key(models: list[str], variant: str, batch_size: int, split: str,
         handle.write("\n" + text)
 
 
-def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool) -> None:
+def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool, dry_run: bool = False) -> None:
     """The full pass (§5c): the printed entries without a DOI or VABB match, and every collected volume, parsed by
     prompt v4 in batches of ten with the rules after it; then every title translated, the parsed ones from the
     model's title. Every answer is cached, so the run resumes where it stopped; it stops when the key runs out.
     Writes answers.jsonl, translations.jsonl, review.csv and report.md to build/citations/run/ (or run-<years>/);
-    nothing in the records changes yet."""
+    nothing in the records changes yet. A title translated in the previous run from the same text keeps that
+    translation, already checked; only the others are translated and checked. ``dry_run`` sends nothing: it counts
+    what the cache holds and what would be asked, and writes to run-dry/."""
     import csv
+    import shutil
     import threading
     import time
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    from bhb import citations
     from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
-                               is_collected_volume, make_batches, tidy)
+                               is_collected_volume, make_batches, previous_translations, tidy, title_request_cached)
+
+    citations.OFFLINE = dry_run
     from bhb.ocr_compare import vocabulary
 
     all_records = read_jsonl(build_dir() / "records.jsonl")
@@ -1289,7 +1296,8 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         items = [item for item in batch.items if item.id in to_parse]
         if items:
             batches.append(Batch(batch.section, batch.before, items))
-    out = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    run_dir = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    out = run_dir.with_name(run_dir.name + "-dry") if dry_run else run_dir
     out.mkdir(parents=True, exist_ok=True)
     cache = build_dir() / "cache" / "citations"
     left = credit()
@@ -1324,6 +1332,8 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         return results
 
     parsed = run(batches, lambda batch: ask_parse(batch, model, cache), "parse")
+    if dry_run:
+        print(f"dry run: {spent['requests']:,} parse requests not in the cache (not sent)", flush=True)
     counts = vocabulary(record.printed for record in all_records)
     answers = {}
     for _, (found, _) in parsed:
@@ -1367,26 +1377,47 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
             if title:
                 items.append(Item(record.id, ": ".join(part for part in (title, subtitle) if part) + (f" [{bracketed}]" if bracketed else ""),
                                   list(record.language_suggested)))
-        groups = [items[start:start + 25] for start in range(0, len(items), 25)]
-        print(f"{len(items):,} titles to translate in {len(groups):,} requests", flush=True)
+        # A title translated before from the same text keeps its translation (checked then; a language read otherwise
+        # now changes only which translation the rules drop, and the title is the same); only the
+        # others are asked. Requests go 25 titles at a time, so one title added early on would change every later
+        # request and miss the cache.
+        previous = previous_translations(run_dir / "translations.jsonl")
+        sources = {item.id: (item.printed, item.hints) for item in items}
+        for item in items:
+            row = previous.get(item.id)
+            if row is not None and row["source"] == item.printed:
+                translated[item.id] = {code: row.get(code) for code in ("nl", "fr", "en")}
+        new = [item for item in items if item.id not in translated]
+        groups = [new[start:start + 25] for start in range(0, len(new), 25)]
+        print(f"{len(items):,} titles: {len(translated):,} translated before from the same text, "
+              f"{len(new):,} to translate in {len(groups):,} requests", flush=True)
+        if dry_run:
+            print(f"dry run: nothing sent; {sum(1 for group in groups if title_request_cached(group, model, cache)):,} "
+                  f"of the {len(groups):,} requests are in the cache", flush=True)
+            return
         done = run(groups, lambda group: ask_titles(group, model, cache), "translate")
         for _, (found, _) in done:
             translated.update(found)
-        missing = [item for item in items if item.id not in translated or any(
+        missing = [item for item in new if item.id not in translated or any(
             code not in item.hints and not translated[item.id].get(code) for code in ("nl", "fr", "en"))]
         if missing and not stop.is_set():
             for _, (found, _) in run([[item] for item in missing], lambda group: ask_titles(group, model, cache), "translate again"):
                 for record_id, title in found.items():
                     translated[record_id] = {code: (translated.get(record_id) or {}).get(code) or title.get(code) for code in ("nl", "fr", "en")}
+        if (out / "translations.jsonl").exists():
+            shutil.copyfile(out / "translations.jsonl", out / "translations.previous.jsonl")
         with (out / "translations.jsonl").open("w", encoding="utf-8") as handle:
             for record_id, title in translated.items():
-                handle.write(json.dumps({"id": record_id, "model": model, **title}, ensure_ascii=False) + "\n")
-        # Every translation is judged, and a wrong one made again for its title alone (plan §4h): within a request
-        # of 25 the model sometimes gave a title its neighbour's translation.
-        if not stop.is_set():
+                text, languages = sources[record_id]
+                handle.write(json.dumps({"id": record_id, "model": model, **title, "source": text, "languages": languages},
+                                        ensure_ascii=False) + "\n")
+        # Every new translation is judged, and a wrong one made again for its title alone (plan §4h): within a
+        # request of 25 the model sometimes gave a title its neighbour's translation. The ones kept were judged before.
+        if not stop.is_set() and new:
             from bhb.translation_check import run as check_translations
 
-            check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers)
+            check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers,
+                               only={item.id for item in new})
     lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
              f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
              f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",
