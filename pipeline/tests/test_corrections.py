@@ -51,3 +51,16 @@ def test_a_type_row_changes_the_kind_of_publication_only():
     # Another type than the one the row expects, or no known type, leaves it.
     assert apply_corrections([record], [{"id": record.id, "wrong": "article", "right": "chapter", "kind": "type"}]) == 0
     assert apply_corrections([record], [{"id": record.id, "wrong": "chapter", "right": "poem", "kind": "type"}]) == 0
+
+
+def test_an_order_row_moves_the_people_only():
+    record = Record(id="bhb:2020-m5a23a08764", source="manuscript", bgb_year=2020,
+                    printed="Kestemont (Mike), Haverals (Wouter). Silent voices.", title="Silent voices",
+                    persons=[Person("Kestemont", "Mike"), Person("Haverals", "Wouter"), Person("Peeters", "A.", "editor")],
+                    provenance=Provenance())
+    row = {"id": record.id, "wrong": "Kestemont; Haverals", "right": "Haverals; Kestemont", "kind": "order"}
+    assert apply_corrections([record], [row]) == 1
+    assert [person.family for person in record.persons] == ["Haverals", "Kestemont", "Peeters"]
+    assert record.persons[0].given == "Wouter" and record.printed.startswith("Kestemont (Mike)")
+    assert "corrected-order" in record.provenance.flags
+    assert apply_corrections([record], [row], again=True) == 0

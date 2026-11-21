@@ -15,3 +15,5 @@ bhb:1981-36310,Boudewljn,Boudewijn,ocr,,2026-11-10,"OCR read i as l (same scan, 
 bhb:1982-38108,Rljck,Rijck,ocr,,2026-11-10,"OCR read i as l (same scan, 10 Nov 2026)."
 bhb:2000-30244,Vrljdagmarkt,Vrijdagmarkt,ocr,,2026-11-10,"OCR read i as l (same scan, 10 Nov 2026); the Ghent Vrijdagmarkt."
 bhb:vs-1196091,article,chapter,type,,2026-11-10,"Guy Vanthemsche, 10 Nov 2026: a notice in the online Biografisch Woordenboek van Belgen Overzee, not a journal article."
+bhb:2020-m5a23a08764,"Kestemont (Mike), Haverals (Wouter)","Haverals (Wouter), Kestemont (Mike)",ocr,Mike Kestemont,2026-11-21,"Co-author's own word: Wouter Haverals is first author, as the DOI suffix (.HAVE) and the journal have it; the 2020 manuscript lists Kestemont first. Kind ocr so that the citation reads right too: the manuscript is not printed yet."
+bhb:2020-m5a23a08764,Kestemont; Haverals,Haverals; Kestemont,order,Mike Kestemont,2026-11-21,"The same correction for the parsed authors: Haverals first."
