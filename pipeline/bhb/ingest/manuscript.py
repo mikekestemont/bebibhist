@@ -9,9 +9,13 @@ chapter the book's title is the second italic span. The rule parser (``bhb.parse
 the formatting then sets the title, the book of a chapter and the authors where they disagree; every such change
 is flagged on the record.
 
-An entry has no printed number, so its id is its place in the manuscript, ``bhb:<year>-m<n>`` (``m`` for
-manuscript, so it cannot be taken for a printed number). Its ``xml_id`` is a short hash of its text: when a revised
-manuscript of the same name moves an unchanged entry, ``bhb.ids`` carries its former id over.
+An entry has no printed number, so its id is a hash of its text, ``bhb:<year>-m<10 hex digits>`` (``m`` for
+manuscript, so it cannot be taken for a printed number; a second entry with the same text adds ``-2``). An entry
+added to a revised manuscript does not move the others' ids, as a number by position would. An entry whose text the
+editor corrects gets a new id; the V-Smart record that will later replace the entry has its own id anyway.
+
+Each heading is matched to a code of the BHB scheme by its label (``HeadingCodes``), and its entries carry that code
+in ``bhb_codes``, as the catalogue's records do.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lxml import etree
+from rapidfuzz import fuzz
 
 from bhb.model import Host, Person, Provenance, Publisher, Record, Series
 from bhb.parse.citation import (
@@ -34,7 +39,7 @@ from bhb.parse.citation import (
     parse_citation,
 )
 from bhb.paths import rel
-from bhb.sections import path_of, push_heading
+from bhb.scheme import SchemeEntry, load_scheme
 from bhb.textutil import clean_heading, fold, squash
 
 SOURCE = "manuscript"
@@ -124,7 +129,9 @@ def read_docx(path: Path) -> list[Paragraph]:
 
 
 def _all_bold(paragraph: Paragraph) -> bool:
-    visible = [(text, bold) for text, bold, _italic in paragraph.runs if text.strip()]
+    """Every run with a letter or digit is bold; a dash or a space set otherwise ("a. Généralités – Algemeenheden"
+    with an italic, not bold, dash) does not count."""
+    visible = [(text, bold) for text, bold, _italic in paragraph.runs if re.search(r"\w", text)]
     return bool(visible) and all(bold for _text, bold in visible)
 
 
@@ -139,8 +146,9 @@ def is_heading(paragraph: Paragraph) -> bool:
         return False
     if _all_bold(paragraph):
         return True
-    # Some headings are not bold: numbered, bilingual ("2. Méthodologie – Methodologie"), no year, no author.
-    return bool(_NUMBERED.match(text) and " – " in text and not _YEAR.search(text) and not _starts_bold(paragraph))
+    # Some headings are not bold: numbered, bilingual ("2. Méthodologie – Methodologie"), no year. An entry starts
+    # with its author, not with a number.
+    return bool(_NUMBERED.match(text) and " – " in text and not _YEAR.search(text))
 
 
 def segment(paragraphs: list[Paragraph]) -> list[Block]:
@@ -295,21 +303,121 @@ def parse_entry(paragraph: Paragraph) -> ParsedCitation:
     return redo
 
 
+_CODE_NUMBER = re.compile(r"^((?:[IVX]{1,4}|[A-Z]|\d{1,2}|[a-z])(?:\.\d{1,2})*)\.\s+")
+_HALVES = re.compile(r"\s+[–-]\s+|\s+/\s+")
+
+
+def _tokens(code: str) -> list[str]:
+    return [token for token in code.split(".") if token]
+
+
+def own_labels(scheme: dict[str, SchemeEntry]) -> dict[str, dict[str, str]]:
+    """Each code's own label in French and Dutch. The scheme labels a code with its whole path ("Histoire par
+    époques / Epoque contemporaine… / … / Les arts"), so the segments name the code's ancestors too; a path whose
+    length does not fit the code gives only its last segment."""
+    fitting: dict[str, dict[str, str]] = {}
+    last_only: dict[str, dict[str, str]] = {}
+    for code, entry in scheme.items():
+        tokens = _tokens(code)
+        for language, label in (("fr", entry.label_fr), ("nl", entry.label_nl)):
+            if not label:
+                continue
+            segments = [segment.strip() for segment in label.split(" / ")]
+            fits = len(segments) == len(tokens)
+            target = fitting if fits else last_only
+            for back in range(1, len(tokens) + 1) if fits else (1,):
+                prefix = ".".join(tokens[: len(tokens) - back + 1]) + "."
+                target.setdefault(prefix, {}).setdefault(language, segments[-back])
+    for code, labels in last_only.items():
+        for language, label in labels.items():
+            fitting.setdefault(code, {}).setdefault(language, label)
+    return fitting
+
+
+def _words(text: str) -> str:
+    return " ".join(re.sub(r"[;,:’'()]", " ", fold(text)).split())
+
+
+def _halves(heading: str) -> tuple[str | None, str, str]:
+    """The heading's number, French half and Dutch half. A dash between two numbers ("1940 – 1945") is no split."""
+    match = _CODE_NUMBER.match(heading)
+    number = match.group(1) if match else None
+    body = heading[match.end():] if match else heading
+    for split in _HALVES.finditer(body):
+        left, right = body[: split.start()], body[split.end():]
+        if re.search(r"[^\W\d]", left) and re.search(r"[^\W\d]", right):
+            return number, left, right
+    return number, body, ""
+
+
+class HeadingCodes:
+    """The scheme code of each heading, read in order. A heading takes the code whose own label it matches,
+    preferring a code whose parent is the code of an open heading above it; its number counts only as a tie-break
+    and as support for a weaker match, since the manuscripts' numbering is not always regular ("c. La
+    démographie" before "b. La vie économique et sociale"). A heading that matches no code gets none, and nor do
+    its entries."""
+
+    STRONG = 80
+    WEAK = 55
+
+    def __init__(self, scheme: dict[str, SchemeEntry] | None = None):
+        self.scheme = scheme if scheme is not None else load_scheme()
+        self.labels = own_labels(self.scheme)
+        self.open: list[str] = []
+
+    def _score(self, french: str, dutch: str, labels: dict[str, str], scorer=fuzz.ratio) -> float:
+        best = 0.0
+        # "Généralités : La vie religieuse" is the code "La vie religieuse" under "Généralités".
+        mines = [french, dutch, *(half.split(" : ", 1)[1] for half in (french, dutch) if " : " in half)]
+        for mine in mines:
+            for theirs in (labels.get("fr"), labels.get("nl")):
+                if mine and theirs:
+                    best = max(best, scorer(_words(mine), _words(theirs)))
+        return best
+
+    def __call__(self, heading: str) -> str | None:
+        number, french, dutch = _halves(heading)
+        last = number.split(".")[-1] if number else None
+        best: tuple[tuple[int, float], str, float] | None = None
+        for code, labels in self.labels.items():
+            score = self._score(french, dutch, labels)
+            parent = self.scheme[code].parent if code in self.scheme else None
+            depth = next((i + 1 for i in range(len(self.open) - 1, -1, -1) if parent == self.open[i]), 0)
+            context = -1 if parent is not None and depth == 0 else depth
+            fits = last is not None and _tokens(code)[-1] == last
+            # Number and parent agreeing, the label may name only part of the code's ("3. Théorie" for "Théorie et
+            # histoire").
+            # A heading may also name one part of a code that joins two ("a. Histoire diplomatique" and "b. Les
+            # explorations…" for "Histoire diplomatique; les explorations…"), under the right parent.
+            overlap = self._score(french, dutch, labels, fuzz.token_set_ratio) if context > 0 else 0.0
+            loose = (fits and overlap >= self.STRONG) or overlap >= 95
+            if not (score >= self.STRONG or (fits and context > 0 and score >= self.WEAK) or loose):
+                continue
+            key = (context, score + (10 if fits else 0))
+            if best is None or key > best[0]:
+                best = (key, code, score)
+        if best is None or (best[0][0] < 0 and best[2] < 90):
+            return None
+        code = best[1]
+        self.open = [open_code for open_code in self.open if code.startswith(open_code) and open_code != code] + [code]
+        return code
+
+
 def year_of(path: Path) -> int | None:
     match = _YEAR_FILE.search(path.stem)
     return int(match.group(1)) if match else None
 
 
 def _xml_id(text: str, seen: dict[str, int]) -> str:
-    digest = hashlib.sha1(squash(text).encode("utf-8")).hexdigest()[:12]
+    digest = hashlib.sha1(squash(text).encode("utf-8")).hexdigest()[:10]
     seen[digest] = seen.get(digest, 0) + 1
     return digest if seen[digest] == 1 else f"{digest}-{seen[digest]}"
 
 
-def _record(parsed: ParsedCitation, text: str, year: int, number: int, path: Path, xml_id: str,
+def _record(parsed: ParsedCitation, text: str, year: int, path: Path, xml_id: str,
             section: list[str]) -> Record:
     record = Record(
-        id=f"bhb:{year}-m{number}",
+        id=f"bhb:{year}-m{xml_id}",
         source=SOURCE,
         bgb_year=year,
         printed=squash(text),
@@ -341,24 +449,38 @@ def _record(parsed: ParsedCitation, text: str, year: int, number: int, path: Pat
     return record
 
 
-def load_manuscript(path: Path, year: int | None = None) -> tuple[list[Record], dict]:
+def load_manuscript(path: Path, year: int | None = None, scheme: dict[str, SchemeEntry] | None = None) -> tuple[list[Record], dict]:
     """One manuscript → records, and a report of what was read."""
     year = year or year_of(path)
     if year is None:
         raise ValueError(f"no BGB year in the file name {path.name}; pass it")
     blocks = segment(read_docx(path))
-    stack: list[tuple[int, str]] = []
+    codes = HeadingCodes(scheme)
+    open_headings: list[tuple[str, str]] = []  # (code, heading) of the headings above
+    code: str | None = None
     seen: dict[str, int] = {}
     records: list[Record] = []
     for block in blocks:
         text = block.paragraph.text
         if block.kind == "heading":
             heading = clean_heading(squash(text))
-            if heading:
-                stack = push_heading(stack, heading)
+            if not heading:
+                continue
+            code = codes(heading)
+            if code is not None:
+                open_headings = [(c, h) for c, h in open_headings if c and code.startswith(c) and c != code]
+                open_headings.append((code, heading))
+            else:
+                # An unmatched heading stands in the path of its entries, which get no code; it closes at the
+                # next heading.
+                open_headings = [(c, h) for c, h in open_headings if c] + [("", heading)]
             continue
         parsed = parse_entry(block.paragraph)
-        records.append(_record(parsed, text, year, len(records) + 1, path, _xml_id(text, seen), path_of(stack)))
+        section = [heading for _code, heading in open_headings]
+        record = _record(parsed, text, year, path, _xml_id(text, seen), section)
+        if code:
+            record.bhb_codes = [code]
+        records.append(record)
     flags = ("title-from-italics", "imprint-from-format", "host-from-italics", "persons-from-bold", "no-italic-title")
     report = {
         "file": path.name,

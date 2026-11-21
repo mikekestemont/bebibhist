@@ -246,8 +246,10 @@ def categories_for(
     elif approved_theme and not broad:
         add(None, source, 1.0, False, theme=approved_theme, as_primary=True)
 
+    # The catalogue's own codes, or a manuscript heading's code read from its label (``bhb.ingest.manuscript``).
+    code_source = "heading-label" if record.source == "manuscript" else "vsmart"
     for index, code in enumerate(record.bhb_codes):
-        add(code, "vsmart", 1.0, False, as_primary=not primary and index == 0)
+        add(code, code_source, 1.0, False, as_primary=not primary and index == 0)
 
     for other in secondary_rows:
         resolved = _resolved(other)
@@ -688,7 +690,7 @@ def _apply_model(records, groups, by_key, model, classes, theme_map, tau_theme) 
 
     targets: list[tuple[Record, str, bool]] = []
     for record in records:
-        if record.role != "entry" or record.is_cross_listing or (record.source == "vsmart" and record.bhb_codes):
+        if record.role != "entry" or record.is_cross_listing or (record.source in ("vsmart", "manuscript") and record.bhb_codes):
             continue
         text = document_text(record)
         if not text:
@@ -848,7 +850,7 @@ def _origin(record: Record) -> str:
         return "machine" if chosen is not None else "unclassified"
     if chosen.source == "vsmart":
         return "vsmart"
-    if chosen.source in {"heading-rule", "see-also"}:
+    if chosen.source in {"heading-rule", "heading-label", "see-also"}:
         return "rule"
     return "person"
 

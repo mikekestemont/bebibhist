@@ -205,7 +205,8 @@
   "sources": {
     "print-straive": "Printed volumes",
     "print-pdf": "Printed volumes (PDF)",
-    "vsmart": "State Archives catalogue"
+    "vsmart": "State Archives catalogue",
+    "manuscript": "Manuscript in preparation"
   },
   "subjects": "Subject areas",
   "periodsLabel": "Periods",

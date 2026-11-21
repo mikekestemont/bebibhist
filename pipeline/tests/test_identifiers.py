@@ -352,3 +352,19 @@ def test_the_online_issn_alone_places_a_candidate_in_the_journal(monkeypatch):
     item = _item()
     item["container-title"], item["ISSN"] = ["Revue d'Histoire Ecclésiastique"], ["22941088"]
     assert score(record, item)["container"] == 100.0
+
+
+def test_the_journal_of_a_doi_wins_over_the_catalogues_volume_title():
+    from bhb.identifiers import _journal_over_catalogue
+    from bhb.model import Host, Provenance, Record
+
+    record = Record(id="bhb:vs-1194667", source="vsmart", bgb_year=2013, type="chapter", title="Un article",
+                    host=Host(id="bhb:vs-1", title="Écriture et art contemporain"),
+                    provenance=Provenance(flags=["host-from-catalogue", "type-from-catalogue"]))
+    assert _journal_over_catalogue(record, {"container-title": ["Textyles"]})
+    assert record.host.title == "Textyles" and record.type == "article"
+    assert "host-catalogue-differs" in record.provenance.flags
+    same = Record(id="bhb:vs-2", source="vsmart", bgb_year=2013, type="article", title="Ander",
+                  host=Host(id="bhb:vs-3", title="Tijdschrift voor Nederlandse Taal- en Letterkunde"),
+                  provenance=Provenance(flags=["host-from-catalogue"]))
+    assert not _journal_over_catalogue(same, {"container-title": ["Tijdschrift voor Nederlandse Taal- en Letterkunde"]})

@@ -205,7 +205,8 @@
   "sources": {
     "print-straive": "Gedrukte delen",
     "print-pdf": "Gedrukte delen (PDF)",
-    "vsmart": "Catalogus van het Rijksarchief"
+    "vsmart": "Catalogus van het Rijksarchief",
+    "manuscript": "Manuscript in voorbereiding"
   },
   "subjects": "Onderwerpen",
   "periodsLabel": "Periodes",

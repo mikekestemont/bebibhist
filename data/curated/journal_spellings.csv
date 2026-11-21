@@ -60,13 +60,15 @@ courrier hebdomadaire du crisp,issn:0008-9664,issn,221
 taxandria,t:taxandria,full,221
 pays de namur,t:pays-de-namur,full,219
 het ezendropke,t:het-ezendropke,full,213
-analecta praemonstratensia,t:analecta-praemonstratensia,full,206
+analecta praemonstratensia,t:analecta-praemonstratensia,full,207
 rev du nord,issn:0035-2624,issn,204
 terre de durbuy,t:terre-de-durbuy,full,203
+meerhouts patrimonium,t:meerhouts-patrimonium,full,201
 geschichtliches eupen,t:geschichtliches-eupen,full,200
 iepers kwartier,t:iepers-kwartier,full,199
 eigen schoon en de brabander brussel,t:eigen-schoon-en-de-brabander,variant,199
 ten mandere,t:ten-mandere,full,197
+grevenbroeker echo s,t:grevenbroeker-echo-s,full,196
 eigen schoon en brabander,t:eigen-schoon-en-brabander,full,193
 triverius,t:triverius,full,191
 de roede van tielt,t:de-roede-van-tielt,full,189
@@ -113,6 +115,7 @@ ucclensia,t:ucclensia,full,136
 de plate oostende,t:de-plate,variant,136
 ardenne et famenne,t:ardenne-et-famenne,full,135
 maisons d hier et d aujourd hui bruxelles,t:maisons-d-hier-et-d-aujourd-hui,variant,134
+la memoire de chastre,t:la-memoire-de-chastre,full,133
 scriptorium,issn:0036-9772,issn,132
 de leiegouw kortrijk,t:de-leiegouw,variant,132
 businarias,t:businarias,full,132
@@ -152,6 +155,7 @@ aan de schreve,t:aan-de-schreve,full,117
 hand van de kon kr voor oudh l en kunst van mechelen,t:handelingen-van-de-koninklijke-kring-voor-oudheidkunde-lette,abbreviation,117
 ascania,t:ascania,full,116
 bijdragen tot de geschiedenis van deinze en de leiestreek,t:bijdragen-tot-de-geschiedenis-van-deinze-en-de-leiestreek,full,115
+jaarboek heemkring ekeren,t:jaarboek-heemkring-ekeren,full,115
 arduin tijdingen,t:arduin-tijdingen,full,115
 hand van de mij voor gesch en oudh te gent,issn:0774-286X,issn,114
 ons heem sint martens latem,t:ons-heem,variant,113
@@ -166,6 +170,7 @@ revue belge d histoire contemporaine,issn:0035-0869,issn,109
 im gohltal,t:im-gohltal,full,109
 ernigahem,t:ernigahem,full,109
 au pays des riezes et des sarts cul des sarts,t:au-pays-des-riezes-et-des-sarts,variant,108
+gossu tijdingen,t:gossu-tijdingen,full,108
 het aldegondisklokje,t:het-aldegondisklokje,full,108
 oters jaarboek kulturele kring neeroeteren,t:oters-jaarboek-kulturele-kring-neeroeteren,full,108
 namurcum,t:namurcum,full,107
@@ -200,6 +205,7 @@ curtricke,t:curtricke,full,96
 cercle historique de fleron bulletin trimestriel fleron,t:cercle-historique-de-fleron-bulletin-trimestriel,variant,96
 revue du cercle d histoire de bruxelles et extensions,t:revue-du-cercle-d-histoire-de-bruxelles-et-extensions,full,96
 jaarboek van de geschied en heemkundige kring de gaverstreke,t:jaarboek-van-de-geschied-en-heemkundige-kring-de-gaverstreke,full,95
+de zonneblusser,t:de-zonneblusser-edegem,full,95
 rev d h eccles,issn:0035-2381,abbreviation,95
 handelingen van het genootschap voor geschiedenis gesticht onder de benaming societe d emulation te brugge,issn:0770-0822,issn,94
 le lothier roman genappe,t:le-lothier-roman-genappe,full,94
@@ -258,9 +264,9 @@ cahiers de sambre et meuse,t:cahiers-de-sambre-et-meuse,full,80
 bull de l instit archeol liegeois,t:bulletin-de-l-institut-archeologique-liegeois,abbreviation,80
 volkskunde antwerpen,issn:0042-8523,issn,79
 tijd schrift,issn:2034-6263,issn,79
+heemkundige vereniging de gonde,t:heemkundige-vereniging-de-gonde,full,79
 annalen van de geschied en oudheidkundige kring van ronse en het tenement van inde annales du cercle historique et archeologique de renaix et du tenement d inde ronse,t:annalen-van-de-geschied-en-oudheidkundige-kring-van-ronse-en,variant,78
 oost vlaamse zanten tijdschrift voor volkscultuur in vlaanderen gent,t:oost-vlaamse-zanten-tijdschrift-voor-volkscultuur-in-vlaande,variant,78
-heemkundige vereniging de gonde,t:heemkundige-vereniging-de-gonde,full,78
 sacris erudiri,issn:0771-7776,issn,77
 brabantia,t:brabantia,full,77
 annalen van de koninklijke oudheidkundige kring van het land van waas sint niklaas,t:annalen-van-de-koninklijke-oudheidkundige-kring-van-het-land,full,77
@@ -307,6 +313,7 @@ bulletin du cercle historique de chaumont gistoux,t:bulletin-du-cercle-historiqu
 handelingen van het zottegems genootschap voor geschiedenis en oudheidkunde,t:handelingen-van-het-zottegems-genootschap-voor-geschiedenis-,full,65
 industrie,t:industrie,full,64
 bulletin de l institut archeologique liegeois,t:bulletin-de-l-institut-archeologique-liegeois,full,63
+openbaar kunstbezit in vlaanderen,t:openbaar-kunstbezit-in-vlaanderen,full,63
 limes gatia,t:limes-gatia,full,63
 de eeklose dobbelgebakkene tijdschrift van de geschied heemkundige kring van de stad eeklo,t:de-eeklose-dobbelgebakkene-tijdschrift-van-de-geschied-heemk,full,63
 van mensen en dingen tijdschrift voor volkscultuur in vlaanderen,issn:1379-9460,issn,62
@@ -332,6 +339,7 @@ oud ruysselede ruiselede,t:oud-ruysselede,variant,60
 le livre l estampe,t:le-livre-l-estampe,full,60
 arsbroek kring herve stalpaert,t:arsbroek,variant,60
 brabantica,t:brabantica,full,59
+notices visetoises,t:notices-visetoises,full,59
 wibilinga,t:wibilinga,full,59
 tijdschrift voor industriele cultuur gent,t:tijdschrift-voor-industriele-cultuur-gent,full,59
 spaenhiers,t:spaenhiers,full,59
@@ -340,7 +348,7 @@ jaarboek van de heemkundige kring karel van de poele te lichtervelde,issn:0303-9
 cahiers de clio,t:cahiers-de-clio,full,58
 zwischen venn und schneifei,t:zwischen-venn-und-schneifei,full,58
 coup d oeil sur beloeil,t:coup-d-oeil-sur-beloeil,full,58
-de zonneblusser edegem,t:de-zonneblusser-edegem,full,58
+de zonneblusser edegem,t:de-zonneblusser-edegem,variant,58
 erfgoed van industrie en techniek,t:erfgoed-van-industrie-en-techniek,full,58
 oostvlaamse zanten,t:oostvlaamse-zanten,full,57
 annales du cercle archeologique de mons,t:annales-du-cercle-archeologique-de-mons,full,57
@@ -399,16 +407,17 @@ arch en bibliotheekwezen in b,t:archief-en-bibliotheekwezen-in-belgie,abbreviati
 bijdragen en mededelingen betreffende de geschiedenis der nederlanden utrecht,issn:0165-0505,issn,50
 revue belge d histoire contemporaine belgisch tijdschrift voor nieuwste geschiedenis gent,issn:0035-0869,issn,50
 archives et bibliotheques de belgique archief en bibliotheekwezen in belgie bruxelles brussel,issn:0775-0722,issn,50
+tijdschrift voor nederlandse taal en letterkunde,issn:0040-7550,issn,50
 ghulden roos,t:ghulden-roos,full,50
 de horen tervuren,t:de-horen,variant,50
 spaenhiers koekelare jaarboek,t:spaenhiers,variant,50
 ons zelems erfgoed,t:ons-zelems-erfgoed,full,50
 heemkring lebbeke,t:heemkring-lebbeke,full,50
 tijdschrift voor geschiedenis,issn:0040-7518,issn,49
-tijdschrift voor nederlandsche taal en letterkunde,issn:0040-7550,issn,49
 de gidsenkring,t:de-gidsenkring,full,49
 bulletin de la commission royale des monuments et des sites,t:bulletin-de-la-commission-royale-des-monuments-et-des-sites,full,49
 annales cercle historique de marche en famenne hotton et rendeux,t:annales-cercle-historique-de-marche-en-famenne-hotton-et-ren,full,49
+jaarboek heemkundige kring norbert de vrijter,t:jaarboek-heemkundige-kring-norbert-de-vrijter,full,49
 hand van het genootschap voor gesch soc d emulation te brugge,issn:0770-0822,issn,48
 spiegel der letteren,issn:0038-7479,issn,48
 revue du conseil economique wallon,t:revue-du-conseil-economique-wallon,full,48
@@ -418,6 +427,7 @@ de la meuse a l ardenne lavaux sainte anne,t:de-la-meuse-a-l-ardenne,variant,48
 hallensia halle,t:hallensia,variant,48
 beauraing et sa region beauraing,t:beauraing-et-sa-region,variant,48
 chronique de l archeologie wallonne namur,t:chronique-de-l-archeologie-wallonne-namur,full,48
+demeures historiques jardins,t:demeures-historiques-jardins,full,48
 annuaire d h liegeoise,t:annuaire-d-histoire-liegeoise,abbreviation,48
 ann du cercle archeol d enghien,t:annales-du-cercle-archeologique-d-enghien,abbreviation,48
 gedenkschriften oudheidk kr van het land van dendermonde,t:gedenkschriften-oudheidkundige-kring-van-het-land-van-dender,abbreviation,48
@@ -434,6 +444,8 @@ bmgn bijdragen en mededelingen van het historisch genootschap voortgezet als con
 folklore brabancon,t:folklore-brabancon,full,46
 terre de neufchateau,t:terre-de-neufchateau,full,46
 comte de jette,t:comte-de-jette,full,46
+t wingheroen,t:t-wingheroen,full,46
+les cahiers brunehaut,t:les-cahiers-brunehaut,full,46
 museon,t:museon,full,46
 tijdschrift van de heemkundige kring overmere,t:tijdschrift-van-de-heemkundige-kring-overmere,full,46
 handelingen van de koninklijke zuidnederlandse maatschappij voor taal en letterkunde en geschiedenis brussel,issn:0774-3254,issn,45
@@ -443,6 +455,7 @@ les cahiers ardennais,t:les-cahiers-ardennais,full,45
 militaria belgica,t:militaria-belgica,full,45
 art et fact,t:art-et-fact,full,45
 jaarboek geschiedkundige studiegroep ten boome,t:jaarboek-geschiedkundige-studiegroep-ten-boome,full,45
+heemkundige kring beerse vlimmeren,t:heemkundige-kring-beerse-vlimmeren,full,45
 mem de la soc r d h et d archeol de tournai,t:memoires-de-la-societe-royale-d-histoire-et-d-archeologie-de,abbreviation,45
 archief voor de geschiedenis van de katholieke kerk in nederland voortgezet als devient trajecta,issn:0778-8304,issn,44
 vers l avenir journal namurois,t:vers-l-avenir-journal-namurois,full,44
@@ -522,7 +535,6 @@ historiant,issn:2295-5305,issn,38
 west vlaanderen,t:west-vlaanderen,full,38
 archief en bibliotheekwezen in belgie,t:archief-en-bibliotheekwezen-in-belgie,full,38
 haute ardenne,t:haute-ardenne,full,38
-openbaar kunstbezit in vlaanderen,t:openbaar-kunstbezit-in-vlaanderen,full,38
 le pays de bastogne bastogne,t:le-pays-de-bastogne-bastogne,variant,38
 in de steigers erfgoednieuws uit west vlaanderen brugge,t:in-de-steigers-erfgoednieuws-uit-west-vlaanderen-brugge,full,38
 in flanders fields museum jaarboek,t:in-flanders-fields-museum-jaarboek,full,38
@@ -544,6 +556,7 @@ clair lieu,t:clair-lieu,full,36
 de vlaamse gids,t:de-vlaamse-gids,full,36
 revue generale belge,t:revue-generale-belge,full,36
 marchin bia viedje,t:marchin-bia-viedje,full,36
+familieschoon,t:familieschoon,full,36
 patrimoine industriel wallonie bruxelles bulletin liege,t:patrimoine-industriel-wallonie-bruxelles-bulletin-liege,full,36
 de vierschaar,t:de-vierschaar,full,36
 jaarboek heem en oudheidkundige kring zele,t:jaarboek-heem-en-oudheidkundige-kring-zele,full,36
@@ -580,10 +593,10 @@ paedagogica historica,issn:0030-9230,issn,33
 journal of the alamire foundation,issn:2032-5371,issn,33
 humanistica lovaniensia,issn:0774-2908,issn,33
 noordgouw,t:noordgouw,full,33
+de ijzerbode,t:de-ijzerbode,full,33
 anderlechtensia,t:anderlechtensia-anderlecht,full,33
 mededelingenblad van de belgische vereniging voor nieuwste geschiedenis bulletin d information de l association belge d histoire contemporaine gent,t:mededelingenblad-van-de-belgische-vereniging-voor-nieuwste-g,full,33
 cercle d histoire de bruxelles,t:cercle-d-histoire-de-bruxelles,full,33
-jaarboek heemkring ekeren,t:jaarboek-heemkring-ekeren,full,33
 geschiedenis der geneeskunde,t:geschiedenis-der-geneeskunde,full,33
 cella periodique du cercle d histoire et d archeologie de pont a celles et environs,t:cella-periodique-du-cercle-d-histoire-et-d-archeologie-de-po,full,33
 rev medicale de liege,t:revue-medicale-de-liege,abbreviation,33
@@ -592,6 +605,7 @@ ts voor rechtsgesch,issn:0040-7585,issn,32
 amsab tijdingen,issn:0771-0038,issn,32
 textyles,issn:0776-0116,issn,32
 studies over de sociaal economische geschiedenis van limburg,issn:0923-2842,issn,32
+la revue nouvelle,t:la-revue-nouvelle,full,32
 streven,t:streven,full,32
 taxandria nieuwe reeks,t:taxandria,variant,32
 annuaire d histoire liegeoise,t:annuaire-d-histoire-liegeoise,full,32
@@ -620,7 +634,6 @@ l organiste bas oha,t:l-organiste,variant,31
 leodium liege,t:leodium,variant,31
 zilleghem zedelgem,t:zilleghem,variant,31
 jaarboek gerard walschap genootschap,t:jaarboek-gerard-walschap-genootschap,full,31
-staging the court of burgundy,t:staging-the-court-of-burgundy,full,31
 handelingen van de societe d emulation te brugge,issn:0770-0822,issn,30
 oud holland,issn:0030-672X,issn,30
 tijdschrift voor interieurgeschiedenis en design,issn:0772-7151,issn,30
@@ -648,6 +661,7 @@ bibliotheek archiefgids,issn:0772-7003,issn,29
 regional federal studies,issn:1359-7566,issn,29
 intermediaire des genealogistes,t:intermediaire-des-genealogistes,full,29
 archaeologia mediaevalis,t:archaeologia-mediaevalis,full,29
+limburg het oude land van loon,t:limburg-het-oude-land-van-loon-hasselt,full,29
 sportimonium leuven,t:sportimonium-leuven,variant,29
 netradyle revue du cercle d histoire et de genealogie de grez doiceau et de beauvechain,t:netradyle-revue-du-cercle-d-histoire-et-de-genealogie-de-gre,full,29
 handelingen van de koninklijke geschied en oudheidkundige kring van kortrijk,t:handelingen-van-de-koninklijke-geschied-en-oudheidkundige-kr,full,29
@@ -662,14 +676,11 @@ tijdschrift voor geschiedenis groningen,issn:0040-7518,issn,28
 annales aequatoria,issn:0254-4296,issn,28
 revue belge d archeologie et d histoire de l art,issn:0035-077X,issn,28
 folklore stavelot malmedy,t:folklore-stavelot-malmedy,full,28
-la revue nouvelle,t:la-revue-nouvelle,full,28
 de toerist,t:de-toerist,full,28
 oost vlaanderen,t:oost-vlaanderen,full,28
 annalen van de oudheidkundige kring van het land van waas,t:annalen-van-de-oudheidkundige-kring-van-het-land-van-waas,full,28
-de ijzerbode,t:de-ijzerbode,full,28
 le parchemin bruxelles,t:le-parchemin,variant,28
 aan de schreve kring voor heemkunde poperinge en omstreken,t:aan-de-schreve-kring-voor-heemkunde-poperinge-en-omstreken,full,28
-limburg het oude land van loon,t:limburg-het-oude-land-van-loon-hasselt,full,28
 le gletton mensuel de la gaume et d autres collines,t:le-gletton-mensuel-de-la-gaume-et-d-autres-collines,full,28
 museumbulletin,t:museumbulletin,full,28
 le p tit brania,t:le-p-tit-brania,full,28
@@ -688,8 +699,6 @@ collationes brugenses et gandavenses,t:collationes-brugenses-et-gandavenses,full
 landeskundliche vierteljahrsblatter,t:landeskundliche-vierteljahrsblatter,full,27
 belgisch tijdschrift voor nieuwste geschiedenis revue belge d histoire contemporaine,t:belgisch-tijdschrift-voor-nieuwste-geschiedenis-revue-belge-,full,27
 ken uw dorp lede,t:ken-uw-dorp-lede,full,27
-notices visetoises,t:notices-visetoises,full,27
-t wingheroen,t:t-wingheroen,full,27
 veldeke,t:veldeke,full,27
 wibilinga wevelgem,t:wibilinga,variant,27
 archaeologia mediaevalis brussel,t:archaeologia-mediaevalis,variant,27
@@ -701,9 +710,9 @@ meded van de heemk kr van mere,t:mededelingen-van-de-heemkundige-kring-van-erpe-
 rev belge d archeol et d h de l art,issn:0035-077X,abbreviation,27
 r b p h,issn:0035-0818,issn,26
 bulletin de la commission royale d histoire handelingen van de koninklijke commissie voor geschiedenis bruxelles brussel,issn:0001-415X,issn,26
-archives et bibliotheques de belgique ed bilingue archief en bibliotheekwezen in belgie,issn:0775-0722,issn,26
 les cahiers lorrains,t:les-cahiers-lorrains,full,26
 bossche bijdragen,t:bossche-bijdragen,full,26
+zeeuws tijdschrift,t:zeeuws-tijdschrift,full,26
 confluent,t:confluent-namur,full,26
 congres de nivelles actes,t:congres-de-nivelles,full,26
 ardenne wallonne givet,t:ardenne-wallonne,variant,26
@@ -719,7 +728,6 @@ rev d h du droit,issn:0040-7585,issn,25
 lias,issn:2033-4753,issn,25
 latomus,issn:0023-8856,issn,25
 la nouvelle revue wallonne,t:la-nouvelle-revue-wallonne,full,25
-zeeuws tijdschrift,t:zeeuws-tijdschrift,full,25
 molenecho s,t:molenecho-s,full,25
 arsbroek,t:arsbroek,full,25
 rond de stenen linde schellebelle,t:rond-de-stenen-linde-schellebelle,full,25
@@ -784,7 +792,6 @@ wet tijdingen op het gebied van de gesch van de vl beweging,issn:0774-532X,issn,
 handelingen van de koninklijke zuidnederlandse maatschappij voor taal en letterkunde en geschiedenis,issn:0774-3254,issn,22
 taal en tongval,issn:0039-8691,issn,22
 de negentiende eeuw,issn:1381-8546,issn,22
-bulletin de la commission royale d histoire academie royale de belgique,issn:0001-415X,issn,22
 t hemecht,t:t-hemecht,full,22
 aachener kunstblatter,t:aachener-kunstblatter,full,22
 caroloregium valde concelebratur,t:caroloregium-valde-concelebratur,full,22
@@ -852,6 +859,7 @@ rev belge de philol et d h belg ts voor filol en gesch,issn:0035-0818,issn,20
 le moyen age bruxelles,issn:0027-2841,issn,20
 medieval and modern matters,issn:2032-8192,issn,20
 publications du centre europeen d etudes bourguignonnes,issn:1016-4286,issn,20
+bulletin de la commission royale d histoire academie royale de belgique,issn:0001-415X,issn,20
 l intermediaire,t:l-intermediaire-des-genealogistes,full,20
 les cahiers luxembourgeois,t:les-cahiers-luxembourgeois,full,20
 revue nationale,t:revue-nationale,full,20
@@ -935,7 +943,6 @@ stadsgeschiedenis hilversum,issn:1872-0676,issn,18
 noordbrabants historisch jaarboek s hertogenbosch,issn:0923-5817,issn,18
 queeste,issn:0929-8592,issn,18
 tydskrif vir nederlands en afrikaans,issn:1022-6966,issn,18
-c hiers du crhidi,issn:1370-2262,issn,18
 socialisme,t:socialisme,full,18
 kurtrierisches jahrbuch,t:kurtrierisches-jahrbuch,full,18
 l antiquaire revue historique de l entre sambre et meuse yves gomezee,t:l-antiquaire-revue-historique-de-l-entre-sambre-et-meuse-yve,full,18
@@ -953,8 +960,9 @@ revue d histoire religieuse du brabant wallon,t:revue-d-histoire-religieuse-du-b
 tweemaandelijks contactblad van het genootschap voor geschiedenis en volkskunde overpelt,t:tweemaandelijks-contactblad-van-het-genootschap-voor-geschie,full,18
 demeures historiques et jardins bruxelles,t:demeures-historiques-et-jardins-bruxelles,full,18
 dadingisila,t:dadingisila,full,18
-hout in boeken houten boeken en de fraaye konst van houtdraayen,t:hout-in-boeken-houten-boeken-en-de-fraaye-konst-van-houtdraa,full,18
+archikrant,t:archikrant,full,18
 chronique de l annee cercle culturel et historique de rochefort,t:chronique-de-l-annee-cercle-culturel-et-historique-de-rochef,full,18
+annales de la societe d archeologie de bruxelles,t:annales-de-la-societe-d-archeologie-de-bruxelles,full,18
 bull c d h et d archeol segnia,t:bulletin-du-cercle-d-histoire-et-d-archeologie-segnia-houffa,abbreviation,18
 hand van het gen voor gesch soc d emul de bruges,issn:0770-0822,issn,17
 bulletin de l institut historique belge de rome bruxelles,issn:2031-7190,issn,17
@@ -978,6 +986,7 @@ le souvenir perwezien,t:le-souvenir-perwezien,full,17
 bulletin du cercle d histoire et d archeologie segnia,t:bulletin-du-cercle-d-histoire-et-d-archeologie-segnia-houffa,full,17
 corsendonca oud turnhout,t:corsendonca-oud-turnhout,full,17
 kontaktblad gidsenbond brugge west vlaanderen,t:kontaktblad-gidsenbond-brugge-west-vlaanderen,full,17
+sportimonium,t:sportimonium-leuven,full,17
 aan de schreve poperinge,t:aan-de-schreve,variant,17
 archiefleven nieuwsbrief van het stadsarchief van brugge,t:archiefleven-nieuwsbrief-van-het-stadsarchief-van-brugge-bru,full,17
 de maasgouw tijdschrift voor limburgse geschiedenis en oudheidkunde maastricht,t:de-maasgouw-tijdschrift-voor-limburgse-geschiedenis-en-oudhe,full,17
@@ -1007,7 +1016,6 @@ de achttiende eeuw documentatieblad van de werkgroep achttiende eeuw amsterdam,i
 spiegel der letteren tijdschrift voor nederlandse literatuurgeschiedenis en voor literatuurwetenschap antwerpen s gravenhage,issn:0038-7479,issn,16
 de zeventiende eeuw cultuur in de nederlanden in interdisciplinair perspectief tijdschrift van de werkgroep zeventiende eeuw deventer,issn:0921-142X,issn,16
 queeste tijdschrift over middeleeuwse letterkunde in de nederlanden journal of medieval literature in the low countries hilversum,issn:0929-8592,issn,16
-citeaux commentarii cistercienses,issn:0009-7497,issn,16
 historica,issn:1382-3914,issn,16
 t halletorentje,t:t-halletorentje,full,16
 annales du cercle hutois des sciences et beaux arts,t:annales-du-cercle-hutois-des-sciences-et-beaux-arts-huy,full,16
@@ -1019,7 +1027,6 @@ la wallonie le pays et les hommes,t:la-wallonie-le-pays-et-les-hommes,full,16
 de franse nederlanden les pays bas francais,t:de-franse-nederlanden,variant,16
 feuillets de la cathedrale de liege,t:feuillets-de-la-cathedrale-de-liege,full,16
 noortover,t:noortover,full,16
-sportimonium,t:sportimonium-leuven,full,16
 les amis de la citadelle de namur namur,t:les-amis-de-la-citadelle-de-namur-namur,variant,16
 oost vlaamse zanten tijdschrift voor volkscultuur in vlaanderen,t:oost-vlaamse-zanten-tijdschrift-voor-volkscultuur-in-vlaande,full,16
 het ezendropke tijdschrift van de geschied en heemkundige kring groot bree,t:het-ezendropke-tijdschrift-van-de-geschied-en-heemkundige-kr,full,16
@@ -1032,7 +1039,9 @@ cahiers d histoire du temps present bijdragen tot de eigentijdse geschiedenis,t:
 bulletin trimestriel de l association de la noblesse du royaume de belgique,t:bulletin-trimestriel-de-l-association-de-la-noblesse-du-roya,full,16
 historische woonsteden en tuinen brussel,t:historische-woonsteden-en-tuinen,variant,16
 bulletin d information du cercle d histoire de l entite lessinoise,t:bulletin-d-information-du-cercle-d-histoire-de-l-entite-less,full,16
+francofonie,t:francofonie,full,16
 desperta ferro,t:desperta-ferro,full,16
+jaarboek van de heemkring het molenijzer,t:jaarboek-van-de-heemkring-het-molenijzer,full,16
 bull de l inst histor belge de rome,issn:2031-7190,abbreviation,16
 bull de la soc vervietoise d archeol et d h,t:bulletin-de-la-societe-vervietoise-d-archeologie-et-d-histoi,abbreviation,16
 bull du cercle r d h et d archeol d ath et de la region et musees athois,t:bulletin-du-cercle-royal-d-histoire-et-d-archeologie-d-ath-e,abbreviation,16
@@ -1047,6 +1056,7 @@ brood rozen ts voor de gesch van sociale bewegingen,issn:1370-7477,issn,15
 sartoniana,issn:1377-2155,issn,15
 de gulden passer jaarboek van de vereniging van antwerpse bibliofielen,issn:0777-5067,issn,15
 tijdschrift voor geneeskunde,issn:0371-683X,issn,15
+c hiers du crhidi,issn:1370-2262,issn,15
 album english,t:album-english,full,15
 curia arduennae,t:curia-arduennae,full,15
 musica sacra,t:musica-sacra,full,15
@@ -1055,6 +1065,7 @@ west vlaanderen werkt,t:west-vlaanderen,variant,15
 natura mosana,t:natura-mosana,full,15
 bulletin de la societe d art et d histoire du diocese de liege,t:bulletin-de-la-societe-d-art-et-d-histoire-du-diocese-de-lie,full,15
 bos en beverveld,t:bos-en-beverveld,full,15
+gezelliana,t:gezelliana,full,15
 autour de la ville en hainaut,t:autour-de-la-ville-en-hainaut,full,15
 arbeid in veelvoud,t:arbeid-in-veelvoud,full,15
 valentiana,t:valentiana,full,15
@@ -1083,6 +1094,7 @@ archaeologia belgica,issn:0772-7488,issn,14
 brood en rozen ts voor de gesch van sociale bewegingen,issn:1370-7477,issn,14
 academie royale de belgique bulletin de la classe des lettres et des sciences morales et politiques serie 6 bruxelles,issn:0001-4133,issn,14
 gentse bijdragen tot de interieurgeschiedenis,issn:0772-7151,issn,14
+citeaux commentarii cistercienses,issn:0009-7497,issn,14
 bijdragen en mededelingen betreffende de geschiedenis der nederlanden,issn:0165-0505,issn,14
 medievales,issn:0751-2708,issn,14
 nederlandse letterkunde,issn:1384-5829,issn,14
@@ -1184,9 +1196,7 @@ jaarboek voor middeleeuwse geschiedenis,issn:1388-6649,issn,10
 pouvoirs,issn:0152-0768,issn,10
 relations internationales,issn:0335-2013,issn,10
 interferences litteraires,issn:2031-2970,issn,10
-transition,issn:0041-1191,issn,10
 european medieval drama,issn:1378-2274,issn,10
-burgundica pour la singuliere affection qu avons a luy etudes bourguignonnes offertes a jean marie cauchies,issn:1780-3209,issn,10
 taxandria n r,t:taxandria,abbreviation,10
 burlington magazine,issn:0007-6287,abbreviation,10
 ann cercle archeol d enghien,t:annales-du-cercle-archeologique-d-enghien,abbreviation,10
@@ -1233,6 +1243,7 @@ histoire monde et cultures religieuses,issn:1957-5246,issn,9
 history compass,issn:1478-0542,issn,9
 collationes,issn:0776-8354,issn,9
 acta chirurgica belgica,issn:0001-5458,issn,9
+burgundica pour la singuliere affection qu avons a luy etudes bourguignonnes offertes a jean marie cauchies,issn:1780-3209,issn,9
 r belge de numism,t:revue-belge-de-numismatique-et-de-sigillographie,abbreviation,9
 b inst arch liegeois,t:bulletin-de-l-institut-archeologique-liegeois,abbreviation,9
 r belge d arch et d hist de l art,issn:0035-077X,abbreviation,9
@@ -1314,7 +1325,6 @@ the economic history review,issn:0013-0117,issn,7
 rev du nord lille,issn:0035-2624,issn,7
 bull de la comm royale de toponymie et dialectologie,issn:0774-8396,issn,7
 bulletin de la commission royale d histoire,issn:0001-415X,issn,7
-zeitschrift der savigny stiftung fur rechtsgeschichte germanistische abteilung,issn:0323-4045,issn,7
 ann des histor vereins fur den niederrhein,issn:0341-289X,issn,7
 bull comm r de toponymie et de dialectologie,issn:0774-8396,issn,7
 courrier hebdomadaire du c r i s p,issn:0008-9664,issn,7
@@ -1369,6 +1379,7 @@ hand societe d emulation te brugge,issn:0770-0822,issn,6
 handelingen societe d emulation te brugge,issn:0770-0822,issn,6
 cahiers de civilisation medievale poitiers,issn:0007-9731,issn,6
 rev belge de phil et d h,issn:0035-0818,issn,6
+zeitschrift der savigny stiftung fur rechtsgeschichte germanistische abteilung,issn:0323-4045,issn,6
 annalen des historischen vereins fur den niederrhein,issn:0341-289X,issn,6
 sacris erudiri jb voor godsdienstwet,issn:0771-7776,issn,6
 hand van het gen voor gesch soc d emulation te brugge,issn:0770-0822,issn,6
@@ -1391,9 +1402,11 @@ wetenschappelijke tijdingen op het gebied van de geschiedenis van de vlaamse bew
 journal of family history,issn:0363-1990,issn,6
 mededelingen van het cyriel buysse genootschap gent,issn:0772-1455,issn,6
 relicta archeologie monumenten en landschapsonderzoek in vlaanderen,issn:1783-6425,issn,6
+bulletin de la commission royale d histoire handelingen van de koninklijke commissie voor geschiedenis,issn:0001-415X,issn,6
 entreprises et histoire,issn:1161-2770,issn,6
 journal of european economic history,issn:0391-5115,issn,6
 quaerendo a quarterly journal from the low countries devoted to manuscripts and printed books,issn:0014-9527,issn,6
+revue belge de securite sociale,issn:0035-0834,issn,6
 revue de l art,issn:0035-1326,issn,6
 medical history,issn:0025-7273,issn,6
 annales de droit de louvain,issn:0770-6472,issn,6
@@ -1510,7 +1523,6 @@ ann c arch enghien,t:annales-du-cercle-archeologique-d-enghien,abbreviation,5
 bull comm r anc lois et ordonnances de belgique,issn:1378-2282,abbreviation,5
 r belge d archeol et d hist,issn:0035-077X,abbreviation,5
 rev belge d archeol et d hist de l art,issn:0035-077X,abbreviation,5
-tijdschrift voor nederlandse taal en letterkunde,issn:0040-7550,abbreviation,5
 gedenkschriften oudh kring land van dendermonde,t:gedenkschriften-oudheidkundige-kring-van-het-land-van-dender,abbreviation,5
 bull soc vervietoise d archeologie et d histoire,t:bulletin-de-la-societe-vervietoise-d-archeologie-et-d-histoi,abbreviation,5
 annales de la soc arch de namur,t:annales-de-la-societe-archeologique-de-namur,abbreviation,5
@@ -1607,9 +1619,7 @@ vingtieme siecle,issn:0294-1759,issn,4
 histoire economie societe bruxelles,issn:0752-5702,issn,4
 appetite,issn:0195-6663,issn,4
 jaarboek voor ecologische geschiedenis,issn:1375-5692,issn,4
-bulletin de la commission royale d histoire handelingen van de koninklijke commissie voor geschiedenis,issn:0001-415X,issn,4
 xxix,issn:0140-2382,issn,4
-architectura moderna public buildings in early modern europe,issn:2030-2967,issn,4
 revue d histoire de la deuxieme guerre mondiale continue par voortgezet als revue d histoire de la deuxieme guerre mondiale et des conflits contemporains continue par voortgezet als guerres mondiales et conflits contemporains,issn:0984-2292,issn,4
 bulletin du bibliophile,issn:0762-5758,issn,4
 rural economy and society in north western europe 500 2000 making a living family income and labour,issn:2566-0047,issn,4
@@ -1702,7 +1712,6 @@ bulletin du cercle royal art et histoire de gembloux et environs,t:bulletin-du-c
 t bruggeske,t:t-bruggeske-kapellen,abbreviation,4
 in de steigers erfgoednieuws uit west vlaanderen,t:in-de-steigers-erfgoednieuws-uit-west-vlaanderen-brugge,abbreviation,4
 vesting tijdschrift van de simon stevinstichting,t:vesting-tijdschrift-van-de-simon-stevinstichting-antwerpen,abbreviation,4
-demeures historiques et jardins,t:demeures-historiques-et-jardins-bruxelles,abbreviation,4
 antiquite classique,issn:0770-2817,issn,3
 r belge phil hist,issn:0035-0818,issn,3
 revue internationale d onomastique,issn:0048-8151,issn,3
@@ -1809,14 +1818,12 @@ jaarboek van de vereniging van antwerpse bibliofielen,issn:0777-5067,issn,3
 law and history review,issn:0738-2480,issn,3
 tijdschrift voor de geschiedenis van sociale bewegingen,issn:1370-7477,issn,3
 handelingen van de koninklijke commissie voor geschiedenis,issn:0001-415X,issn,3
-medieval history outside a series power and persuasion,issn:2566-0551,issn,3
+architectura moderna public buildings in early modern europe,issn:2030-2967,issn,3
 perspective,issn:1777-7852,issn,3
 notae praehistoricae,issn:0774-3327,issn,3
-studies in the history of gardens designed landscapes,issn:1460-1176,issn,3
 isis,issn:0021-1753,issn,3
 historical research,issn:0950-3471,issn,3
 annales de bretagne et des pays de l ouest,issn:0399-0826,issn,3
-revue belge de securite sociale ministere de la prevoyance sociale,issn:0035-0834,issn,3
 early medieval europe,issn:0963-9462,issn,3
 le moyen francais,issn:0226-0174,issn,3
 gesnerus,issn:0016-9161,issn,3
@@ -1969,8 +1976,10 @@ hand der mij voor gesch en oudheidk te gent,issn:0774-286X,issn,2
 revue d hist du droit,issn:0040-7585,issn,2
 bull monumental paris,issn:0007-473X,issn,2
 population paris,issn:0032-4663,issn,2
+revue d histoire moderne et contemporaine,issn:0048-8003,issn,2
 revue philosophique de louvain,issn:0035-3841,issn,2
 hand mij gesch en oudheidkunde gent nieuwe reeks dl,issn:0774-286X,issn,2
+mediaeval studies,issn:0076-5872,issn,2
 handelingen maatschappij geschiedenis en oudheidkunde gent,issn:0774-286X,issn,2
 the musical quarterly,issn:0027-4631,issn,2
 rev belge de philologie et d hist bruxelles,issn:0035-0818,issn,2
@@ -2143,16 +2152,19 @@ revue d histoire du xixe siecle,issn:1265-1354,issn,2
 handelingen der maatschappij voor geschiedenis en oudheidkunde te gent n r dl xviii,issn:0774-286X,issn,2
 pro memorie hilversum,issn:1566-7146,issn,2
 construction history,issn:0267-7768,issn,2
+medieval history outside a series power and persuasion,issn:2566-0551,issn,2
 screen,issn:0036-9543,issn,2
 histoires de famille la parente au moyen age la parente dechiree les luttes intrafamiliales au moyen age,issn:1782-6136,issn,2
 architectural history,issn:0066-622X,issn,2
-n f association des neerlandistes de belgique francophone,issn:1377-7645,issn,2
+studies in the history of gardens designed landscapes,issn:1460-1176,issn,2
+n f,issn:1377-7645,issn,2
 journal of colonialism and colonial history,issn:1532-5768,issn,2
 history workshop journal,issn:1363-3554,issn,2
 bien dire et bien aprandre,issn:0220-665X,issn,2
 archiv fur reformationsgeschichte archive for reformation history,issn:0003-9381,issn,2
 etudes de lettres,issn:0014-2026,issn,2
 strenae,issn:2109-9081,issn,2
+schweizerische zeitschrift fur geschichte,issn:0036-7834,issn,2
 revue d histoire maritime,issn:1283-873X,issn,2
 journal of historical geography,issn:0305-7488,issn,2
 zeitschrift fur padagogik,issn:0044-3247,issn,2
@@ -2184,6 +2196,7 @@ women s history review,issn:0961-2025,issn,2
 journal of war culture studies,issn:1752-6272,issn,2
 history of photography,issn:0308-7298,issn,2
 etudes litteraires africaines,issn:0769-4563,issn,2
+yearbook,issn:1608-8751,issn,2
 journal of historians of netherlandish art,issn:1949-9833,issn,2
 the translator,issn:1355-6509,issn,2
 administration publique,issn:0775-8812,issn,2
@@ -2201,6 +2214,7 @@ anuario de estudios medievales,issn:0066-5061,issn,2
 cahiers memoire et politique,issn:2295-0311,issn,2
 architectural histories,issn:2050-5833,issn,2
 almagest,issn:1792-2593,issn,2
+citeauxcommentarii cisterciencesstudia et documenta,issn:0009-7497,issn,2
 revista espanola de filosofia medieval,issn:1133-0902,issn,2
 postcolonial studies,issn:1368-8790,issn,2
 journal of migration history,issn:2351-9916,issn,2
@@ -2335,6 +2349,7 @@ humanistica lovaniensia journal of neo latin studies,issn:0774-2908,abbreviation
 archief en bibliotheekwezen in belgie archives et bibliotheques de belgique brussel bruxelles,t:archief-et-bibliotheekwezen-in-belgie-archives-et-bibliotheq,abbreviation,2
 toerisme oost vlaanderen tijdschrift voor recreatie en cultuur,t:toerisme-oost-vlaanderen-tijdschrift-voor-recreatie-en-cultu,abbreviation,2
 notre comte annales du cercle d histoire d archeologie et de folklore du comte de jette et de la region ons graafschap jaarboek van de geschied en heemkundige kring van het graafschap jette en omgeving,t:notre-comte-annales-du-cercle-d-histoire-d-archeologie-et-de,abbreviation,2
+jaarboek van de heemkundige kring norbert de vrijter,t:jaarboek-heemkundige-kring-norbert-de-vrijter,abbreviation,2
 neha jaarboek voor economische bedrijfs en techniekgeschiedenis,issn:1380-5517,abbreviation,2
 publications de la societe d histoire regionale et de tourisme culturel des cantons de beaumont chimay a sivry rance,t:publications-de-la-societe-d-histoire-regionale-et-de-touris,abbreviation,2
 paedagogica historica internationaal tijdschrift voor de geschiedenis van de pedagogiek international journal of the history of education revue internationale d histoire de la pedagogie,issn:0030-9230,abbreviation,2
@@ -2400,11 +2415,9 @@ handelingen commissie gesch brussel,issn:0001-415X,issn,1
 bijdragen tot de studie van het brabantse heem,issn:0013-0117,issn,1
 i john briart of ath 1460 1520 ii john ramridge 1568 sacris erudiri,issn:0771-7776,issn,1
 the journal of the warburg and courtauld institutes,issn:0075-4390,issn,1
-revue d histoire moderne et contemporaine,issn:0048-8003,issn,1
 ac r belg bull cl b a,issn:0378-0716,issn,1
 b i recherches economiques er sociales louvain,issn:1373-9719,issn,1
 edition critique par jean puraye,issn:0021-8529,issn,1
-mediaeval studies,issn:0076-5872,issn,1
 bulle comm royale d histoire,issn:0001-415X,issn,1
 scandinavian economie hist review,issn:0358-5522,issn,1
 historisch zeitschrift band,issn:0018-2613,issn,1
@@ -3185,8 +3198,8 @@ perspectives on science,issn:1063-6145,issn,1
 journal of the american society for information science and technology,issn:1532-2882,issn,1
 cahiers de l association internationale des etudes francaises,issn:0571-5865,issn,1
 bulletin de la classe des arts,issn:2294-4648,issn,1
-xviiith international congress of comparative law on the theme legal culture and legal transplants xviiie congres international de droit compare la culture juridique et l acculturation du droit,issn:2039-1323,issn,1
-schweizerische zeitschrift fur geschichte print rivista storica svizzera,issn:0036-7834,issn,1
+isaidat law review revue juridique de l isaidat rivista giuridica dell isaidat,issn:2039-1323,issn,1
+zeitschrift der savigny stiftung fur rechtsgeschichte,issn:0323-4045,issn,1
 bulletin d histoire et d epistemologie des sciences de la vie,issn:1279-7243,issn,1
 medieval texts and cultures of northern europe urban theatre in the low countries,issn:1784-2859,issn,1
 saeculum,issn:0080-5319,issn,1
@@ -3198,8 +3211,8 @@ zeitschrift fur antikes christentum,issn:0949-9571,issn,1
 studies in history and philosophy of science part c studies in history and philosophy of biological and biomedical sciences,issn:1369-8486,issn,1
 studies in spirituality,issn:0926-6453,issn,1
 historical studies in education revue d histoire de l education,issn:0843-5057,issn,1
-revista brasileira de historia impresso,issn:0102-0188,issn,1
-cadernos de historia da educacao impresso,issn:1807-3859,issn,1
+revista brasileira de historia da educacao,issn:0102-0188,issn,1
+cadernos de historia da educacao,issn:1807-3859,issn,1
 radical history review,issn:0163-6545,issn,1
 revista de dialectologia y tradiciones populares,issn:0034-7981,issn,1
 environment space place,issn:2066-5377,issn,1
@@ -3250,6 +3263,7 @@ journal of pragmatics,issn:0378-2166,issn,1
 language matters,issn:1022-8195,issn,1
 passato e presente,issn:1120-0650,issn,1
 history of the human sciences,issn:0952-6951,issn,1
+transition,issn:0041-1191,issn,1
 journal of graphic novels and crimes,issn:2150-4857,issn,1
 filozofija i dru tvo,issn:0353-5738,issn,1
 canadian journal of history,issn:0008-4107,issn,1
@@ -3433,6 +3447,7 @@ bul soc belge d etudes geogr tijdschr belg ver aard studies,issn:1377-2368,abbre
 bull cl lettres sc morales et politiques acad royale de belgique,issn:0001-4133,abbreviation,1
 marche roman,t:marche-romane,abbreviation,1
 les chercheurs de wallonie,t:les-chercheurs-de-la-wallonie,abbreviation,1
+ann soc archeol bruxelles,t:annales-de-la-societe-d-archeologie-de-bruxelles,abbreviation,1
 hand kon kr oudheidk l en kunst mechelen,t:handelingen-van-de-koninklijke-kring-voor-oudheidkunde-lette,abbreviation,1
 archives bibliotheque et musees de belgique,t:archives-bibliotheques-et-musees-de-belgique,abbreviation,1
 tijdschr ned taal en letterkunde,issn:0040-7550,abbreviation,1
@@ -3852,4 +3867,6 @@ bulletin de l institut royal du patrimoine artistique bulletin van het koninklij
 church history religious culture,issn:1871-241X,abbreviation,1
 academie royale de belgique bulletin de la classe des beaux arts ser,issn:0378-0716,abbreviation,1
 bulletin de la societe d histoire et d archeologie du plateau de herve,t:bulletin-de-la-societe-d-histoire-et-d-archeologie-du-platea,abbreviation,1
+studies in the history of gardens and designed landscapes,issn:1460-1176,abbreviation,1
 history of education children s literature,issn:1971-1093,abbreviation,1
+tijdschrift voor filosofie,issn:0006-2278,abbreviation,1

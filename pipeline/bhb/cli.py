@@ -43,8 +43,10 @@ def main(argv: list[str] | None = None) -> None:
     vsmart.add_argument("--out", type=Path)
 
     merge = sub.add_parser("merge", help="combine the three JSON Lines files")
+    merge.add_argument("--with-manuscripts", action="store_true", help="also merge build/manuscript.jsonl (the editor's unpublished Word manuscripts)")
     merge.add_argument("--out", type=Path)
-    sub.add_parser("build", help="ingest every source, merge, and categorise")
+    build_parser = sub.add_parser("build", help="ingest every source, merge, and categorise")
+    build_parser.add_argument("--with-manuscripts", action="store_true", help="also ingest and merge the editor's unpublished Word manuscripts (2018–2023)")
 
     categorise = sub.add_parser("categorise", help="assign period and theme")
     categorise_sub = categorise.add_subparsers(dest="categorise_command", required=True)
@@ -109,7 +111,7 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--size", type=int, default=1000)
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
-    match.add_argument("--source", default="vsmart", help="vsmart, print-straive or print-pdf")
+    match.add_argument("--source", default="vsmart", help="vsmart, print-straive, print-pdf or manuscript")
     match.add_argument("--offline", action="store_true", help="use only the answers already in the cache")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
     identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
@@ -117,6 +119,7 @@ def main(argv: list[str] | None = None) -> None:
     openlib.add_argument("--limit", type=int, default=None, help="only N books, spread over the years, for a trial")
     openlib.add_argument("--hosts", action="store_true", help="the collected volumes of chapters instead: build/identifiers/openlibrary-hosts.csv")
     identifiers_sub.add_parser("kbr-harvest", help="harvest KBR's Belgian Bibliography (OAI-PMH) by date windows into build/external/kbr; resumable")
+    identifiers_sub.add_parser("opac-apply", help="name the hosts missing from the V-Smart export in build/records.jsonl from build/external/opac (a merge does it too)")
     opac = identifiers_sub.add_parser("opac-hosts", help="fetch the host records missing from the V-Smart export from the State Archives' public catalogue into build/external/opac; slow, resumable")
     opac.add_argument("--interval", type=float, default=None, help="seconds between requests (default 5)")
     opac.add_argument("--limit", type=int, default=None, help="only the first N, for a trial")
@@ -192,7 +195,7 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     if args.command == "build":
-        build()
+        build(with_manuscripts=args.with_manuscripts)
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
@@ -267,6 +270,15 @@ def main(argv: list[str] | None = None) -> None:
 
         fetched = harvest(build_dir() / "external" / "kbr", fetcher(USER_AGENT))
         print(f"kbr: {fetched} pages fetched now → {build_dir() / 'external' / 'kbr'}")
+        return
+    if args.command == "identifiers" and args.identifiers_command == "opac-apply":
+        from bhb.merge import apply_catalogue_hosts
+
+        path = build_dir() / "records.jsonl"
+        records = read_jsonl(path)
+        counts = apply_catalogue_hosts(records, _catalogue_hosts())
+        write_jsonl(path, records)
+        print(f"opac: {counts} → {path}")
         return
     if args.command == "identifiers" and args.identifiers_command == "opac-hosts":
         from bhb.identifiers import USER_AGENT
@@ -409,13 +421,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"pdfvol: {count} records")
         return
     if args.command == "ingest" and args.source == "manuscript":
-        from bhb.ingest.manuscript import load_manuscript, manuscript_paths
-
-        records: list[Record] = []
-        for path in manuscript_paths(raw_root() / "manuscripts"):
-            year_records, report = load_manuscript(path)
-            print(f"  {path.name}: {json.dumps(report, ensure_ascii=False)}")
-            records.extend(year_records)
+        records = ingest_manuscripts()
         count = write_jsonl(args.out or build_dir() / "manuscript.jsonl", records)
         print(f"manuscript: {count} records")
         return
@@ -426,7 +432,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"vsmart: {count} records, {len(labels)} classification codes")
         return
     if args.command == "merge":
-        merged, labels = _merge_from_disk()
+        merged, labels = _merge_from_disk(with_manuscripts=args.with_manuscripts)
         _emit(merged, labels, args.out)
         return
     if args.command == "gold" and args.gold_command == "sample":
@@ -438,7 +444,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.error(f"unknown command {args.command}")
 
 
-def build() -> list[Record]:
+def build(with_manuscripts: bool = False) -> list[Record]:
     straive = ingest_straive()
     write_jsonl(build_dir() / "straive.jsonl", straive)
     pdf = ingest_pdf(convert=True)
@@ -446,7 +452,11 @@ def build() -> list[Record]:
     vsmart, labels = ingest_vsmart_records()
     write_jsonl(build_dir() / "vsmart.jsonl", vsmart)
     _write_labels(labels)
-    merged, labels = merge_records(straive, pdf, vsmart, labels)
+    manuscript = ingest_manuscripts() if with_manuscripts else None
+    if manuscript is not None:
+        write_jsonl(build_dir() / "manuscript.jsonl", manuscript)
+    merged, labels = merge_records(straive, pdf, vsmart, labels, manuscript=manuscript,
+                                   catalogue_hosts=_catalogue_hosts())
     from bhb.ids import carry_former_ids, migrate_ids, previous_ids
 
     renumbered = carry_former_ids(merged, previous_ids(build_dir() / "records.jsonl"))
@@ -504,7 +514,27 @@ def ingest_vsmart_records() -> tuple[list[Record], dict]:
     return load_vsmart(directory)
 
 
-def _merge_from_disk() -> tuple[list[Record], dict]:
+def ingest_manuscripts() -> list[Record]:
+    from bhb.ingest.manuscript import load_manuscript, manuscript_paths
+
+    records: list[Record] = []
+    for path in manuscript_paths(raw_root() / "manuscripts"):
+        year_records, report = load_manuscript(path)
+        print(f"  {path.name}: {json.dumps(report, ensure_ascii=False)}")
+        records.extend(year_records)
+    return records
+
+
+def _catalogue_hosts() -> dict[int, dict]:
+    """The host records fetched from the public catalogue (``bhb identifiers opac-hosts``), by record number."""
+    path = build_dir() / "external" / "opac" / "hosts.jsonl"
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as lines:
+        return {row["number"]: row for row in map(json.loads, lines) if row.get("number")}
+
+
+def _merge_from_disk(with_manuscripts: bool = False) -> tuple[list[Record], dict]:
     folder = build_dir()
     labels: dict = {}
     label_path = folder / "bhb_codes.json"
@@ -515,6 +545,8 @@ def _merge_from_disk() -> tuple[list[Record], dict]:
         read_jsonl(folder / "pdfvol.jsonl"),
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
+        manuscript=read_jsonl(folder / "manuscript.jsonl") if with_manuscripts else None,
+        catalogue_hosts=_catalogue_hosts(),
     )
 
 

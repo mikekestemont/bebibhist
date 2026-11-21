@@ -56,11 +56,19 @@ Born-digital yearly PDF (no outline). Writes `build/print-pdf/BGB_2008.xml` in t
 like: the editor's manuscripts in the old print layout, never printed) into `build/manuscript.jsonl`, and prints a
 report per file. The notice before the first heading and the tables of contents after the last entry are skipped.
 The rule parser reads each entry; the italic title, the italic book of a chapter and the bold authors then correct
-it, with the flags `title-from-italics`, `host-from-italics`, `imprint-from-format` and `persons-from-bold`. Ids are
-`bhb:<year>-m<n>`, the entry's place in the manuscript; `provenance.xml_id` is a hash of its text, so a revised file of
-the same name keeps the ids of unchanged entries through `bhb.ids`. The records are not merged into the build yet.
+it, with the flags `title-from-italics`, `host-from-italics`, `imprint-from-format` and `persons-from-bold`. Each
+heading is matched by its label to a code of the BHB scheme (`HeadingCodes`, preferring a code under the open
+heading above it), and its entries carry that code in `bhb_codes`, with the category source `heading-label`. Ids are
+`bhb:<year>-m<10 hex digits>`, a hash of the entry's text, so an entry added to a revised manuscript moves no other id.
+`bhb build --with-manuscripts` (or `bhb merge --with-manuscripts` after `bhb ingest manuscript`) merges them; without
+the flag a build leaves them out, as it does by default, since the manuscripts are unpublished. Once merged they go
+through the later steps like the other sources (`bhb identifiers match --source manuscript`; duplicates, VABB,
+language, places, similar publications and the map take every record); the OCR corrections do not concern them.
+
 Hosts missing from the V-Smart export: `bhb identifiers opac-hosts` fetches them from the State Archives' public
-catalogue (`bhb.opac_harvest`), one request per 5 s, cached in `build/external/opac/`.
+catalogue (`bhb.opac_harvest`), one request per 5 s, cached in `build/external/opac/`. `bhb merge` then names the
+journal or book of each entry pointing at one (`host-from-catalogue`; an article in a book becomes a chapter) instead of
+"[host record not exported]".
 
 ### `bhb.ingest.persee_pdf` — print volumes from Persée PDFs
 

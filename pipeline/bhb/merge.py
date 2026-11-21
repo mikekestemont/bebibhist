@@ -27,9 +27,15 @@ def merge_records(
     vsmart: list[Record],
     code_labels: dict[str, dict[str, str | None]] | None = None,
     corrections: list[dict[str, str]] | None = None,
+    manuscript: list[Record] | None = None,
+    catalogue_hosts: dict[int, dict] | None = None,
 ) -> tuple[list[Record], dict[str, dict[str, str | None]]]:
-    """Combine the sources. Hand corrections (``data/curated/corrections.csv``, or ``corrections``) come first."""
-    records = [*straive, *pdf, *vsmart]
+    """Combine the sources. Hand corrections (``data/curated/corrections.csv``, or ``corrections``) come first.
+
+    ``manuscript`` holds the editor's Word manuscripts (``bhb.ingest.manuscript``), merged only when asked.
+    ``catalogue_hosts`` are host records missing from the export, fetched from the public catalogue by number
+    (``bhb.opac_harvest.parse``): they name the journal or the book the entries point to."""
+    records = [*straive, *pdf, *vsmart, *(manuscript or [])]
     apply_corrections(records, corrections)
     by_id = {record.id: record for record in records}
     link_cited_hosts(records, by_id)
@@ -41,6 +47,9 @@ def merge_records(
         referenced.add(host.id)
         target = by_id.get(host.id)
         if target is None:
+            fetched = (catalogue_hosts or {}).get(_vs_number(host.id))
+            if fetched is not None and fill_from_catalogue(record, fetched):
+                continue
             if not host.title:
                 host.title = HOST_MISSING
             record.provenance.flags.append("host-unresolved")
@@ -72,6 +81,74 @@ def merge_records(
             record.printed = render_printed(record)
     labels = code_labels or {}
     return records, labels
+
+
+def _vs_number(host_id: str) -> int | None:
+    return int(host_id.removeprefix("bhb:vs-")) if host_id.startswith("bhb:vs-") and host_id[7:].isdigit() else None
+
+
+def fill_from_catalogue(record: Record, fetched: dict) -> bool:
+    """Name an entry's journal or book from its host record in the public catalogue; False when it has no title.
+
+    The catalogue gives display text: the first line of the title is "Title : Subtitle", the lines after it the
+    statement of responsibility, and the imprint "Place : Publisher, dates". A book's place and publisher go to the
+    host, and an article in a book becomes a chapter."""
+    host = record.host
+    if host is None:
+        return False
+    first = (fetched.get("MainTitle") or "").split("\n", 1)[0].strip()
+    if not first:
+        return False
+    title, _, subtitle = first.partition(" : ")
+    if not host.title or host.title == HOST_MISSING:
+        host.title = title.strip() or first
+        host.subtitle = host.subtitle or (subtitle.strip() or None)
+    book = fetched.get("bibtype") == "am"
+    if book and host.publisher is None and record.publisher is None:
+        place, _, rest = (fetched.get("Imprint") or "").partition(" : ")
+        name = rest.split(",", 1)[0].strip() if rest else ""
+        if place.strip() or name:
+            host.publisher = Publisher(place.strip() or None, name or None)
+    if book and record.type == "article":
+        record.type = "chapter"
+        record.provenance.flags.append("type-from-catalogue")
+    record.provenance.flags.append("host-from-catalogue")
+    return True
+
+
+def apply_catalogue_hosts(records: list[Record], catalogue_hosts: dict[int, dict]) -> dict[str, int]:
+    """Name the missing hosts in an existing build, as ``bhb merge`` does in a new one. The catalogue's name wins over
+    one found through a Crossref or VABB match (``host-title-matched``); the citation line of a catalogue record,
+    rendered from its fields, is rendered again."""
+    counts = {"filled": 0, "replaced a matched name": 0, "now chapters": 0}
+    for record in records:
+        if "host-unresolved" not in record.provenance.flags or record.host is None or not record.host.id:
+            continue
+        fetched = catalogue_hosts.get(_vs_number(record.host.id))
+        if fetched is None:
+            continue
+        matched = "host-title-matched" in record.provenance.flags
+        before, kind = record.host.title, record.type
+        if matched and record.doi:
+            # A name that came with the article's DOI is Crossref's journal or series; the catalogue names the volume
+            # or themed issue ("Textyles" against "Écriture et art contemporain"). The journal stays, as
+            # ``bhb.identifiers._journal_over_catalogue`` decides in a new build.
+            record.provenance.flags.append("host-catalogue-differs")
+            counts["kept the journal of the doi"] = counts.get("kept the journal of the doi", 0) + 1
+            continue
+        if matched or before == HOST_MISSING:
+            record.host.title = None
+        if not fill_from_catalogue(record, fetched):
+            record.host.title = before
+            continue
+        record.provenance.flags = [flag for flag in record.provenance.flags
+                                   if flag not in ("host-unresolved", "host-title-matched")]
+        counts["filled"] += 1
+        counts["replaced a matched name"] += matched
+        counts["now chapters"] += kind != "chapter" and record.type == "chapter"
+        if record.source == "vsmart":
+            record.printed = render_printed(record)
+    return counts
 
 
 def link_cited_hosts(records: list[Record], by_id: dict[str, Record] | None = None) -> int:
@@ -255,14 +332,14 @@ def write_report(path: Path, records: list[Record]) -> None:
         f"**{sum(1 for r in records if r.role == 'entry' and not r.is_cross_listing)}**.",
         f"Label repairs: **{repairs}**. Unresolved host links: **{unresolved_hosts}**.",
         "",
-        "| BGB year | print-straive | print-pdf | vsmart | of which cross-listings | of which hosts |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| BGB year | print-straive | print-pdf | vsmart | manuscript | of which cross-listings | of which hosts |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for year in sorted(by_year, key=lambda value: (value is None, value or 0)):
         counts = by_year[year]
         label = "journals" if year is None else str(year)
         lines.append(
-            f"| {label} | {counts['print-straive']} | {counts['print-pdf']} | {counts['vsmart']} "
+            f"| {label} | {counts['print-straive']} | {counts['print-pdf']} | {counts['vsmart']} | {counts['manuscript']} "
             f"| {counts['cross-listing']} | {counts['host']} |"
         )
     lines.extend(["", "## Flags", ""])

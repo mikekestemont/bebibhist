@@ -219,3 +219,58 @@ def test_a_linked_volume_lends_its_year_even_with_a_year_in_the_chapters_title()
                              "(± 1000–1620). Pascua Mediaevalia, pp. 300–350 (cf. n° 38985).")
     assert borrow_host_years([volume, chapter]) == 1
     assert chapter.year == 1983 and "year-from-host" in chapter.provenance.flags
+
+
+def test_a_host_missing_from_the_export_is_named_from_the_catalogue():
+    article = Record(id="bhb:vs-1202178", source="vsmart", bgb_year=2012, type="article", title="Auteursherkenning",
+                     host=Host(id="bhb:vs-1193686", volume="128", pages="135-159"), bhb_codes=["III.B.1.d."])
+    chapter = Record(id="bhb:vs-1", source="vsmart", bgb_year=2010, type="article", title="Een hoofdstuk",
+                     host=Host(id="bhb:vs-1157859", pages="1-10"), bhb_codes=["III.D."])
+    stray = Record(id="bhb:vs-2", source="vsmart", bgb_year=2010, type="article", title="Elders",
+                   host=Host(id="bhb:vs-999"), bhb_codes=["III.D."])
+    fetched = {
+        1193686: {"number": 1193686, "MainTitle": "Tijdschrift voor Nederlandse Taal- en Letterkunde", "bibtype": "as"},
+        1157859: {"number": 1157859, "MainTitle": "A Companion to World War I\nJohn Horne", "bibtype": "am",
+                  "Imprint": "West Sussex : Wiley-Blackwell, 2010"},
+    }
+    merged, _ = merge_records([], [], [article, chapter, stray], catalogue_hosts=fetched)
+    by_id = {record.id: record for record in merged}
+    found = by_id["bhb:vs-1202178"]
+    assert found.host.title == "Tijdschrift voor Nederlandse Taal- en Letterkunde" and found.type == "article"
+    assert "host-from-catalogue" in found.provenance.flags and "host-unresolved" not in found.provenance.flags
+    book = by_id["bhb:vs-1"]
+    assert book.type == "chapter" and book.host.title == "A Companion to World War I"
+    assert (book.host.publisher.place, book.host.publisher.name) == ("West Sussex", "Wiley-Blackwell")
+    assert "host-unresolved" in by_id["bhb:vs-2"].provenance.flags
+
+
+def test_manuscripts_are_merged_only_when_given():
+    entry = Record(id="bhb:2020-m0123456789", source="manuscript", bgb_year=2020, type="book", title="Een boek",
+                   section_path=["III. Histoire par époques – Geschiedenis"], bhb_codes=["III."])
+    merged, _ = merge_records([], [], [])
+    assert merged == []
+    merged, _ = merge_records([], [], [], manuscript=[entry])
+    assert [record.id for record in merged] == ["bhb:2020-m0123456789"]
+
+
+def test_catalogue_hosts_fill_an_existing_build_and_win_over_a_matched_name():
+    from bhb.merge import HOST_MISSING, apply_catalogue_hosts
+    from bhb.model import Provenance
+
+    missing = Record(id="bhb:vs-1", source="vsmart", bgb_year=2012, type="article", title="Een artikel",
+                     host=Host(id="bhb:vs-1193686", title=HOST_MISSING, volume="128"),
+                     provenance=Provenance(flags=["host-unresolved"]))
+    matched = Record(id="bhb:vs-2", source="vsmart", bgb_year=2012, type="article", title="Een ander",
+                     host=Host(id="bhb:vs-1193686", title="Tijdschr. Ned. Taal- en Letterk."),
+                     provenance=Provenance(flags=["host-unresolved", "host-title-matched"]))
+    fetched = {1193686: {"number": 1193686, "MainTitle": "Tijdschrift voor Nederlandse Taal- en Letterkunde", "bibtype": "as"}}
+    with_doi = Record(id="bhb:vs-3", source="vsmart", bgb_year=2012, type="article", title="Met DOI", doi="10.1/x",
+                      host=Host(id="bhb:vs-1193686", title="Textyles"),
+                      provenance=Provenance(flags=["host-unresolved", "host-title-matched"]))
+    counts = apply_catalogue_hosts([missing, matched, with_doi], fetched)
+    assert counts["filled"] == 2 and counts["replaced a matched name"] == 1
+    assert with_doi.host.title == "Textyles" and "host-catalogue-differs" in with_doi.provenance.flags
+    for record in (missing, matched):
+        assert record.host.title == "Tijdschrift voor Nederlandse Taal- en Letterkunde"
+        assert "host-unresolved" not in record.provenance.flags and "host-title-matched" not in record.provenance.flags
+        assert "Tijdschrift voor Nederlandse Taal- en Letterkunde" in record.printed

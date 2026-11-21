@@ -1,8 +1,10 @@
 """The editor's Word manuscripts: a small .docx in the layout of BGBBHB2020def.docx."""
 
+import re
 import zipfile
 
-from bhb.ingest.manuscript import bold_names, load_manuscript, manuscript_paths, year_of
+from bhb.ingest.manuscript import HeadingCodes, Paragraph, bold_names, is_heading, load_manuscript, manuscript_paths, year_of
+from bhb.scheme import SchemeEntry
 
 W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
@@ -45,6 +47,22 @@ PARAGRAPHS = [
 ]
 
 
+def entry_of(code, parent, fr, nl=""):
+    return SchemeEntry(code=code, parent=parent, label_fr=fr, label_nl=nl, label_en="", source="vsmart", note="")
+
+
+# A scheme labels each code with its whole path, as data/curated/scheme.csv does.
+SCHEME = {
+    "I.": entry_of("I.", None, "Bibliographies et sciences auxiliaires", "Bibliografieën en hulpwetenschappen"),
+    "I.A.": entry_of("I.A.", "I.", "Bibliographies et sciences auxiliaires / Bibliographies courantes"),
+    "I.A.2.": entry_of("I.A.2.", "I.A.", "Bibliographies et sciences auxiliaires / Bibliographies courantes / Méthodologie"),
+}
+
+
+def load(path):
+    return load_manuscript(path, scheme=SCHEME)
+
+
 def write_docx(path, paragraphs=PARAGRAPHS):
     document = f'<?xml version="1.0"?><w:document {W}><w:body>{"".join(paragraphs)}</w:body></w:document>'
     with zipfile.ZipFile(path, "w") as archive:
@@ -53,9 +71,10 @@ def write_docx(path, paragraphs=PARAGRAPHS):
 
 
 def test_reads_entries_between_the_notice_and_the_contents(tmp_path):
-    records, report = load_manuscript(write_docx(tmp_path / "BGBBHB2020def.docx"))
+    records, report = load(write_docx(tmp_path / "BGBBHB2020def.docx"))
     assert report["entries"] == 5 and report["headings"] == 3
-    assert [r.id for r in records] == [f"bhb:2020-m{n}" for n in range(1, 6)]
+    assert all(re.fullmatch(r"bhb:2020-m[0-9a-f]{10}(-2)?", r.id) for r in records)
+    assert records[4].id == records[0].id + "-2"  # the same text twice
     first = records[0]
     assert first.source == "manuscript" and first.bgb_year == 2020
     assert "unpublished-manuscript" in first.provenance.flags
@@ -63,10 +82,11 @@ def test_reads_entries_between_the_notice_and_the_contents(tmp_path):
     assert first.section_path == ["I. Bibliographies et sciences auxiliaires – Bibliografieën en hulpwetenschappen",
                                   "A. Bibliographies courantes – Lopende bibliografieën"]
     assert records[2].section_path[-1] == "2. Méthodologie – Methodologie"
+    assert [r.bhb_codes for r in records[:3]] == [["I.A."], ["I.A."], ["I.A.2."]]
 
 
 def test_italics_set_the_title_and_keep_the_journal_whole(tmp_path):
-    records, _ = load_manuscript(write_docx(tmp_path / "BGBBHB2020def.docx"))
+    records, _ = load(write_docx(tmp_path / "BGBBHB2020def.docx"))
     article = records[0]
     assert article.type == "article"
     assert article.title == "Eigendommen van baron de Warlusel in Dormaal"
@@ -80,7 +100,7 @@ def test_italics_set_the_title_and_keep_the_journal_whole(tmp_path):
 
 
 def test_books_and_chapters(tmp_path):
-    records, _ = load_manuscript(write_docx(tmp_path / "BGBBHB2020def.docx"))
+    records, _ = load(write_docx(tmp_path / "BGBBHB2020def.docx"))
     book = records[2]
     assert book.type == "book" and book.title == "Daniel van Vlierden en zijn Album amicorum"
     assert book.publisher.place == "Venray" and book.extent == "679 p."
@@ -92,7 +112,7 @@ def test_books_and_chapters(tmp_path):
 
 
 def test_the_same_text_twice_gets_two_keys(tmp_path):
-    records, _ = load_manuscript(write_docx(tmp_path / "BGBBHB2020def.docx"))
+    records, _ = load(write_docx(tmp_path / "BGBBHB2020def.docx"))
     first, again = records[0].provenance.xml_id, records[4].provenance.xml_id
     assert again == f"{first}-2"
 
@@ -110,3 +130,40 @@ def test_bold_names():
     assert [p["role"] for p in bold_names("De Groof (Matthias) (ed.), Stroo (Cyriel) (red.). ")] == ["editor", "editor"]
     assert [p["family"] for p in bold_names("Snoek (Govert) (medewerker), Hérard (Gaëlle) (collab.). ")] == ["Snoek", "Hérard"]
     assert bold_names("Redactie. ") == []
+
+
+def test_ids_do_not_move_when_an_entry_is_added(tmp_path):
+    (tmp_path / "before").mkdir()
+    (tmp_path / "after").mkdir()
+    before, _ = load(write_docx(tmp_path / "before" / "BGBBHB2020def.docx"))
+    added = entry("Nieuw (Iemand). ", "Een toegevoegde titel. ", "Brussel, ARA, 2020, 10 p.")
+    after, _ = load(write_docx(tmp_path / "after" / "BGBBHB2020def.docx", [*PARAGRAPHS[:5], added, *PARAGRAPHS[5:]]))
+    assert {r.id for r in before} <= {r.id for r in after} and len(after) == len(before) + 1
+
+
+def test_a_heading_with_a_dash_set_otherwise_is_still_a_heading():
+    heading = Paragraph("a. Généralités – Algemeenheden", [("a. Généralités ", True, False), ("–", False, True),
+                                                            (" Algemeenheden", True, False)])
+    assert is_heading(heading)
+
+
+def test_heading_codes_follow_the_open_parent():
+    scheme = {
+        "III.": entry_of("III.", None, "Histoire par époques"),
+        "III.B.": entry_of("III.B.", "III.", "Histoire par époques / Epoque des principautés"),
+        "III.B.1.": entry_of("III.B.1.", "III.B.", "Histoire par époques / Epoque des principautés / Brabant"),
+        "III.B.1.c.": entry_of("III.B.1.c.", "III.B.1.", "Histoire par époques / Epoque des principautés / Brabant / La vie religieuse"),
+        "III.B.2.": entry_of("III.B.2.", "III.B.", "Histoire par époques / Epoque des principautés / Flandre"),
+        "III.B.2.c.": entry_of("III.B.2.c.", "III.B.2.", "Histoire par époques / Epoque des principautés / Flandre / La vie religieuse"),
+        "III.D.": entry_of("III.D.", "III.", "Histoire par époques / Époque contemporaine"),
+        "III.D.3.": entry_of("III.D.3.", "III.D.", "Histoire par époques / Époque contemporaine / 1940-1945"),
+    }
+    codes = HeadingCodes(scheme)
+    assert codes("III. Histoire par époques – Geschiedenis") == "III."
+    assert codes("B. Epoque des principautés – Tijd der vorstendommen") == "III.B."
+    assert codes("2. Flandre – Vlaanderen") == "III.B.2."
+    # "La vie religieuse" is under Brabant and under Flanders: the open parent decides.
+    assert codes("c. La vie religieuse – Het godsdienstig leven") == "III.B.2.c."
+    assert codes("D. Époque contemporaine – Hedendaagse tijd") == "III.D."
+    assert codes("3. 1940 – 1945") == "III.D.3."  # a dash between years does not split French from Dutch
+    assert codes("9. Rien de tel – Niets daarvan") is None

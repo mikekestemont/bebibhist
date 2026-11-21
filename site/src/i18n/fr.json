@@ -205,7 +205,8 @@
   "sources": {
     "print-straive": "Volumes imprimés",
     "print-pdf": "Volumes imprimés (PDF)",
-    "vsmart": "Catalogue des Archives de l’État"
+    "vsmart": "Catalogue des Archives de l’État",
+    "manuscript": "Manuscrit en préparation"
   },
   "subjects": "Domaines",
   "periodsLabel": "Périodes",

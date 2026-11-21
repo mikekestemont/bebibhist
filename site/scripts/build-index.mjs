@@ -33,9 +33,9 @@ const knownPath = new URL("../public/known", import.meta.url).pathname;
 const words = new Map();
 
 // The sources of an entry's further codes of the classification: the State Archives' catalogue, a heading naming two
-// codes, a printed "voir aussi". A heading model's or classifier's runner-up guess is left out: it is an alternative,
-// not a second subject.
-const SECOND_SOURCES = new Set(["vsmart", "heading-rule", "see-also"]);
+// codes, a manuscript heading's code, a printed "voir aussi". A heading model's or classifier's runner-up guess is
+// left out: it is an alternative, not a second subject.
+const SECOND_SOURCES = new Set(["vsmart", "heading-rule", "heading-label", "see-also"]);
 
 /**
  * Wordings that only name one of the broad subject areas (or say "general"): the subject tags already say this, so

@@ -360,13 +360,31 @@ def run(records, cache: Path, progress=None, offline: bool = False) -> list[Matc
 # --- writing the matches into the records ---------------------------------------------------------------------------
 
 # The pilot and the print sample were answer keys; the full runs cover the same entries under the current rules.
-MATCH_FILES = ("vsmart.csv", "print-straive.csv", "print-pdf.csv")
+MATCH_FILES = ("vsmart.csv", "print-straive.csv", "print-pdf.csv", "manuscript.csv")
 MISSING_HOST = "[host record not exported"
 
 
 def _normal_issn(value: str) -> str | None:
     digits = re.sub(r"[^0-9Xx]", "", value or "").upper()
     return f"{digits[:4]}-{digits[4:]}" if len(digits) == 8 else None
+
+
+def _journal_over_catalogue(record, item: dict) -> bool:
+    """An article whose missing host the catalogue named as a book, while its DOI's record puts it in a journal or
+    series of another name: the catalogue names the volume or themed issue ("Écriture et art contemporain"), Crossref
+    the journal ("Textyles"). The journal is kept, and an entry the catalogue made a chapter is an article again."""
+    container = " ".join(item.get("container-title") or [])
+    if "host-from-catalogue" not in record.provenance.flags or not container or record.host is None:
+        return False
+    if fuzz.token_set_ratio(fold(container), fold(record.host.title or "")) >= 70:
+        return False
+    record.host.title = re.sub(r"\s+\d+$", "", container.replace("&amp;", "&"))
+    record.host.subtitle = None
+    if "type-from-catalogue" in record.provenance.flags:
+        record.type = "article"
+        record.provenance.flags.remove("type-from-catalogue")
+    record.provenance.flags.append("host-catalogue-differs")
+    return True
 
 
 def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
@@ -412,6 +430,8 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             add(record, "isbn", item.get("ISBN") or [], "crossref")
             if record.host and (record.host.title or "").startswith(MISSING_HOST) and item.get("container-title"):
                 host_names[record.host.id or record.id][" ".join(item["container-title"])] += 1
+            if _journal_over_catalogue(record, item):
+                counts["journal of the doi over the catalogue's volume"] += 1
             counts["doi from crossref"] += 1
     vabb = folder / "vabb.csv"
     if vabb.exists():
