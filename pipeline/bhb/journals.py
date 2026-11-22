@@ -182,28 +182,50 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
         best, n = journals.most_common(1)[0]
         if n >= 2 * sum(journals.values()) / 3:
             mapping[spelling] = (f"issn:{best}", "issn")
-    # 2. Frequent spellings written out in full.
+    # 2. Frequent spellings written out in full. Spellings that differ only in small words ("Bulletin du Comité
+    # flamand de France" and "Bulletin Comité flamand de France"; "Archief- en/et bibliotheekwezen") are one title:
+    # their articles count together, and they get one journal, named by the most frequent of them. Counted apart, a
+    # second form of a title would become a journal of its own and leave its abbreviations fitting two journals.
+    forms_of: dict[tuple[str, ...], list[str]] = defaultdict(list)
     for spelling, n in count.items():
-        if spelling in mapping or spelling in GENERIC or n < FULL_TITLE_MIN:
+        if spelling in mapping or spelling in GENERIC:
             continue
         # Written out when abbreviated forms are fewer than one in ten: an OCR slip ("La. Vie wallonne", once among
         # 482) does not make a journal's name an abbreviation.
         abbreviated = sum(k for form, k in shown[spelling].items() if re.search(r"\b\w{1,6}\.", form))
-        if abbreviated * 10 < n:
-            mapping[spelling] = (_slug(spelling), "full")
+        words = tuple(_content(spelling.split()))
+        if words and abbreviated * 10 < n:
+            forms_of[words].append(spelling)
+    for spellings in forms_of.values():
+        if sum(count[spelling] for spelling in spellings) < FULL_TITLE_MIN:
+            continue
+        lead = max(spellings, key=lambda spelling: (count[spelling], spelling))
+        for spelling in spellings:
+            mapping[spelling] = (_slug(lead), "full")
     # 4. A full title that is another plus a place, subtitle or volume joins it.
     full = sorted((s for s, (_, rule) in mapping.items() if rule == "full"), key=len)
     for longer in full:
         for shorter in full:
             if shorter != longer and len(shorter) >= 5 and longer.startswith(shorter + " ") and len(longer.split()) - len(shorter.split()) <= 4:
-                mapping[longer] = (mapping[shorter][0], "variant")
+                # The other forms of the longer title go with it ("Intermédiaire des généalogistes" with "L'…").
+                moved, target = mapping[longer][0], mapping[shorter][0]
+                if moved != target:
+                    for spelling, (journal, _rule) in list(mapping.items()):
+                        if journal == moved:
+                            mapping[spelling] = (target, "variant")
                 break
     # 3. Abbreviations that fit exactly one journal.
     targets = dict(mapping)
     for spelling in count:
         if spelling in mapping or spelling in GENERIC:
             continue
-        journals = {targets[target][0] for target in targets if is_abbreviation(spelling, target)}
+        fits = [target for target in targets if is_abbreviation(spelling, target)]
+        journals = {targets[target][0] for target in fits}
+        if len(journals) > 1:
+            # Fitting several, it goes to the one title it covers word for word, if there is one: "Bull. de la Comm.
+            # r. des monuments et des sites" is not "… des monuments, sites et fouilles".
+            words = len(_content(spelling.split()))
+            journals = {targets[target][0] for target in fits if len(_content(target.split())) == words} or journals
         if len(journals) == 1:
             mapping[spelling] = (journals.pop(), "abbreviation")
     # 5. A journal renamed under one ISSN: the spellings of its articles from before the new name go to the

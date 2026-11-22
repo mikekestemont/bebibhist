@@ -129,3 +129,39 @@ def test_a_journal_keeps_its_id_when_another_spelling_becomes_its_name():
     assert keep_ids(journals, mapping, count, previous) == 1
     assert mapping["l intermediaire"][0] == "t:l-intermediaire-des-genealogistes"
     assert [journal["id"] for journal in journals] == ["t:l-intermediaire-des-genealogistes"]
+
+
+def test_spellings_that_differ_only_in_small_words_are_one_journal_and_keep_its_abbreviations():
+    records = [_article(str(n), "Bulletin du Comité flamand de France") for n in range(12)]
+    records += [_article(str(20 + n), "Bulletin Comité flamand de France") for n in range(6)]
+    records += [_article(str(40 + n), "Bull. du comité flamand de France") for n in range(3)]
+    journals, mapping = build(records)
+    assert mapping["bulletin du comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "full")
+    assert mapping["bulletin comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "full")
+    assert mapping["bull du comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "abbreviation")
+    assert [journal["articles"] for journal in journals] == [21]
+
+
+def test_together_below_the_threshold_small_word_forms_are_no_journal():
+    records = [_article(str(n), "Archief- en bibliotheekwezen in België") for n in range(8)]
+    records += [_article(str(20 + n), "Archief- et bibliotheekwezen in België") for n in range(6)]
+    assert build(records)[1] == {}
+
+
+def test_an_abbreviation_fitting_two_journals_goes_to_the_one_it_covers_word_for_word():
+    records = [_article(str(n), "Bulletin de la Commission royale des monuments et des sites") for n in range(20)]
+    records += [_article(str(30 + n), "Bulletin de la Commission royale des monuments, sites et fouilles") for n in range(20)]
+    records += [_article(str(60 + n), "Bull. de la Comm. r. des monuments et des sites") for n in range(3)]
+    records += [_article(str(70 + n), "Bull. de la Comm. r. des monuments") for n in range(2)]
+    _, mapping = build(records)
+    assert mapping["bull de la comm r des monuments et des sites"][0] == "t:bulletin-de-la-commission-royale-des-monuments-et-des-sites"
+    assert "bull de la comm r des monuments" not in mapping  # fits both, covers neither
+
+
+def test_the_other_forms_of_a_variant_title_go_with_it():
+    records = [_article(str(n), "L’Intermédiaire") for n in range(20)]
+    records += [_article(str(100 + n), "L’Intermédiaire des généalogistes") for n in range(16)]
+    records += [_article(str(200 + n), "Intermédiaire des généalogistes") for n in range(2)]
+    journals, mapping = build(records)
+    assert mapping["intermediaire des genealogistes"][0] == mapping["l intermediaire des genealogistes"][0] == "t:l-intermediaire"
+    assert len(journals) == 1
