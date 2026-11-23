@@ -406,3 +406,13 @@ def test_a_thesis_or_stencil_note_is_not_a_series():
     assert series_after_imprint("Peeters (A.). Een titel. Gent, 1990, 200 p. (Onuitgegeven licentiaatsverhandeling. Universiteit Gent, Geschiedenis)") is None
     assert series_after_imprint("Peeters (A.). Een titel. Gent, 1990, 200 p. (2de druk)") is None
     assert parse_citation("Dupont (A.). Un titre. Liège, 1970, 40 p. (stencilé).").series_title is None
+
+
+def test_a_name_may_begin_with_a_lowercase_particle_but_a_lowercase_title_is_no_name():
+    from bhb.parse.citation import parse_citation
+
+    parsed = parse_citation("van der Elst (Wim), de Wilde (An). Het Luna-Park. LACA Tijdingen, 25, 2014, 2, pp. 4-13.")
+    assert [(p["family"], p["given"]) for p in parsed.persons] == [("van der Elst", "Wim"), ("de Wilde", "An")]
+    assert parsed.title == "Het Luna-Park"
+    assert [p["family"] for p in parse_citation("d’Hoore (Marc). Les archives. Bruxelles, 2012, 30 p.").persons] == ["d’Hoore"]
+    assert parse_citation("de geschiedenis van Gent (1800-1900). Gent, 2010.").persons == []

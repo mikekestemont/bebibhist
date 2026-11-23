@@ -54,7 +54,10 @@ def start_of(year: int) -> int:
 
 
 def pdf_link(year: int, page: int | None = None, print_page: int | None = None) -> PdfLink:
-    name = next(label for start, end, label in _DECADE if start <= year <= end)
+    name = next((label for start, end, label in _DECADE if start <= year <= end), None)
+    if name is None:
+        # A volume not on rbph-btfg.be (2018, received from the editor as the typeset PDF): its page, no link.
+        return PdfLink(page=page, print_page=print_page)
     # The decade files are served through a .php page; a yearly volume (2008 on) is the PDF itself ("BGB_2008.php"
     # answers 404, checked 21 Nov 2026).
     suffix = "php" if start_of(year) < 2008 else "pdf"

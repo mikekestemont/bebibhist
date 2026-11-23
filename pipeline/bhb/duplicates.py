@@ -124,6 +124,10 @@ PRINTED_CATALOGUE_YEARS = range(2009, 2018)
 def _printed_catalogue_year(record) -> bool:
     return record.source == "print-pdf" and record.bgb_year in PRINTED_CATALOGUE_YEARS
 TITLE_AGREE = 85
+# A printed entry and the catalogue's record may lie a volume year apart; a name may be spelled slightly otherwise.
+YEAR_LEEWAY = 1
+NAME_AGREE = 80
+TITLE_CLOSE = 92
 
 
 def _words(text: str) -> str:
@@ -134,37 +138,95 @@ def _first_family(record) -> str:
     return _words(record.persons[0].family) if record.persons else ""
 
 
+def _years_named(text: str) -> set[str]:
+    return set(re.findall(r"\b1[0-9]{3}\b|\b20[0-9]{2}\b", text or ""))
+
+
+def _may_pair(record, other, title: str) -> bool:
+    """Titles that both name years share one ("Groot-Poperinge in 1966" is not "… in 1967", a yearly series; a title
+    cut short, "Lovanium (1963", still pairs with "(1963-1969)"), and a short title ("Avant-propos", "Inleiding")
+    pairs within the same volume year only."""
+    ours, theirs = _years_named(record.title), _years_named(f"{other.title} {other.subtitle or ''}")
+    if ours and theirs and not ours & theirs:
+        return False
+    return other.bgb_year == record.bgb_year or len(title.split()) >= 3
+
+
+def _given_initial(record) -> str:
+    given = record.persons[0].given if record.persons else None
+    return _words(given)[:1] if given else ""
+
+
 def link_print_to_catalogue(records) -> int:
     """Link an entry of a printed volume of 2009–2017 to the State Archives' record of the same publication.
 
     Those years are both printed (``bhb ingest pdfyears``) and in the catalogue's exports; the export lacks about a
     third of the printed entries. The catalogue's record is kept, since it holds the subject codes and the structured
     fields, and the printed entry points to it; the printed heading joins the kept record's subjects
-    (``_take_subjects``). A pair has the same volume year and first author (or none), and titles that agree (the
-    catalogue's title and subtitle against the printed title, word-set ratio 85 or more); each catalogue record takes
-    one printed entry, the closest."""
-    catalogue: dict[tuple, list] = defaultdict(list)
+    (``_take_subjects``). A pair has the same first author (or none) and titles that agree (the catalogue's title and
+    subtitle against the printed title, word-set ratio 85 or more), in the same volume year or, once every entry has
+    had its chance there, the next or previous one (the catalogue files some publications a year apart). A
+    second pass takes a first author spelled slightly otherwise ("Boutrue" and "Boutroue", "Dekoninck" and
+    "Deconinck": name ratio 80 or more, the same initial of the given name) when the titles agree closely (ratio 92
+    or more). Titles that name years must name the same ones, and a short title pairs within its volume year only
+    (``_may_pair``). Each catalogue record takes one printed entry, the closest."""
+    catalogue: dict[str, list] = defaultdict(list)
     for record in records:
-        if (record.source == "vsmart" and record.role == "entry" and record.title and record.bgb_year in PRINTED_CATALOGUE_YEARS
+        if (record.source == "vsmart" and record.role == "entry" and record.title
+                and record.bgb_year in range(PRINTED_CATALOGUE_YEARS.start - YEAR_LEEWAY, PRINTED_CATALOGUE_YEARS.stop + YEAR_LEEWAY)
                 and not record.duplicate_of):
-            catalogue[(record.bgb_year, _first_family(record))].append(record)
+            catalogue[_first_family(record)].append(record)
     used: set[str] = set()
     linked = 0
-    for record in records:
-        if (record.source != "print-pdf" or record.bgb_year not in PRINTED_CATALOGUE_YEARS or record.role != "entry"
-                or record.is_cross_listing or not record.title or record.duplicate_of):
-            continue
-        title = _words(record.title)
-        best, best_score = None, 0.0
-        for other in catalogue.get((record.bgb_year, _first_family(record)), ()):
-            if other.id in used:
+
+    def link(record, best) -> None:
+        nonlocal linked
+        used.add(best.id)
+        record.duplicate_of = best.id
+        _take_subjects(best, record)
+        linked += 1
+
+    printed = [record for record in records
+               if record.source == "print-pdf" and record.bgb_year in PRINTED_CATALOGUE_YEARS and record.role == "entry"
+               and not record.is_cross_listing and record.title and not record.duplicate_of]
+    # The same volume year first, for every entry, then a year apart: an entry of the next volume does not take the
+    # record that the same year's entry pairs with.
+    for leeway in (0, YEAR_LEEWAY):
+        for record in printed:
+            if record.duplicate_of:
                 continue
-            score = fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
-            if score >= TITLE_AGREE and score > best_score:
+            title = _words(record.title)
+            best, best_score = None, 0.0
+            for other in catalogue.get(_first_family(record), ()):
+                if other.id in used or abs(other.bgb_year - record.bgb_year) != leeway or not _may_pair(record, other, title):
+                    continue
+                score = fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
+                if score >= TITLE_AGREE and score > best_score:
+                    best, best_score = other, score
+            if best is not None:
+                link(record, best)
+    # Second pass: a first author spelled slightly otherwise, the titles close.
+    by_initial: dict[str, list] = defaultdict(list)
+    for family, others in catalogue.items():
+        if family:
+            by_initial[family[:1]].extend(others)
+    for record in printed:
+        family = _first_family(record)
+        if record.duplicate_of or not family:
+            continue
+        title, initial = _words(record.title), _given_initial(record)
+        best, best_score = None, 0.0
+        for other in by_initial.get(family[:1], ()):
+            if (other.id in used or abs(other.bgb_year - record.bgb_year) > YEAR_LEEWAY or _given_initial(other) != initial
+                    or not _may_pair(record, other, title)):
+                continue
+            other_family = _first_family(other)
+            if other_family == family or fuzz.ratio(family, other_family) < NAME_AGREE:
+                continue
+            score = fuzz.ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
+            score = max(score, fuzz.ratio(title, _words(other.title)))
+            if score >= TITLE_CLOSE and score > best_score:
                 best, best_score = other, score
         if best is not None:
-            used.add(best.id)
-            record.duplicate_of = best.id
-            _take_subjects(best, record)
-            linked += 1
+            link(record, best)
     return linked

@@ -586,3 +586,11 @@ def test_yearly_volumes_link_to_the_pdf_itself():
     assert pdf_link(2008, 5).url == "https://www.rbph-btfg.be/dowload_PDFs/BGB_2008.pdf#page=5"
     assert pdf_link(2016).url == "https://www.rbph-btfg.be/dowload_PDFs/BGB_2016.pdf"
     assert pdf_link(1975).url.endswith("BGB_1970-79.php")
+
+
+def test_a_volume_not_on_the_journals_site_gets_its_page_but_no_link():
+    from bhb.ingest.jats import pdf_link
+
+    link = pdf_link(2018, 12, 345)
+    assert link.url is None and link.file is None and link.page == 12 and link.print_page == 345
+    assert pdf_link(2017, 3).url.endswith("BGB_2017.pdf#page=3")

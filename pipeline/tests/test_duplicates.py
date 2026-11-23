@@ -115,3 +115,39 @@ def test_an_exact_pair_keeps_the_catalogues_record_too():
                      isbn=["9789000000000"], publisher=Publisher("Brugge", "Uitgeverij"), extent="200 p.")
     link_duplicates([catalogue, printed])
     assert printed.duplicate_of == "bhb:vs-1" and catalogue.duplicate_of is None
+
+
+def test_a_printed_entry_finds_the_catalogues_record_a_year_apart_or_with_its_author_spelled_otherwise():
+    def catalogue(id, year, family, given, title):
+        return Record(id=id, source="vsmart", bgb_year=year, type="article", title=title, persons=[Person(family, given, "author")])
+
+    def printed(id, year, family, given, title):
+        return Record(id=id, source="print-pdf", bgb_year=year, type="article", title=title, persons=[Person(family, given, "author")])
+
+    zellik = catalogue("bhb:vs-1", 2014, "de Schrijver", "Albrecht", "Herinneringen aan mijn soldatentijd in Zellik")
+    clusius = catalogue("bhb:vs-2", 2012, "Boutroue", "Marie-Elisabeth", "French manuscript sources on Carolus Clusius")
+    other = catalogue("bhb:vs-3", 2012, "Boutroue", "Jean", "Een geheel andere studie over de Lage Landen")
+    far = catalogue("bhb:vs-4", 2016, "Peeters", "An", "De restauratie van een tuin in Mons")
+    entries = [
+        printed("bhb:2013-1", 2013, "de Schrijver", "Albrecht", "Herinneringen aan mijn soldatentijd in Zellik"),
+        printed("bhb:2012-2", 2012, "Boutrue", "Marie-Elisabeth", "French manuscript sources on Carolus Clusius"),
+        printed("bhb:2012-3", 2012, "Boutrue", "Jean", "Nog een studie over de Lage Landen"),  # titles differ
+        printed("bhb:2014-4", 2014, "Peeters", "An", "De restauratie van een tuin in Mons"),  # two years apart
+    ]
+    counts = link_duplicates([zellik, clusius, other, far, *entries])
+    assert [entry.duplicate_of for entry in entries] == ["bhb:vs-1", "bhb:vs-2", None, None]
+    assert counts["printed entries linked to their catalogue record"] == 2
+
+
+def test_a_yearly_series_or_a_short_title_a_year_apart_is_not_paired():
+    def record(id, source, year, title):
+        return Record(id=id, source=source, bgb_year=year, type="article", title=title, persons=[Person("Tillie", "Paul", "author")])
+
+    series = Record(id="bhb:vs-5", source="vsmart", bgb_year=2017, type="article",
+                    title="50 jaar geleden - Groot-Poperinge in 1967", persons=[Person("Tillie", "Paul", "author")])
+    preface = Record(id="bhb:vs-6", source="vsmart", bgb_year=2017, type="chapter", title="Avant-propos",
+                     persons=[Person("Tillie", "Paul", "author")])
+    entries = [record("bhb:2016-1", "print-pdf", 2016, "50 jaar geleden : Groot-Poperinge in 1966"),
+               record("bhb:2016-2", "print-pdf", 2016, "Avant-propos")]
+    link_duplicates([series, preface, *entries])
+    assert [entry.duplicate_of for entry in entries] == [None, None]

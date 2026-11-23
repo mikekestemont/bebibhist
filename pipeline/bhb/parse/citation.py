@@ -26,7 +26,10 @@ _CROSS = re.compile(
     re.IGNORECASE,
 )
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
-_PERSON = re.compile(r"^([A-ZÀ-Ý][^().]{0,80}?)\s*\(\s*([^)]{1,60})\s*\)")
+# A name may begin with a lowercase particle ("van Royen (Harry)", "de Schrijver (Albrecht)", "d’Hoore (Marc)"); the
+# name itself still begins with a capital, so a title in lowercase ("de geschiedenis van …") is no name.
+_PARTICLES = r"(?:(?:van|von|vanden|vander|de|der|den|du|des|del|della|di|da|la|le|ter|ten|te|op|het|t)\s+|[dl][’'])*"
+_PERSON = re.compile(r"^(" + _PARTICLES + r"[A-ZÀ-Ý][^().]{0,80}?)\s*\(\s*([^)]{1,60})\s*\)")
 _EDITOR = re.compile(r"^\s*\((?:éds?|eds?|réd|red|dir|édit|co[oö]rd)\.?\)", re.IGNORECASE)
 _EDITOR_BARE = re.compile(r"^\s+(?:dir|éds?|eds?|réd|reds?|hrsg|co[oö]rd)\.(?=\s|$)", re.IGNORECASE)
 _ETAL = re.compile(r"^(?:e\.\s*a\.|e\.a\.|et\s+al\.)", re.IGNORECASE)
