@@ -250,3 +250,15 @@ def test_no_ocr_fix_for_a_born_digital_volume():
     assert born_digital(Record(id="bhb:2008-60300", source="print-pdf", bgb_year=2008))
     assert not born_digital(Record(id="bhb:1964-6374", source="print-pdf", bgb_year=1964))
     assert not born_digital(Record(id="bhb:1990-1", source="print-straive", bgb_year=1990))
+
+
+def test_a_typeset_proof_kept_as_a_manuscript_goes_through_the_pass_without_ocr_fixes():
+    from bhb.citations import born_digital, parsed_by_pass
+    from bhb.model import Provenance, Record
+
+    proof = Record(id="bhb:2018-p1", source="manuscript", bgb_year=2018, provenance=Provenance(flags=["unpublished-manuscript", "typeset-proof"]))
+    word = Record(id="bhb:2020-m0123456789", source="manuscript", bgb_year=2020, provenance=Provenance(flags=["unpublished-manuscript"]))
+    scan = Record(id="bhb:1964-1", source="print-pdf", bgb_year=1964, provenance=Provenance())
+    assert parsed_by_pass(proof) and born_digital(proof)
+    assert not parsed_by_pass(word)
+    assert parsed_by_pass(scan) and not born_digital(scan)

@@ -548,12 +548,29 @@ def ingest_vsmart_records() -> tuple[list[Record], dict]:
 
 
 def ingest_manuscripts() -> list[Record]:
-    from bhb.ingest.manuscript import load_manuscript, manuscript_paths
+    """The editor's unpublished volumes: the Word manuscripts, and a volume received as the typeset PDF (the 2018 proof),
+    read like the printed yearly volumes but kept as a manuscript (``typeset-proof``; the citation pass parses it)."""
+    from bhb.ingest.manuscript import code_sections, load_manuscript, manuscript_paths, year_of
 
+    folder = raw_root() / "manuscripts"
     records: list[Record] = []
-    for path in manuscript_paths(raw_root() / "manuscripts"):
+    for path in manuscript_paths(folder):
         year_records, report = load_manuscript(path)
         print(f"  {path.name}: {json.dumps(report, ensure_ascii=False)}")
+        records.extend(year_records)
+    for pdf in sorted(folder.glob("*.pdf")):
+        year = year_of(pdf)
+        if year is None:
+            print(f"  {pdf.name}: no BGB year in the name, left out")
+            continue
+        generated = build_dir() / "manuscript-pdf" / f"BGB_{year}.xml"
+        report = convert_pdf(pdf, generated, str(year))
+        year_records = load_jats(generated, "manuscript")
+        for record in year_records:
+            record.provenance.flags.extend(flag for flag in ("unpublished-manuscript", "typeset-proof") if flag not in record.provenance.flags)
+        coded = code_sections(year_records)
+        print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
+              f"{coded} with the code of their heading")
         records.extend(year_records)
     return records
 
@@ -1276,23 +1293,23 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
 
     from bhb import citations
     from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
-                               is_collected_volume, make_batches, previous_translations, tidy, title_request_cached)
+                               is_collected_volume, make_batches, parsed_by_pass, previous_translations, tidy, title_request_cached)
 
     citations.OFFLINE = dry_run
     from bhb.ocr_compare import vocabulary
 
     all_records = read_jsonl(build_dir() / "records.jsonl")
     # The requests carry the local language step's reading as a hint, so the cached answers are found only with it.
-    if not any(record.language_suggested for record in all_records if record.source.startswith("print")):
+    if not any(record.language_suggested for record in all_records if parsed_by_pass(record)):
         raise SystemExit("citations run: no entry has a suggested language; run `bhb language apply` first, or every "
                          "request differs from the cached ones and is paid for again")
     records = {record.id: record for record in all_records}
     wanted = lambda record: not years or record.bgb_year in years
-    to_parse = {record.id for record in all_records if record.source.startswith("print") and record.printed and wanted(record) and (
+    to_parse = {record.id for record in all_records if parsed_by_pass(record) and record.printed and wanted(record) and (
         not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed))}
     journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
     batches = []
-    for batch in make_batches([record for record in all_records if record.source.startswith("print") and wanted(record)], journals):
+    for batch in make_batches([record for record in all_records if parsed_by_pass(record) and wanted(record)], journals):
         items = [item for item in batch.items if item.id in to_parse]
         if items:
             batches.append(Batch(batch.section, batch.before, items))

@@ -828,10 +828,16 @@ def draft_hint(record) -> str:
     return "draft: " + " | ".join(parts)
 
 
+def parsed_by_pass(record) -> bool:
+    """The entries the citation pass parses: the printed volumes, and a volume received as typeset text (the 2018
+    proof, kept as a manuscript); the Word manuscripts are read from their formatting instead."""
+    return record.source.startswith("print") or "typeset-proof" in record.provenance.flags
+
+
 def born_digital(record) -> bool:
     """The printed volumes from 2008 on are read from their own PDF text, not from a scan: what looks like an OCR
     error there is the printed spelling, so no OCR fix is kept (1964 and 1965 come from Persée's scans)."""
-    return record.source == "print-pdf" and (record.bgb_year or 0) >= 2008
+    return (record.source == "print-pdf" and (record.bgb_year or 0) >= 2008) or "typeset-proof" in record.provenance.flags
 
 
 def checked_ocr_fixes(answer: dict, printed: str, counts=None) -> list[dict]:
