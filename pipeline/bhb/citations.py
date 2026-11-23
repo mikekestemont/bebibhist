@@ -834,6 +834,14 @@ def parsed_by_pass(record) -> bool:
     return record.source.startswith("print") or "typeset-proof" in record.provenance.flags
 
 
+def behind_catalogue(record) -> bool:
+    """A printed entry of 2009–2017 linked to the catalogue's record of the same publication: the site shows the
+    catalogue's record, so the pass neither parses nor translates the printed one (about 44,000 entries)."""
+    from bhb.duplicates import PRINTED_CATALOGUE_YEARS
+
+    return bool(record.duplicate_of) and record.source == "print-pdf" and record.bgb_year in PRINTED_CATALOGUE_YEARS
+
+
 def born_digital(record) -> bool:
     """The printed volumes from 2008 on are read from their own PDF text, not from a scan: what looks like an OCR
     error there is the printed spelling, so no OCR fix is kept (1964 and 1965 come from Persée's scans)."""

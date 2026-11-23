@@ -262,3 +262,13 @@ def test_a_typeset_proof_kept_as_a_manuscript_goes_through_the_pass_without_ocr_
     assert parsed_by_pass(proof) and born_digital(proof)
     assert not parsed_by_pass(word)
     assert parsed_by_pass(scan) and not born_digital(scan)
+
+
+def test_a_printed_entry_behind_its_catalogue_record_is_left_out_of_the_pass():
+    from bhb.citations import behind_catalogue
+    from bhb.model import Provenance, Record
+
+    linked = Record(id="bhb:2012-85123", source="print-pdf", bgb_year=2012, duplicate_of="bhb:vs-1202178", provenance=Provenance())
+    alone = Record(id="bhb:2012-85124", source="print-pdf", bgb_year=2012, provenance=Provenance())
+    older = Record(id="bhb:2004-1", source="print-straive", bgb_year=2004, duplicate_of="bhb:2005-2", provenance=Provenance())
+    assert behind_catalogue(linked) and not behind_catalogue(alone) and not behind_catalogue(older)

@@ -1293,7 +1293,8 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
 
     from bhb import citations
     from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
-                               is_collected_volume, make_batches, parsed_by_pass, previous_translations, tidy, title_request_cached)
+                               behind_catalogue, is_collected_volume, make_batches, parsed_by_pass, previous_translations, tidy,
+                               title_request_cached)
 
     citations.OFFLINE = dry_run
     from bhb.ocr_compare import vocabulary
@@ -1304,7 +1305,7 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         raise SystemExit("citations run: no entry has a suggested language; run `bhb language apply` first, or every "
                          "request differs from the cached ones and is paid for again")
     records = {record.id: record for record in all_records}
-    wanted = lambda record: not years or record.bgb_year in years
+    wanted = lambda record: (not years or record.bgb_year in years) and not behind_catalogue(record)
     to_parse = {record.id for record in all_records if parsed_by_pass(record) and record.printed and wanted(record) and (
         not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed))}
     journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
