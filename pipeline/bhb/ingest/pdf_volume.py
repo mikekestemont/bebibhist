@@ -83,6 +83,14 @@ def convert_pdf(pdf: Path, out: Path, year: str = "2008") -> dict:
 
 
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# Ligature glyphs (the volumes of 2010 and 2011 have about 900 each: "Beauﬁls", "scientiﬁque"): their letters, so that
+# a search for "Beaufils" finds the entry.
+_LIGATURES = str.maketrans({"ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st"})
+
+
+def _clean(text: str) -> str:
+    """A line of the PDF's text layer: control characters out, ligatures as letters."""
+    return _CONTROL.sub("", text).translate(_LIGATURES).strip()
 
 
 def extract_lines(pdf: Path) -> list[PdfLine]:
@@ -93,7 +101,7 @@ def extract_lines(pdf: Path) -> list[PdfLine]:
     for index, page in enumerate(document):
         for raw in page.get_text().splitlines():
             # Some yearly volumes (2010) carry control characters in their text layer; XML cannot hold them.
-            text = _CONTROL.sub("", raw).strip()
+            text = _clean(raw)
             if not text or _HEADER.match(text) or _PAGE_MARK.match(text):
                 continue
             lines.append(PdfLine(index + 1, text))
@@ -157,7 +165,7 @@ def extract_positioned_lines(pdf: Path) -> list[PdfLine]:
         found: list[tuple[float, str]] = []
         for block in page.get_text("dict")["blocks"]:
             for line in block.get("lines", []):
-                text = _CONTROL.sub("", "".join(span["text"] for span in line["spans"])).strip()
+                text = _clean("".join(span["text"] for span in line["spans"]))
                 if text and not _HEADER.match(text) and not _PAGE_MARK.match(text):
                     found.append((line["bbox"][0], text))
         long_lines = [x for x, text in found if len(text) > 40]

@@ -594,3 +594,9 @@ def test_a_volume_not_on_the_journals_site_gets_its_page_but_no_link():
     link = pdf_link(2018, 12, 345)
     assert link.url is None and link.file is None and link.page == 12 and link.print_page == 345
     assert pdf_link(2017, 3).url.endswith("BGB_2017.pdf#page=3")
+
+
+def test_the_pdf_reader_writes_ligatures_as_letters_and_drops_control_characters():
+    from bhb.ingest.pdf_volume import _clean
+
+    assert _clean(" Beauﬁls (Marc). Kermesses ﬂamandes et la science ofﬁcielle\x0b ") == "Beaufils (Marc). Kermesses flamandes et la science officielle"
