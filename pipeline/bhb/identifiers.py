@@ -10,6 +10,7 @@ proposal to correct an OCR error, not a correction.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 import random
@@ -37,6 +38,12 @@ USER_AGENT = "bebibhist/0.1 (https://github.com/mikekestemont/bebibhist" + (f"; 
 INTERVAL = 1.05
 # Requests at once: one in the public pool, three in the polite pool (its x-concurrency-limit).
 WORKERS = 3 if CONTACT else 1
+# Requests start at least the allowed interval times this apart, and never closer than INTERVAL_MIN seconds. One at a
+# time (the public pool) cannot bunch up, so a small margin is enough there.
+MARGIN = 1.5 if WORKERS > 1 else 1.05
+INTERVAL_MIN = 0.5 if WORKERS > 1 else 0.0
+# Tries per query before a run stops: a 429 or a server error is asked again after a growing wait (``_backoff``).
+ATTEMPTS = 8
 _last_start = 0.0
 _lock = threading.Lock()
 FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-print,published-online,volume,issue,page,type,ISSN,ISBN"
@@ -148,7 +155,7 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     global _last_start
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    for attempt in range(5):
+    for attempt in range(ATTEMPTS):
         with _lock:
             time.sleep(max(0.0, _last_start + INTERVAL - time.monotonic()))
             _last_start = time.monotonic()
@@ -158,12 +165,13 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
                 _pace(response.headers)
             break
         except urllib.error.HTTPError as error:
-            if error.code not in (429, 500, 502, 503, 504) or attempt == 4:
+            if error.code not in (429, 500, 502, 503, 504) or attempt == ATTEMPTS - 1:
                 raise
-            wait = error.headers.get("Retry-After") if error.headers else None
-            time.sleep(float(wait) if wait and wait.isdigit() else 2 * (attempt + 1))
-        except (urllib.error.URLError, TimeoutError):
-            if attempt == 4:
+            time.sleep(_backoff(error, attempt))
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException):
+            # A dropped connection ("Remote end closed connection without response", a Mac waking from sleep) is
+            # asked again like a timeout.
+            if attempt == ATTEMPTS - 1:
                 raise
             time.sleep(5 * (attempt + 1))
     cache.mkdir(parents=True, exist_ok=True)
@@ -171,12 +179,24 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
     return data
 
 
+def _backoff(error, attempt: int) -> float:
+    """Seconds to wait before asking again: what Crossref's Retry-After says, else 5, 10, 20, … up to a minute. A 429
+    (too many requests) is logged, so a run that comes too close to the limit shows it."""
+    wait = error.headers.get("Retry-After") if error.headers else None
+    seconds = float(wait) if wait and wait.isdigit() else min(60.0, 5.0 * 2 ** attempt)
+    if error.code == 429:
+        print(f"  crossref: 429 too many requests, waiting {seconds:.0f} s", flush=True)
+    return seconds
+
+
 def _pace(headers) -> None:
-    """Space requests as the rate-limit headers allow: ``x-rate-limit-limit`` requests per ``x-rate-limit-interval``."""
+    """Space requests as the rate-limit headers allow: ``x-rate-limit-limit`` requests per ``x-rate-limit-interval``,
+    with a third to spare. Spaced only 5 % apart, three requests at once in the polite pool (3 a second) sometimes
+    made four within a second, and Crossref answered 429 until the run gave up (23 Nov 2026)."""
     global INTERVAL
     limit, interval = headers.get("x-rate-limit-limit"), headers.get("x-rate-limit-interval", "1s")
     if limit and limit.isdigit() and int(limit) > 0 and interval.endswith("s") and interval[:-1].isdigit():
-        INTERVAL = int(interval[:-1]) / int(limit) * 1.05
+        INTERVAL = max(INTERVAL_MIN, int(interval[:-1]) / int(limit) * MARGIN)
 
 
 def _cached(params: dict[str, str], cache: Path) -> dict | None:

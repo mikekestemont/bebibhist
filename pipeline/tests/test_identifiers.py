@@ -368,3 +368,56 @@ def test_the_journal_of_a_doi_wins_over_the_catalogues_volume_title():
                   host=Host(id="bhb:vs-3", title="Tijdschrift voor Nederlandse Taal- en Letterkunde"),
                   provenance=Provenance(flags=["host-from-catalogue"]))
     assert not _journal_over_catalogue(same, {"container-title": ["Tijdschrift voor Nederlandse Taal- en Letterkunde"]})
+
+
+def test_requests_keep_well_under_crossrefs_rate_limit_and_back_off_after_a_429(monkeypatch, capsys):
+    import urllib.error
+
+    from bhb import identifiers
+
+    monkeypatch.setattr(identifiers, "INTERVAL", 1.05)
+    monkeypatch.setattr(identifiers, "MARGIN", 1.5)
+    monkeypatch.setattr(identifiers, "INTERVAL_MIN", 0.5)
+    identifiers._pace({"x-rate-limit-limit": "3", "x-rate-limit-interval": "1s"})
+    assert identifiers.INTERVAL == 0.5  # 1/3 × 1.5, never closer than half a second
+    identifiers._pace({"x-rate-limit-limit": "1", "x-rate-limit-interval": "1s"})
+    assert identifiers.INTERVAL == 1.5
+    monkeypatch.setattr(identifiers, "MARGIN", 1.05)  # one request at a time: the public pool's old pace
+    monkeypatch.setattr(identifiers, "INTERVAL_MIN", 0.0)
+    identifiers._pace({"x-rate-limit-limit": "1", "x-rate-limit-interval": "1s"})
+    assert identifiers.INTERVAL == 1.05
+    error = urllib.error.HTTPError("u", 429, "Too Many Requests", {}, None)
+    assert [identifiers._backoff(error, n) for n in range(5)] == [5, 10, 20, 40, 60]
+    assert "429" in capsys.readouterr().out
+    told = urllib.error.HTTPError("u", 429, "Too Many Requests", {"Retry-After": "30"}, None)
+    assert identifiers._backoff(told, 0) == 30
+
+
+def test_a_dropped_connection_is_asked_again(monkeypatch, tmp_path):
+    import http.client
+    import io
+    import json as json_module
+
+    from bhb import identifiers
+
+    calls = []
+
+    class Answer(io.BytesIO):
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def fake_urlopen(request, timeout=60):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            raise http.client.RemoteDisconnected("Remote end closed connection without response")
+        return Answer(json_module.dumps({"message": {"items": []}}).encode())
+
+    monkeypatch.setattr(identifiers.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(identifiers.time, "sleep", lambda seconds: None)
+    assert identifiers.fetch({"query.bibliographic": "x"}, tmp_path) == {"message": {"items": []}}
+    assert len(calls) == 2
