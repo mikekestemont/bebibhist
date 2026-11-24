@@ -456,3 +456,29 @@ def test_three_429s_in_ten_minutes_end_a_crossref_run():
     with pytest.raises(identifiers.Throttled):
         identifiers._note_429(1200)
     assert identifiers._seen_429 == []
+
+
+def test_a_question_crossref_refuses_does_not_end_the_run(tmp_path, monkeypatch):
+    import urllib.error
+
+    from bhb import identifiers
+
+    def refuse(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 400, "Bad Request", {}, None)
+
+    monkeypatch.setattr(identifiers.urllib.request, "urlopen", refuse)
+    monkeypatch.setattr(identifiers, "INTERVAL", 0.0)
+    params = {"query.bibliographic": "x", "filter": "from-pub-date:52,until-pub-date:54"}
+    assert identifiers.fetch(params, tmp_path)["message"]["items"] == []
+    assert len(list(tmp_path.glob("*.json"))) == 1  # not asked again
+
+
+def test_a_year_of_two_digits_is_not_asked_as_a_date():
+    from bhb.identifiers import query_params
+    from bhb.model import Host, Person, Record
+
+    record = Record(id="bhb:1953-1", source="print-straive", bgb_year=1953, type="article", title="Een titel over iets", year=53,
+                    persons=[Person("Jansen", "J.", "author")], host=Host(title="Een tijdschrift"))
+    assert query_params(record) is None
+    record.year = 1953
+    assert query_params(record)["filter"].startswith("from-pub-date:1952")
