@@ -600,3 +600,13 @@ def test_the_pdf_reader_writes_ligatures_as_letters_and_drops_control_characters
     from bhb.ingest.pdf_volume import _clean
 
     assert _clean(" Beauﬁls (Marc). Kermesses ﬂamandes et la science ofﬁcielle\x0b ") == "Beaufils (Marc). Kermesses flamandes et la science officielle"
+
+
+def test_the_front_matter_of_a_pdf_volume_is_left_out():
+    from bhb.cli import without_front_matter
+    from bhb.model import Record
+
+    front = Record(id="bhb:2016-p1", source="print-pdf", bgb_year=2016, printed="Président: Jean-Marie Duvosquel, …")
+    entry = Record(id="bhb:2016-p14", source="print-pdf", bgb_year=2016, printed="Barbazon (Yvon). Bibliographie régionale.",
+                   section_path=["I. BIBLIOGRAPHIES ET SCIENCES AUXILIAIRES"])
+    assert without_front_matter([front, entry]) == ([entry], 1)

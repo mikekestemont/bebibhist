@@ -165,3 +165,45 @@ def test_the_other_forms_of_a_variant_title_go_with_it():
     journals, mapping = build(records)
     assert mapping["intermediaire des genealogistes"][0] == mapping["l intermediaire des genealogistes"][0] == "t:l-intermediaire"
     assert len(journals) == 1
+
+
+def test_a_renamed_journal_with_a_new_issn_stays_apart_from_its_predecessor(monkeypatch):
+    from bhb import journals
+
+    monkeypatch.setattr(journals, "load_successions", lambda path=None: [
+        {"successor": "issn:1572-1701", "renamed_in": "2004", "predecessor_id": "issn:0303-9935",
+         "predecessor_title": "Tijdschrift voor sociale geschiedenis", "note": ""}])
+    old = [_article(str(n), "Tijdschrift voor sociale geschiedenis (Amsterdam)", ["0303-9935"], 2000) for n in range(5)]
+    new = [_article(str(n), "Tijdschrift voor sociale en economische geschiedenis", ["2468-9068", "1572-1701"], 2010) for n in range(10, 18)]
+    # Crossref lists the old number too on two articles of the renamed journal, one of them with all three.
+    both = [_article("30", "Tijdschrift voor sociale en economische geschiedenis", ["2468-9068", "1572-1701", "0303-9935"], 2005),
+            _article("31", "Tijdschrift voor sociale geschiedenis (Amsterdam)", ["1572-1701", "0303-9935"], 2003)]
+    rows, mapping = build(old + new + both)
+    by_id = {row["id"]: row for row in rows}
+    assert by_id["issn:1572-1701"]["issn"] == "1572-1701|2468-9068"
+    assert by_id["issn:0303-9935"]["issn"] == "0303-9935"
+    assert by_id["issn:0303-9935"]["title"] == "Tijdschrift voor sociale geschiedenis"
+    assert mapping["tijdschrift voor sociale en economische geschiedenis"][0] == "issn:1572-1701"
+    assert mapping["tijdschrift voor sociale geschiedenis amsterdam"][0] == "issn:0303-9935"
+
+
+def test_the_successor_keeps_its_online_number_whatever_the_order_of_the_articles(monkeypatch):
+    from bhb import journals
+
+    monkeypatch.setattr(journals, "load_successions", lambda path=None: [
+        {"successor": "issn:1572-1701", "renamed_in": "2004", "predecessor_id": "issn:0303-9935",
+         "predecessor_title": "Tijdschrift voor sociale geschiedenis", "note": ""}])
+    tseg = "Tijdschrift voor sociale en economische geschiedenis"
+    first = [_article("1", tseg, ["2468-9068", "0303-9935"], 2005), _article("2", tseg, ["2468-9068", "0303-9935"], 2006),
+             _article("3", tseg, ["2468-9068", "1572-1701", "0303-9935"], 2007)]
+    rest = [_article(str(n), tseg, ["1572-1701", "2468-9068"], 2010) for n in range(10, 15)]
+    old = [_article(str(n), "Tijdschrift voor sociale geschiedenis", ["0303-9935"], 1990) for n in range(20, 25)]
+    rows, _ = build(first + rest + old)
+    assert {row["id"]: row["issn"] for row in rows} == {"issn:1572-1701": "1572-1701|2468-9068", "issn:0303-9935": "0303-9935"}
+
+
+def test_the_successions_file_keeps_tseg_apart():
+    from bhb.journals import load_successions
+
+    rows = {(row["predecessor_id"], row["successor"]) for row in load_successions()}
+    assert ("issn:0303-9935", "issn:1572-1701") in rows

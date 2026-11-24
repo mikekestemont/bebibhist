@@ -983,10 +983,69 @@ def name_university_press(publisher) -> bool:
     return False
 
 
+def _letters(text: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", fold(text or ""))
+
+
+def answer_fits(answer: dict, printed: str) -> bool:
+    """An answer belongs to its entry when at least half the words of its title and subtitle are printed in it. On
+    the pass of 24 Nov 2026, 41 of 164,053 answers fell short: an answer given for a neighbouring entry in the batch
+    (the 2018 proof, Lunula, three answers shifted by one), a title translated ("1104 dagen van Brussel naar Londen"
+    for "1104 jours de Bruxelles à Londres") or rewritten. Those entries keep the parser's fields. A title whose words
+    the model corrected (OCR) still fits."""
+    words = re.findall(r"[a-z0-9]+", fold(" ".join(_text(answer.get(key)) or "" for key in ("title", "subtitle"))))
+    if len(words) < 2:
+        return True
+    printed_words = set(re.findall(r"[a-z0-9]+", fold(printed)))
+    return sum(word in printed_words for word in words) * 2 >= len(words)
+
+
+# "Id." (read "ld." or "id." by OCR), "Idem", "Eid.", "Eadem": the author of the entry before, whom the model reads from
+# the batch; the parser often names nobody there.
+_SAME_AUTHOR = re.compile(r"^\W*(?:bis\s+)?(?:id|ld|idem|eid|eadem)\b", re.I)
+
+
+def grounded_name(family: str | None, printed: str, parsed=()) -> bool:
+    """A family name the model gives is in the printed text, or one the parser read (an "Id." entry names its author
+    through the entry before). On the pass of 24 Nov 2026, 314 of 164,053 answers named a person the text does not:
+    a co-author taken from a neighbouring entry ("Huys" beside Meulemeester), another entry's author (Renier for
+    Vandenbranden) or a name spelled otherwise ("Eraw" for Erauw)."""
+    name = _letters(family)
+    return (not name or name in _letters(printed) or any(_letters(person.family) == name for person in parsed)
+            or bool(_SAME_AUTHOR.match(printed)))
+
+
+def grounded_numbers(value: str, printed: str) -> bool:
+    """Every number of a page range the model gives is printed (a range written out, "252–53" as "252–253", counts
+    as not printed and keeps the parser's form). 58 answers of the pass gave pages that no entry printed."""
+    numbers = set(re.findall(r"\d+", printed))
+    return all(number in numbers for number in re.findall(r"\d+", value))
+
+
+def drop_repeated_subtitle(record) -> bool:
+    """A subtitle that repeats the journal or volume, or the title, is dropped, and a title that ends with its own
+    subtitle loses that end: the model gave the journal as subtitle as well in 1,398 answers of the pass of 24 Nov 2026
+    ("Voici le temps de la foire", subtitle "Si Liège m’était conté…", the journal), and wrote the subtitle twice in 25.
+    True when it changed something."""
+    subtitle = _letters(record.subtitle)
+    if not subtitle:
+        return False
+    if subtitle in (_letters(record.title), _letters(record.host.title if record.host else None)):
+        record.subtitle = None
+        return True
+    for separator in (": ", " : ", ". ", " – ", " — ", ", "):
+        if record.title and record.title.endswith(separator + record.subtitle):
+            record.title = record.title[: -len(separator + record.subtitle)].rstrip()
+            return True
+    return False
+
+
 def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset()) -> None:
     """Write a model answer into its record. The model's fields replace the parser's: on the hand-checked key 97.1 %
     of the fields are right against 84.5 %, and every field filled in from the parser makes it worse (§5c). Kept from
-    the parser: the persons where the model gives none (642 entries, nearly all with a printed author), the year
+    the parser: every field when the answer does not fit the entry (``answer_fits``, flagged ``llm-answer-refused``), the persons where the model gives none (642 entries, nearly all with a printed author) or names one the
+    printed text does not (``grounded_name``, flagged ``persons-from-parser``), pages the text does not print
+    (``pages-from-parser``), the host title of an "Ibid." entry, the chapter type of an entry linked to its volume through "Cfr. n°", the year
     where the model gives none, the link to the volume's record (``host.id``) with the volume's
     editors and subtitle, a host it found through a cross-reference where the model gives none, and the roles it reads
     that the schema lacks (compiler, preface, illustrator). A collected volume's authors are not its chapters'
@@ -996,14 +1055,25 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
 
     answer = item["answer"]
     flags = record.provenance.flags
+    if record.printed and not answer_fits(answer, record.printed):
+        if "llm-answer-refused" not in flags:
+            flags.append("llm-answer-refused")
+        return
     kind = answer.get("type")
     if kind == "review":
         kind = "article" if answer.get("host") else "other"
+    if kind == "article" and record.type == "chapter" and record.host and record.host.id and "host-from-cross-ref" in flags:
+        kind = "chapter"  # linked to its volume through "Cfr. n°": the model read "Album C. Wyffels, pp. 555–569" as a journal
     if kind in TYPES:
         record.type = kind
     roles = {fold(person.family): person.role for person in record.persons if person.role in _PARSER_ROLES}
+    model_persons = answer.get("persons") or []
+    if record.printed and any(not grounded_name(person.get("family"), record.printed, record.persons) for person in model_persons):
+        model_persons = [{"family": person.family, "given": person.given, "role": person.role} for person in record.persons]
+        if "persons-from-parser" not in flags:
+            flags.append("persons-from-parser")
     persons = []
-    for person in answer.get("persons") or []:
+    for person in model_persons:
         family = _text(person.get("family"))
         if not family:
             continue
@@ -1020,6 +1090,14 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     record.subtitle = _text(answer.get("subtitle"))
     record.title_translated = _text(answer.get("title_translated"))
     given = {key: _text(value) for key, value in (answer.get("host") or {}).items() if key in ("title", "volume", "issue", "year", "pages")}
+    if "host-from-ibid" in flags and record.host and record.host.title:
+        # "Ibid.": the host of the entry printed before, which the parser takes from it; the model, seeing a batch,
+        # took another entry's host or wrote "Ibid." in 712 of 2,085 such entries (spot check, 24 Nov 2026).
+        given["title"] = record.host.title
+    if given.get("pages") and record.printed and not grounded_numbers(given["pages"], record.printed):
+        given["pages"] = record.host.pages if record.host else None  # pages the printed text does not hold
+        if "pages-from-parser" not in flags:
+            flags.append("pages-from-parser")
     if any(given.values()):
         before = record.host
         record.host = Host(**given)
@@ -1049,6 +1127,7 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     series = answer.get("series") or {}
     record.series = Series(title=_text(series.get("title")), number=_text(series.get("number"))) if _text(series.get("title")) else None
     record.note = _text(answer.get("note"))
+    drop_repeated_subtitle(record)
     record.provenance.parser = f"{item.get('model', '').split('/')[-1]}@v{item.get('prompt', '')}"
     if "parsed-llm" not in flags:
         flags.append("parsed-llm")
@@ -1071,9 +1150,12 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
         if item is not None and record.printed:
             before = (record.type, record.title, record.year)
             apply_answer(record, item, frozenset(contributors.get(record.id, ())))
-            record.ocr_corrected = [] if born_digital(record) else [
+            refused = "llm-answer-refused" in record.provenance.flags
+            record.ocr_corrected = [] if born_digital(record) or refused else [
                 fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
-            counts["parsed"] += 1
+            counts["answer refused (not this entry's)" if refused else "parsed"] += 1
+            counts["persons kept from the parser"] += "persons-from-parser" in record.provenance.flags
+            counts["pages kept from the parser"] += "pages-from-parser" in record.provenance.flags
             counts["OCR fixes for search"] += len(record.ocr_corrected)
             counts["type changed"] += record.type != before[0]
             counts["title changed"] += record.title != before[1]

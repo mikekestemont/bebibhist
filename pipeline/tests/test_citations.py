@@ -272,3 +272,73 @@ def test_a_printed_entry_behind_its_catalogue_record_is_left_out_of_the_pass():
     alone = Record(id="bhb:2012-85124", source="print-pdf", bgb_year=2012, provenance=Provenance())
     older = Record(id="bhb:2004-1", source="print-straive", bgb_year=2004, duplicate_of="bhb:2005-2", provenance=Provenance())
     assert behind_catalogue(linked) and not behind_catalogue(alone) and not behind_catalogue(older)
+
+
+def test_apply_refuses_an_answer_for_another_entry_and_names_and_pages_the_text_lacks():
+    from bhb.citations import apply_citations
+
+    def entry(n, printed, **fields):
+        return Record(id=f"bhb:1997-{n}", source="print-straive", bgb_year=1997, printed=printed, **fields)
+
+    shifted = entry(1, "Van Impe (Luc). Onderweg naar Stonehenge. Lunula, 26, 2018, pp. 3–8.", type="article",
+                    title="Onderweg naar Stonehenge", persons=[Person(family="Van Impe", given="Luc")])
+    stranger = entry(2, "Vandenbranden (Marcel). Le service d’incendie à Saint-Gilles. Bruxelles, 1997, 28 p.", type="book",
+                     persons=[Person(family="Vandenbranden", given="Marcel")])
+    invented = entry(3, "t’ Hart (Marjolein). De prijs van de vrijheid. In: Fagel (Raymond). Oorlog en Samenleving, [Cfr. n° 53505]",
+                     type="chapter", host=Host(title="Oorlog en Samenleving", id="bhb:1997-53505"))
+    invented.provenance.flags.append("host-from-cross-ref")
+    answers = {
+        shifted.id: _answer(shifted.id, type="article", title="Een grafcirkel in het centrum van Vremde",
+                            persons=[{"family": "Vanholme", "given": "Nele", "role": "author"}]),
+        stranger.id: _answer(stranger.id, title="Le service d’incendie à Saint-Gilles",
+                             persons=[{"family": "Renier", "given": "J.P.", "role": "author"}]),
+        invented.id: _answer(invented.id, type="article", title="De prijs van de vrijheid",
+                             persons=[{"family": "t’ Hart", "given": "Marjolein", "role": "author"}],
+                             host={"title": "Oorlog en Samenleving", "volume": None, "issue": None, "year": None, "pages": "45–67"}),
+    }
+    answers[shifted.id]["answer"]["ocr_fixes"] = [{"printed": "x", "corrected": "y"}]
+    counts = apply_citations([shifted, stranger, invented], answers, {})
+    assert shifted.title == "Onderweg naar Stonehenge" and shifted.persons[0].family == "Van Impe"
+    assert "llm-answer-refused" in shifted.provenance.flags and shifted.ocr_corrected == []
+    assert [p.family for p in stranger.persons] == ["Vandenbranden"] and "persons-from-parser" in stranger.provenance.flags
+    assert stranger.title == "Le service d’incendie à Saint-Gilles"
+    assert invented.type == "chapter" and invented.host.pages is None and invented.host.id == "bhb:1997-53505"
+    assert counts["answer refused (not this entry's)"] == 1 and counts["parsed"] == 2
+
+
+def test_an_ibid_entry_keeps_its_parsed_host_and_an_id_entry_the_models_author():
+    from bhb.citations import apply_citations
+
+    ibid = Record(id="bhb:1980-34395", source="print-straive", bgb_year=1980, type="article",
+                  printed="Duchesne (Albert). Corps de troupes liégeois. Ibid., pp. 23–27.", persons=[Person(family="Duchesne", given="Albert")],
+                  host=Host(title="Les Liégeois aux armées", year="1980", pages="23–27"))
+    ibid.provenance.flags.append("host-from-ibid")
+    idem = Record(id="bhb:1997-18998-c7", source="print-straive", bgb_year=1997, type="chapter",
+                  printed="id. Au service de la France. pp. 181–198", host=Host(title="Les réseaux", id="bhb:1997-18998"))
+    memoriam = Record(id="bhb:1994-7408", source="print-straive", bgb_year=1994, type="article",
+                      printed="In memoriam: Val A. Browning (1895–1994). Le Musée d’armes, XXII, 1994, 78, pp. 27–28.")
+    answers = {
+        ibid.id: _answer(ibid.id, type="article", title="Corps de troupes liégeois", persons=[{"family": "Duchesne", "given": "Albert", "role": "author"}],
+                         host={"title": "Leodium", "volume": "LXIV", "issue": None, "year": "1980", "pages": "23–27"}),
+        idem.id: _answer(idem.id, type="chapter", title="Au service de la France", persons=[{"family": "Verhoeyen", "given": "Etienne", "role": "author"}],
+                         host={"title": "Les réseaux", "volume": None, "issue": None, "year": None, "pages": "181–198"}),
+        memoriam.id: _answer(memoriam.id, type="article", title="In memoriam: Val A. Browning (1895–1994)",
+                             persons=[{"family": "Voisin", "given": "A.", "role": "author"}]),
+    }
+    apply_citations([ibid, idem, memoriam], answers, {})
+    assert ibid.host.title == "Les Liégeois aux armées" and ibid.host.pages == "23–27"
+    assert [p.family for p in idem.persons] == ["Verhoeyen"]
+    assert memoriam.persons == [] and "persons-from-parser" in memoriam.provenance.flags
+
+
+def test_a_subtitle_that_repeats_the_journal_or_the_title_is_dropped():
+    from bhb.citations import drop_repeated_subtitle
+
+    journal = Record(id="bhb:1973-1", source="print-straive", bgb_year=1973, title="Voici le temps de la foire",
+                     subtitle="Si Liège m’était conté…", host=Host(title="Si Liège m’était conté…"))
+    twice = Record(id="bhb:1968-2", source="print-straive", bgb_year=1968, title="Antonia Depoorter, een hoogstaande vrouw uit Ronse",
+                   subtitle="een hoogstaande vrouw uit Ronse")
+    month = Record(id="bhb:1958-3", source="print-straive", bgb_year=1958, title="Centenaire (16 juillet 1858–12 mai 1958)", subtitle="Mai 1958")
+    assert drop_repeated_subtitle(journal) and journal.subtitle is None
+    assert drop_repeated_subtitle(twice) and (twice.title, twice.subtitle) == ("Antonia Depoorter", "een hoogstaande vrouw uit Ronse")
+    assert not drop_repeated_subtitle(month) and month.subtitle == "Mai 1958"

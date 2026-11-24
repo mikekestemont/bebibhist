@@ -20,14 +20,12 @@ import html
 import json
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from bhb.identifiers import USER_AGENT, _full_given, numbers_agree, same_name
-from bhb.kbr_harvest import _RECORD, OAI
+from bhb.kbr_harvest import _RECORD, FAULTS, OAI, get
 from rapidfuzz.distance import Levenshtein
 
 from bhb.textutil import fold, squash
@@ -324,10 +322,9 @@ def ermes(number: str, cache: Path, offline: bool = False) -> str | None:
         time.sleep(max(0.0, _last + INTERVAL - time.monotonic()))
         _last = time.monotonic()
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=120) as response:
-                text = response.read().decode("utf-8")
+            text = get(url, USER_AGENT, timeout=120)
             break
-        except (urllib.error.URLError, TimeoutError):
+        except FAULTS:
             if attempt == 5:
                 return None
             time.sleep(10 * (attempt + 1))

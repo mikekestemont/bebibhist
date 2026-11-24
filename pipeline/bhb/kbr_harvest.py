@@ -16,12 +16,13 @@ Only the standard library, and Python 3.8, so that it can run on its own on anot
 from __future__ import annotations
 
 import gzip
+import http.client
 import json
 import os
 import re
 import sys
+import threading
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -61,6 +62,40 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
 
 
+# A network fault worth trying again: no answer, a dropped connection, a broken reply, or the deadline passed (URLError,
+# TimeoutError and ConnectionError are kinds of OSError).
+FAULTS = (OSError, http.client.HTTPException)
+
+
+def get(url: str, user_agent: str, timeout: float, deadline: float | None = None) -> str:
+    """The body at ``url``, or TimeoutError when it has not come within ``deadline`` seconds of wall-clock time.
+    ``timeout`` bounds each socket operation only, most likely on a clock that stops while a Mac sleeps, and a name
+    lookup does not heed it: on 23 Nov 2026 a request asked before the Mac slept waited 40 minutes after it woke.
+    The request runs in a thread of its own, watched on the wall clock; a request past its deadline is abandoned (its
+    thread ends with its socket) and the caller asks again."""
+    deadline = deadline if deadline is not None else 2 * timeout
+    outcome: dict = {}
+
+    def ask() -> None:
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                outcome["text"] = response.read().decode("utf-8")
+        except BaseException as error:  # handed to the caller
+            outcome["error"] = error
+
+    worker = threading.Thread(target=ask, daemon=True)
+    started = time.time()
+    worker.start()
+    while worker.is_alive() and time.time() - started < deadline:
+        worker.join(min(1.0, max(0.01, deadline - (time.time() - started))))
+    if worker.is_alive():
+        raise TimeoutError(f"no answer within {deadline:.0f} s: {url}")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["text"]
+
+
 def fetcher(user_agent: str):
     """A function that asks the server and returns its answer; it waits and tries again on a network fault."""
 
@@ -68,10 +103,8 @@ def fetcher(user_agent: str):
         url = f"{OAI}?{urllib.parse.urlencode(params)}"
         for attempt in range(6):
             try:
-                request = urllib.request.Request(url, headers={"User-Agent": user_agent})
-                with urllib.request.urlopen(request, timeout=300) as response:
-                    return response.read().decode("utf-8")
-            except (urllib.error.URLError, TimeoutError):
+                return get(url, user_agent, timeout=300)
+            except FAULTS:
                 if attempt == 5:
                     raise
                 time.sleep(30 * (attempt + 1))

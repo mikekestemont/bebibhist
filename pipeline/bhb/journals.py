@@ -162,6 +162,15 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             alone[record.issn[0]] += 1
         for issn in record.issn[1:]:
             together[tuple(sorted((record.issn[0], issn)))] += 1
+    # A journal renamed with a new ISSN stays apart from its predecessor even when articles list both numbers
+    # (journal_successions.csv, a row of two ISSN ids: TSEG, 1572-1701, and the Tijdschrift voor sociale
+    # geschiedenis, 0303-9935, which Crossref also lists on two TSEG articles). Pairs that touch a predecessor's number are
+    # joined last, so that a successor's own numbers are together before the check.
+    successions = load_successions()
+    apart = [(row["predecessor_id"][5:], row["successor"][5:]) for row in successions
+             if row["predecessor_id"].startswith("issn:") and row["successor"].startswith("issn:")]
+    predecessors = {old for old, _new in apart}
+    pairs = []
     votes: dict[str, Counter[str]] = defaultdict(Counter)
     for record in articles:
         if record.issn:
@@ -169,9 +178,13 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
                 pair = tuple(sorted((record.issn[0], issn)))
                 if together[pair] < 2 and alone[pair[0]] and alone[pair[1]]:
                     continue
-                first, other = root(record.issn[0]), root(issn)
-                parent[max(first, other)] = min(first, other)
+                pairs.append(pair)
             votes[spelling_key(record.host.title)][record.issn[0]] += 1
+    for pair in sorted(pairs, key=lambda pair: bool(predecessors & set(pair))):
+        first, other = root(pair[0]), root(pair[1])
+        if any({root(old), root(new)} == {first, other} for old, new in apart):
+            continue
+        parent[max(first, other)] = min(first, other)
     mapping: dict[str, tuple[str, str]] = {}
     for spelling, counter in votes.items():
         if spelling in GENERIC:
@@ -235,7 +248,6 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     for record in articles:
         if year := record.year or record.bgb_year:
             years[spelling_key(record.host.title)].append(int(year))
-    successions = load_successions()
     names = {row["predecessor_id"]: row["predecessor_title"] for row in successions}
     for row in successions:
         for spelling, (journal, _rule) in list(mapping.items()):

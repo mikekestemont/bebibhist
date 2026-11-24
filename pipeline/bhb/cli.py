@@ -557,12 +557,12 @@ def ingest_pdf_years(years: range = range(2009, 2018)) -> list[Record]:
             continue
         generated = build_dir() / "print-pdf" / f"BGB_{year}.xml"
         report = convert_pdf(pdf, generated, str(year))
-        year_records = load_jats(generated, "print-pdf")
+        year_records, front = without_front_matter(load_jats(generated, "print-pdf"))
         from bhb.ingest.manuscript import code_sections
 
         coded = code_sections(year_records)
         print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
-              f"{coded} with the code of their heading")
+              f"{coded} with the code of their heading, {front} paragraphs of front matter left out")
         records.extend(year_records)
     return records
 
@@ -590,14 +590,22 @@ def ingest_manuscripts() -> list[Record]:
             continue
         generated = build_dir() / "manuscript-pdf" / f"BGB_{year}.xml"
         report = convert_pdf(pdf, generated, str(year))
-        year_records = load_jats(generated, "manuscript")
+        year_records, front = without_front_matter(load_jats(generated, "manuscript"))
         for record in year_records:
             record.provenance.flags.extend(flag for flag in ("unpublished-manuscript", "typeset-proof") if flag not in record.provenance.flags)
         coded = code_sections(year_records)
         print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
-              f"{coded} with the code of their heading")
+              f"{coded} with the code of their heading, {front} paragraphs of front matter left out")
         records.extend(year_records)
     return records
+
+
+def without_front_matter(records: list[Record]) -> tuple[list[Record], int]:
+    """The entries of a volume read from its PDF, without the paragraphs before its first section heading: the
+    volumes of 2016 and 2017 and the 2018 proof open with the Commission's officers, its reading committee and a
+    user's guide, which the reader took for entries (40 paragraphs; spot check of 24 Nov 2026)."""
+    kept = [record for record in records if record.section_path]
+    return kept, len(records) - len(kept)
 
 
 def _catalogue_hosts() -> dict[int, dict]:
