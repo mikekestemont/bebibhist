@@ -511,27 +511,21 @@ export function relaxedQuery(query: string, field: SearchField = "all", translat
 }
 
 /**
- * The longer index words a whole-word search leaves out, per query word ("brugge" → bruggen, brugges …), the
- * shortest first: the result says so and offers them (the reviewer's "bruggen" for Brugge, 9 Nov 2026). ``tag`` is the
- * Pagefind tag of the search ("aw", "au" …). Only words of letters, of three letters or more, are looked up.
+ * Whether one of the words begins a longer word of the index ("brugge": bruggen), by which a hit may have been found.
+ * ``tag`` is the Pagefind tag of the search ("aw", "au" …). Only words of letters, of three letters or more, are
+ * looked up.
  */
-export async function longerWords(words: string[], tag: string, limit = 6): Promise<{ word: string; longer: string[]; more: number }[]> {
-  const found: { word: string; longer: string[]; more: number }[] = [];
+export async function beginsLongerWords(words: string[], tag: string): Promise<boolean> {
   for (const word of words) {
     if (word.length < 3 || !/^\p{L}+$/u.test(word)) continue;
     const token = `${tag}_${word}`;
     const list = await knownFile(token.slice(0, 5));
     if (!list) continue;
-    const all: string[] = [];
     for (let low = lowerBound(list, token); low < list.length && list[low].startsWith(token); low += 1) {
-      const candidate = list[low].slice(3).replace(/_$/, "");
-      if (candidate !== word && list[low].endsWith("_")) all.push(candidate);
+      if (list[low].endsWith("_") && list[low].slice(3).replace(/_$/, "") !== word) return true;
     }
-    // The nearest forms first ("bruggen", "brugges" before "bruggehooft"): the shortest, then in order.
-    const longer = [...all].sort((a, b) => a.length - b.length || (a < b ? -1 : 1)).slice(0, limit);
-    if (all.length) found.push({ word, longer, more: all.length - longer.length });
   }
-  return found;
+  return false;
 }
 
 function lowerBound(list: string[], token: string): number {

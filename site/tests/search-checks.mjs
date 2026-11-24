@@ -60,8 +60,7 @@ const checks = [
   // Whole words come first (Mike, 10 Nov 2026): the entries found only through a longer word follow them.
   { name: "whole words first (Brugge, the bridges after)", hash: "#/search?q=Brugge", count: [5200, 8200], lacks: /Wespelaarse bruggen/ },
   { name: "whole words only, when asked (abbaye)", hash: "#/search?q=abbaye&match=whole", count: [2000, 3200] },
-  { name: "longer words below a line when no word is whole (brugg)", hash: "#/search?q=brugg", selector: ".tier-divider", contains: /brugge/ },
-  { name: "the words a whole-word search left out are named", hash: "#/search?q=Brugge", selector: ".match-notes", contains: /bruggen/ },
+  { name: "longer words found when no word is whole (brugg)", hash: "#/search?q=brugg", count: [5000, 13000], contains: /brugge/i },
   { name: "a word with * finds the words it begins (brugg*)", hash: "#/search?q=brugg*", count: [5000, 7000] },
   // A word finds every longer word it begins, in however many index files they are: at least what the most common of them
   // finds (4,763 for nation, where national alone had 9,493; 24 Nov 2026).
