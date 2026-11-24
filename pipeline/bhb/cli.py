@@ -978,12 +978,18 @@ def _candidates_vabb(threshold: float) -> None:
 def _identifiers_kbr(offline: bool) -> None:
     import json
 
-    from bhb.kbr import books, ermes, match, name_index, write_matches
+    import csv
+
+    from bhb.kbr import books, ermes, keep_previous, match, name_index, write_matches
 
     records = read_jsonl(build_dir() / "records.jsonl")
     harvest = build_dir() / "external" / "kbr"
     matches, counts = match(records, books(harvest))
     out = build_dir() / "identifiers" / "kbr.csv"
+    previous = list(csv.DictReader(out.open(encoding="utf-8"))) if out.exists() else []
+    kept = keep_previous(matches, previous, records)
+    counts["kept from the last file"] = len(kept)
+    matches += kept
     write_matches(out, matches)
     print(f"kbr: {counts} → {out}", flush=True)
     names = name_index(records, books(harvest))
