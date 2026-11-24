@@ -119,7 +119,8 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
     match.add_argument("--source", default="vsmart", help="vsmart, print-straive, print-pdf, manuscript or all")
-    match.add_argument("--new", action="store_true", help="only the entries without a row in the source's file; the other rows are kept")
+    match.add_argument("--new", action="store_true", help="only the entries that are not on the site yet (build/records.deployed-*.jsonl, the newest) and have no row in the source's file; the other rows are kept")
+    match.add_argument("--backlog", action="store_true", help="with --new: also the entries on the site that were never asked (8,667 on 24 Nov 2026, mostly entries the citation pass made articles or chapters)")
     match.add_argument("--patient", type=int, default=0, metavar="N", help="when Crossref throttles, wait half an hour and go on, up to N times")
     match.add_argument("--offline", action="store_true", help="use only the answers already in the cache")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
@@ -253,7 +254,7 @@ def main(argv: list[str] | None = None) -> None:
         _identifiers_pilot(args.size, args.seed)
         return
     if args.command == "identifiers" and args.identifiers_command == "match":
-        _identifiers_match(args.source, args.offline, args.new, args.patient)
+        _identifiers_match(args.source, args.offline, args.new, args.patient, args.backlog)
         return
     if args.command == "identifiers" and args.identifiers_command == "apply":
         from bhb.identifiers import apply_identifiers
@@ -858,25 +859,31 @@ def _identifiers_pilot(size: int, seed: int) -> None:
     _identifiers_write(pilot_sample(records, size, seed), build_dir() / "identifiers" / "pilot.csv")
 
 
-def _identifiers_match(source: str, offline: bool = False, new: bool = False, patient: int = 0) -> None:
+def _identifiers_match(source: str, offline: bool = False, new: bool = False, patient: int = 0, backlog: bool = False) -> None:
     """Match one source's articles and chapters, or all of them. A printed entry of 2009–2017 behind the catalogue's
-    record is left out (the catalogue's record is asked). ``new`` asks only for the entries without a row yet."""
+    record is left out (the catalogue's record is asked). ``new`` asks only for the entries without a row yet that are
+    not on the site (``backlog``: also those that are): a delivery's own, not what was left unasked before it."""
     import csv
     import time
 
     from bhb.citations import behind_catalogue
+    from bhb.compare import newest_deployed
     from bhb.identifiers import Throttled
 
+    on_site: set[str] = set()
+    if new and not backlog and (deployed := newest_deployed(build_dir())):
+        with deployed.open(encoding="utf-8") as lines:
+            on_site = {json.loads(line)["id"] for line in lines}
     records = read_jsonl(build_dir() / "records.jsonl")
     for name in ("vsmart", "print-straive", "print-pdf", "manuscript") if source == "all" else (source,):
         out = build_dir() / "identifiers" / f"{name}.csv"
         present = {record.id for record in records}
         rows = list(csv.DictReader(out.open(encoding="utf-8"))) if new and out.exists() else []
         rows = [row for row in rows if row["id"] in present]
-        known = {row["id"] for row in rows}
+        known = {row["id"] for row in rows} | on_site
         chosen = [record for record in records if record.source == name and record.role == "entry" and record.type in ("article", "chapter")
                   and record.title and not behind_catalogue(record) and record.id not in known]
-        print(f"{len(chosen)} articles and chapters from {name}" + (f" not asked before ({len(rows)} rows kept)" if new else ""), flush=True)
+        print(f"{len(chosen)} articles and chapters from {name}" + (f" new ({len(rows)} rows kept)" if new else ""), flush=True)
         if not chosen:
             continue
         for pause in range(patient + 1):
