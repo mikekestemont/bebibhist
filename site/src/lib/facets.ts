@@ -4,6 +4,8 @@
 // filter entries that is 0.9 ms a hit, 10.6 s for a subject of 12,000 entries whose hits it finds in 0.1 s (24 Nov
 // 2026). It also looks each hit up in a sort order entry by entry (1 s for the same subject). Pagefind counts only the
 // filters it has loaded, so the page lets it load none: it ranks the hits, and everything else is done here.
+import { Reader } from "./cbor.ts";
+import type { Chunk } from "./ranking.ts";
 
 /** A list of values means "all of them", as in Pagefind; `{ any: [...] }` means "one of them" (a range of years). */
 export type Filters = Record<string, string[] | { any: string[] }>;
@@ -16,70 +18,28 @@ export type FilterCounts = Record<string, Record<string, number>>;
 /** Filter value → the numbers of its pages (records), as a filter file lists them. */
 export type FilterValues = Map<string, Uint32Array>;
 
+/** What is not needed by every search (ids, numbers, ranks) is read when it is first asked. */
 export interface IndexMeta {
-  /** The id of each page, by its number: the order in which the records were indexed. */
-  ids: string[];
+  /** The number of words of each page (record), by its number: the order in which the records were indexed. */
+  wordCounts: Uint32Array;
+  chunks: Chunk[];
   /** Filter name → the name of its file. */
   filterFiles: Map<string, string>;
+  /** The id of each page. */
+  ids: () => string[];
+  /** Id → page number. */
+  numbers: () => Map<string, number>;
   /** Sort key → the place of each page in that order (by page number); ``UNSORTED`` for a page without the key. */
-  ranks: Map<string, Uint32Array>;
+  ranks: () => Map<string, Uint32Array>;
 }
 
 const UNSORTED = 0xffffffff;
+/** After every word that can be ranked here (``rankable``). */
+const END = "~";
 
-/** The parts of CBOR that Pagefind's files use: texts, lists and whole numbers. */
-class Reader {
-  private at = 0;
-  private bytes: Uint8Array;
-
-  constructor(bytes: Uint8Array) {
-    this.bytes = bytes;
-  }
-
-  private head(major: number): number {
-    const byte = this.bytes[this.at++];
-    if (byte >> 5 !== major) throw new Error(`search index: unexpected byte ${byte} at ${this.at - 1}`);
-    const info = byte & 31;
-    if (info < 24) return info;
-    if (info > 26) throw new Error(`search index: unexpected byte ${byte} at ${this.at - 1}`);
-    let value = 0;
-    for (let size = 1 << (info - 24); size > 0; size -= 1) value = value * 256 + this.bytes[this.at++];
-    return value;
-  }
-
-  /** The length of a list that begins here. */
-  list(): number {
-    return this.head(4);
-  }
-
-  number(): number {
-    return this.head(0);
-  }
-
-  numbers(): Uint32Array {
-    return Uint32Array.from({ length: this.list() }, () => this.number());
-  }
-
-  text(): string {
-    const length = this.head(3);
-    const end = this.at + length;
-    let plain = "";
-    // Ids and filter values are short and plain: a decoder call for each of 240,000 ids is slower than this.
-    for (let at = this.at; at < end; at += 1) {
-      if (this.bytes[at] > 127) {
-        plain = new TextDecoder().decode(this.bytes.subarray(this.at, end));
-        break;
-      }
-      plain += String.fromCharCode(this.bytes[at]);
-    }
-    this.at = end;
-    return plain;
-  }
-
-  skipText(): void {
-    const length = this.head(3);
-    this.at += length;
-  }
+function once<T>(make: () => T): () => T {
+  let made: T | undefined;
+  return () => (made ??= make());
 }
 
 /** pagefind.*.pf_meta: [version, [[id, words]], [[from, to, file]], [[filter, file]], [[sort key, [page]]]]. */
@@ -87,31 +47,53 @@ export function readMeta(bytes: Uint8Array): IndexMeta {
   const reader = new Reader(bytes);
   reader.list();
   reader.skipText();
-  const ids = Array.from({ length: reader.list() }, () => {
+  const idsAt = reader.at;
+  const wordCounts = new Uint32Array(reader.list());
+  for (let page = 0; page < wordCounts.length; page += 1) {
     reader.list();
-    const id = reader.text();
-    reader.number();
-    return id;
-  });
-  for (let left = reader.list(); left > 0; left -= 1) {
-    reader.list();
-    for (let part = 0; part < 3; part += 1) reader.skipText();
+    reader.skipText();
+    wordCounts[page] = reader.number();
   }
+  const chunks = Array.from({ length: reader.list() }, () => {
+    reader.list();
+    return { from: reader.text(), to: reader.text(), until: END, file: reader.text() };
+  });
+  chunks.forEach((chunk, at) => { chunk.until = chunks[at + 1]?.from ?? END; });
   const filterFiles = new Map<string, string>();
   for (let left = reader.list(); left > 0; left -= 1) {
     reader.list();
     const name = reader.text();
     filterFiles.set(name, reader.text());
   }
-  const ranks = new Map<string, Uint32Array>();
-  for (let left = reader.list(); left > 0; left -= 1) {
-    reader.list();
-    const key = reader.text();
-    const rank = new Uint32Array(ids.length).fill(UNSORTED);
-    reader.numbers().forEach((page, place) => { rank[page] = place; });
-    ranks.set(key, rank);
-  }
-  return { ids, filterFiles, ranks };
+  const ranksAt = reader.at;
+  const ids = once(() => {
+    const again = new Reader(bytes, idsAt);
+    return Array.from({ length: again.list() }, () => {
+      again.list();
+      const id = again.text();
+      again.number();
+      return id;
+    });
+  });
+  return {
+    wordCounts,
+    chunks,
+    filterFiles,
+    ids,
+    numbers: once(() => new Map(ids().map((id, number) => [id, number]))),
+    ranks: once(() => {
+      const again = new Reader(bytes, ranksAt);
+      const ranks = new Map<string, Uint32Array>();
+      for (let left = again.list(); left > 0; left -= 1) {
+        again.list();
+        const key = again.text();
+        const rank = new Uint32Array(wordCounts.length).fill(UNSORTED);
+        again.numbers().forEach((page, place) => { rank[page] = place; });
+        ranks.set(key, rank);
+      }
+      return ranks;
+    }),
+  };
 }
 
 /** filter/*.pf_filter: [filter, [[value, [page]]]]. */
