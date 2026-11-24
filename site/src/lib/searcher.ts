@@ -47,6 +47,8 @@ export interface Searcher {
 
 /** The searches whose counts can be asked: a list's counts are asked as soon as it is shown. */
 const KEPT = 32;
+/** The rankings kept, the latest used: a search of all text asks for up to three. */
+const RANKINGS = 8;
 
 export function createSearcher(pagefind: PagefindModule, basePath: string): Searcher {
   let entry: Promise<string> | null = null;
@@ -55,6 +57,18 @@ export function createSearcher(pagefind: PagefindModule, basePath: string): Sear
   // A search's ranked ids (null: every record), before its filters.
   const kept = new Map<number, { ranked: string[] | null; filters: Filters }>();
   let last = 0;
+  // The ids Pagefind ranked for a query: another page, order or filter of the same search does not rank it again.
+  const rankings = new Map<string, Promise<string[]>>();
+
+  function rank(query: string): Promise<string[]> {
+    const known = rankings.get(query);
+    const ranking = known || pagefind.search(query).then(({ results }) => results.map(({ id }) => id));
+    if (!known) ranking.catch(() => rankings.delete(query));
+    rankings.delete(query);
+    rankings.set(query, ranking);
+    if (rankings.size > RANKINGS) rankings.delete(rankings.keys().next().value!);
+    return ranking;
+  }
 
   /** The name of the index in use, read as Pagefind starts, so that both read the same one around a deployment. */
   function indexName(): Promise<string> {
@@ -126,7 +140,7 @@ export function createSearcher(pagefind: PagefindModule, basePath: string): Sear
       // Read while Pagefind ranks.
       const narrows = Object.keys(filters).length > 0 || Boolean(options.sort);
       if (narrows) loadFilters(Object.keys(filters)).catch(() => {});
-      const ranked = query === null ? null : (await pagefind.search(query)).results.map(({ id }) => id);
+      const ranked = query === null ? null : await rank(query);
       const search = (last += 1);
       kept.set(search, { ranked, filters });
       kept.delete(search - KEPT);

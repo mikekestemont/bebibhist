@@ -549,13 +549,13 @@
     void searchNotices(askedText, field, hits, longer, current);
     remember(hits);
     loading = false;
-    void afterList(response, nextScope, results.slice(page * pageSize, (page + 1) * pageSize), current);
+    void afterList(response, nextScope, results.slice(page * pageSize, page * pageSize + Math.min(pageSize, 50)), current);
   }
 
   /**
    * What a list does not wait for: its filter counts and year chart, for which a first search still has to read the
    * filters, and then, in the background, the records of the next page, so that turning the page shows it at once
-   * (Mike, 24 Nov 2026). A reader who asked for less data turns the page as before.
+   * (Mike, 24 Nov 2026): at most 50 (about 2 MB), and none for a reader who asked for less data.
    */
   async function afterList(response: SearchResponse, ofScope: string, next: SearchResponse["results"], current: () => boolean) {
     try {

@@ -141,6 +141,17 @@ test("a filter in use counts the hits without it, the others those with it", asy
   assert.deepEqual((await searcher.counts(either.search))!.period, { medieval: 3, contemporary: 3 });
 });
 
+test("another page, order or filter of a search does not rank it again", async () => {
+  const { searcher, calls } = searcherOver(IDS);
+  await searcher.init({});
+  const ranked = () => calls.filter(([query]) => query).map(([query]) => query);
+  for (const options of [{}, {}, { filters: { language: ["nl"] } }, { sort: { order: "asc" as const } }]) await searcher.search("aw_abbaye", options);
+  assert.deepEqual(ranked(), ["aw_abbaye"]);
+  for (let other = 0; other < 8; other += 1) await searcher.search(`aw_${other}`);
+  await searcher.search("aw_abbaye");
+  assert.equal(ranked().filter((query) => query === "aw_abbaye").length, 2);
+});
+
 test("the counts of no hits are zero, and those of a search long ago are gone", async () => {
   const { searcher } = searcherOver([IDS[0]]);
   await searcher.init({});
