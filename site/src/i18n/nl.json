@@ -1,6 +1,11 @@
 {
   "name": "Bibliografie van de Geschiedenis van België",
-  "tagline": "De hele bibliografie, van 1952 tot de laatst aangeleverde jaren, in één zoekactie.",
+  "tagline": "De hele bibliografie, van 1952 tot nu, in één zoekactie.",
+  "homeCount": "Doorzoek {n} publicaties, van 1952 tot nu.",
+  "homeOther": "Of begin bij",
+  "homeBrowse": "de rubrieken van de Bibliografie zelf",
+  "homeTopics": "publicaties over verwante onderwerpen liggen bij elkaar",
+  "homeMap": "publicaties per plaats, op een kaart",
   "search": "Zoeken",
   "placeholder": "bv. Leopold III",
   "filters": "Verfijnen",

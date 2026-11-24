@@ -83,7 +83,64 @@ a { color: #9a3d16; }
 
 .wrap { max-width: 68rem; margin: 0 auto; padding: 1.75rem 1.5rem 3.25rem; }
 
-.home { max-width: 40rem; margin: 2.5rem auto; }
+/* The landing page: the search in the middle, larger than elsewhere, with the other ways in below it. */
+#app > main.home {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 54rem;
+  min-height: 34rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  text-align: center;
+}
+.home h1 { font-size: 3.1rem; margin: 0 0 0.5rem; text-wrap: balance; }
+.home-lead { font-size: 1.28rem; margin: 0; color: #4a4d50; text-wrap: balance; }
+.home-lead strong { font-weight: 600; color: #2f4430; }
+.home form.home-search {
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+  max-width: 45rem;
+  margin: 3.25rem auto 4rem;
+  padding: 0.3rem;
+  background: #fff;
+  border: 1px solid #b7c9bc;
+  border-radius: 12px;
+  box-shadow: 0 1px 5px rgb(47 68 48 / 10%);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.home-search:hover, .home-search:focus-within { border-color: #486249; box-shadow: 0 2px 9px rgb(47 68 48 / 16%); }
+.home .home-search select.field, .home .home-search input { border: 0; font-size: 16px; background-color: transparent; border-radius: 8px; }
+.home .home-search select.field { max-width: 12rem; padding-left: 1.1rem; border-right: 1px solid #d7e3da; border-radius: 8px 0 0 8px; }
+.home .home-search input { min-width: 0; padding: 0.65rem 1rem; }
+.home .home-search input:focus { outline: none; }
+.home .home-search select.field:focus-visible { outline: 2px solid #486249; outline-offset: -2px; }
+.home .home-search button { display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.55rem 1.25rem; font-size: 16px; }
+.home .home-search button:hover { background: #3a5040; }
+.home .home-search button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.home-ways > p { margin: 0 0 0.8rem; font-size: 15px; color: #5c6166; }
+.home-ways ul { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; margin: 0; padding: 0; list-style: none; }
+.home-ways a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  height: 100%;
+  padding: 1.1rem 1rem 1.2rem;
+  background: #ebf6ee;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #303133;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.home-ways a:hover, .home-ways a:focus-visible { border-color: #486249; background: #e0f0e5; }
+.home-ways svg { width: 26px; height: 26px; fill: none; stroke: #486249; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.home-ways strong { font-size: 16px; font-weight: 600; color: #9a3d16; }
+.home-ways span { font-size: 14px; color: #4a4d50; text-wrap: balance; }
+.home .about-link { margin: 1.5rem 0 0; }
 
 h1 {
   font-family: "EB Garamond", Palatino, Georgia, serif;
@@ -730,7 +787,17 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .filters { position: static; }
   .brand strong { display: none; }
   h1 { font-size: 1.78rem; }
-  .home { margin: 2rem 1.25rem; }
+  #app > main.home { min-height: 0; padding: 2rem 1.25rem 2.5rem; justify-content: flex-start; }
+  .home h1 { font-size: 2.3rem; }
+  .home-lead { font-size: 1.1rem; }
+  /* The words on the first row with the button, the field to search in below them. */
+  .home form.home-search { flex-wrap: wrap; margin: 2rem 0 2.5rem; border-radius: 12px; }
+  .home .home-search input { order: 1; flex: 1 1 0; }
+  .home .home-search button { order: 2; padding: 0.7rem 0.95rem; }
+  .home .home-search button span { display: none; }
+  .home .home-search select.field { order: 3; flex: 1 0 100%; max-width: none; margin-top: 0.4rem; border-right: 0; border-top: 1px solid #d7e3da; border-radius: 0 0 8px 8px; }
+  .home-ways ul { grid-template-columns: 1fr; }
+  .home-ways a { padding: 0.8rem 1rem; }
   .search select.field { max-width: 9rem; min-width: 0; }
   .search input { min-width: 0; }
   .footer { grid-template-columns: 1fr; padding: 1.75rem 1.25rem; }

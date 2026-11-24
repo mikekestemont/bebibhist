@@ -29,6 +29,18 @@
   let params = $state(new URLSearchParams());
   let loading = $state(true);
   let missing = $state(false);
+  // How many entries the search covers, for the landing page: the index's own page count, so it is right after every
+  // release. Null until read, 0 when it cannot be read (the line then does without).
+  let searchable = $state<number | null>(null);
+  $effect(() => {
+    if (path !== "/" || searchable !== null) return;
+    fetch(new URL(`${import.meta.env.BASE_URL}pagefind/pagefind-entry.json`, document.baseURI).href)
+      .then((response) => response.json())
+      .then((entry: { languages: Record<string, { page_count: number }> }) => {
+        searchable = Object.values(entry.languages).reduce((sum, language) => sum + language.page_count, 0);
+      })
+      .catch(() => { searchable = 0; });
+  });
   let total = $state(0);
   let hits = $state<Hit[]>([]);
   let record = $state<Hit | null>(null);
@@ -1919,13 +1931,31 @@
   <main class="home">
     {#if missing}<p>{text.missing}</p>{/if}
     <h1>{text.name}</h1>
-    <p>{text.tagline}</p>
-    <form class="search" onsubmit={submit}>
+    <!-- Empty until the count is read, so the line does not change under the reader's eyes. -->
+    <p class="home-lead">{#if searchable}{@const [before, after] = text.homeCount.split("{n}")}{before}<strong>{searchable.toLocaleString(lang)}</strong>{after}{:else if searchable === 0}{text.tagline}{:else}&nbsp;{/if}</p>
+    <form class="search home-search" onsubmit={submit}>
       {@render fieldSelect()}
       <input bind:value={query} type="search" placeholder={text.placeholder} aria-label={text.search} />
-      <button type="submit">{text.search}</button>
+      <button type="submit" aria-label={text.search}>
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M12.8 12.8 18 18" /></svg>
+        <span>{text.search}</span>
+      </button>
     </form>
-    <p class="about-link"><a href="#/browse">{text.browse}</a> · <a href="#/about">{text.aboutTitle}</a></p>
+    <nav class="home-ways" aria-label={text.homeOther}>
+      <p>{text.homeOther}</p>
+      <ul>
+        <li><a href="#/browse">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6M4 12h6M4 19h6M14 5h6M14 12h6M14 19h6" /></svg>
+          <strong>{text.browse}</strong><span>{text.homeBrowse}</span></a></li>
+        <li><a href="#/topics">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="3" /><circle cx="17" cy="6" r="2" /><circle cx="15" cy="16" r="4" /><circle cx="6" cy="18" r="1.5" /></svg>
+          <strong>{text.topics}</strong><span>{text.homeTopics}</span></a></li>
+        <li><a href="#/map">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></svg>
+          <strong>{text.map}</strong><span>{text.homeMap}</span></a></li>
+      </ul>
+    </nav>
+    <p class="about-link"><a href="#/about">{text.aboutTitle}</a></p>
   </main>
 {/if}
 
