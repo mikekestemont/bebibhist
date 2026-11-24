@@ -441,3 +441,18 @@ def test_the_hand_file_parses():
 
     rows = load_identifiers_by_hand()
     assert rows and all(row["id"].startswith("bhb:") and row["doi"].startswith("10.") for row in rows)
+
+
+def test_three_429s_in_ten_minutes_end_a_crossref_run():
+    import pytest
+
+    from bhb import identifiers
+
+    identifiers._seen_429.clear()
+    identifiers._note_429(0)
+    identifiers._note_429(100)
+    identifiers._note_429(1000)  # the first two are more than ten minutes ago
+    identifiers._note_429(1100)
+    with pytest.raises(identifiers.Throttled):
+        identifiers._note_429(1200)
+    assert identifiers._seen_429 == []

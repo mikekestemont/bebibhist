@@ -41,6 +41,7 @@ def main(argv: list[str] | None = None) -> None:
     pdfyears.add_argument("--out", type=Path)
     manuscript = ingest_sub.add_parser("manuscript", help="the editor's Word manuscripts (2018–2023) in <raw>/manuscripts; not merged into the build")
     manuscript.add_argument("--out", type=Path)
+    manuscript.add_argument("--check", action="store_true", help="read and report only: per year the entries against the last reading; writes nothing")
     vsmart = ingest_sub.add_parser("vsmart", help="State Archives exports, 2009–2017")
     vsmart.add_argument("--out", type=Path)
 
@@ -117,7 +118,9 @@ def main(argv: list[str] | None = None) -> None:
     pilot.add_argument("--size", type=int, default=1000)
     pilot.add_argument("--seed", type=int, default=1)
     match = identifiers_sub.add_parser("match", help="match every article and chapter of one source; write build/identifiers/<source>.csv")
-    match.add_argument("--source", default="vsmart", help="vsmart, print-straive, print-pdf or manuscript")
+    match.add_argument("--source", default="vsmart", help="vsmart, print-straive, print-pdf, manuscript or all")
+    match.add_argument("--new", action="store_true", help="only the entries without a row in the source's file; the other rows are kept")
+    match.add_argument("--patient", type=int, default=0, metavar="N", help="when Crossref throttles, wait half an hour and go on, up to N times")
     match.add_argument("--offline", action="store_true", help="use only the answers already in the cache")
     identifiers_sub.add_parser("apply", help="write the accepted DOI, ISBN and ISSN matches into build/records.jsonl")
     identifiers_sub.add_parser("ocr", help="list words and names that differ from the matched source: build/identifiers/ocr-proposals.csv")
@@ -176,6 +179,8 @@ def main(argv: list[str] | None = None) -> None:
     crun.add_argument("--years", type=int, nargs="*", help="only these print years (a test run)")
     crun.add_argument("--workers", type=int, default=6)
     crun.add_argument("--no-translate", action="store_true")
+    crun.add_argument("--all", dest="everything", action="store_true", help="ask for every entry again, also those whose printed text is unchanged since their answer")
+    crun.add_argument("--retry-unanswered", action="store_true", help="also ask again for the entries the model gave no answer for")
     crun.add_argument("--dry-run", action="store_true", help="send nothing: count what is in the cache and what would be asked (written to run-dry/)")
     capply = citations_sub.add_parser("apply", help="write the full pass's fields and title translations into build/records.jsonl (after bhb build)")
     capply.add_argument("--run", default="run", help="the run's folder under build/citations/")
@@ -202,11 +207,15 @@ def main(argv: list[str] | None = None) -> None:
     chain.add_argument("--to", dest="stop", help="last step, by number or label (default: release)")
     chain.add_argument("--map", action="store_true", help="also make the topic map's layout and region names again (about two hours)")
     chain.add_argument("--remote-names", action="store_true", help="with --map: name the regions through OpenRouter (minutes, about $0.10)")
-    chain.add_argument("--with-manuscripts", action="store_true", help="passed to bhb build")
-    chain.add_argument("--with-print-years", action="store_true", help="passed to bhb build")
+    chain.add_argument("--without-manuscripts", action="store_true", help="build without the editor's manuscripts (they are on the site since 24 Nov 2026)")
+    chain.add_argument("--without-print-years", action="store_true", help="build without the printed volumes 2009–2017 (on the site since 24 Nov 2026)")
     chain.add_argument("--max-parse", type=int, default=0, help="parse requests not in the cache the paid step may send (default 0)")
     chain.add_argument("--max-translate", type=int, default=0, help="translation requests the paid step may send (default 0)")
     chain.add_argument("--print", dest="print_only", action="store_true", help="show the commands that would run, run nothing")
+    comparison = sub.add_parser("compare", help="compare build/records.jsonl with the data on the site (build/records.deployed-*.jsonl, the newest); stops with 2 when something went missing")
+    comparison.add_argument("--old", type=Path)
+    comparison.add_argument("--new", type=Path)
+    comparison.add_argument("--report", action="store_true", help="report only; never stop")
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -244,7 +253,7 @@ def main(argv: list[str] | None = None) -> None:
         _identifiers_pilot(args.size, args.seed)
         return
     if args.command == "identifiers" and args.identifiers_command == "match":
-        _identifiers_match(args.source, args.offline)
+        _identifiers_match(args.source, args.offline, args.new, args.patient)
         return
     if args.command == "identifiers" and args.identifiers_command == "apply":
         from bhb.identifiers import apply_identifiers
@@ -348,7 +357,7 @@ def main(argv: list[str] | None = None) -> None:
         _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
         return
     if args.command == "citations" and args.citations_command == "run":
-        _citations_run(args.model, args.years, args.workers, not args.no_translate, args.dry_run)
+        _citations_run(args.model, args.years, args.workers, not args.no_translate, args.dry_run, args.everything, args.retry_unanswered)
         return
     if args.command == "citations" and args.citations_command == "apply":
         from bhb.citations import apply_citations, load_answers, load_translations
@@ -423,7 +432,7 @@ def main(argv: list[str] | None = None) -> None:
         if args.list:
             print(release_chain.list_steps())
             return
-        flags = [flag for flag, on in (("--with-manuscripts", args.with_manuscripts), ("--with-print-years", args.with_print_years)) if on]
+        flags = [flag for flag, off in (("--with-manuscripts", args.without_manuscripts), ("--with-print-years", args.without_print_years)) if not off]
         steps = release_chain.plan(args.start, args.stop, args.map, flags, args.remote_names)
         if args.print_only:
             for number, step, step_args in steps:
@@ -431,6 +440,13 @@ def main(argv: list[str] | None = None) -> None:
             return
         code = release_chain.run_chain(steps, build_dir() / "chain.log", args.max_parse, args.max_translate)
         if code:
+            raise SystemExit(code)
+        return
+    if args.command == "compare":
+        from bhb.compare import run as compare_run
+
+        code = compare_run(args.old, args.new, build_dir())
+        if code and not args.report:
             raise SystemExit(code)
         return
     if args.command == "release":
@@ -460,7 +476,13 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "ingest" and args.source == "manuscript":
         records = ingest_manuscripts()
-        count = write_jsonl(args.out or build_dir() / "manuscript.jsonl", records)
+        path = build_dir() / "manuscript.jsonl"
+        for line in intake_report(read_jsonl(path) if path.exists() else [], records):
+            print(line)
+        if args.check:
+            print("check only: nothing written")
+            return
+        count = write_jsonl(args.out or path, records)
         print(f"manuscript: {count} records")
         return
     if args.command == "ingest" and args.source == "vsmart":
@@ -601,6 +623,28 @@ def ingest_manuscripts() -> list[Record]:
               f"{coded} with the code of their heading, {front} paragraphs of front matter left out")
         records.extend(year_records)
     return records
+
+
+def intake_report(before: list[Record], after: list[Record]) -> list[str]:
+    """What a delivery changes, per year: entries before and now, how many keep their id (an entry whose text the
+    editor corrected has a new one), the headings without a code, and the entries the parser is least sure of."""
+    from collections import Counter
+
+    old, new = {record.id: record for record in before}, {record.id: record for record in after}
+    lines = ["", "Per year, against the last reading (build/manuscript.jsonl):"]
+    for year in sorted({record.bgb_year for record in (*before, *after)}):
+        ids_old = {rid for rid, record in old.items() if record.bgb_year == year}
+        ids_new = {rid for rid, record in new.items() if record.bgb_year == year}
+        uncoded = Counter(record.section_path[-1] for record in after if record.bgb_year == year and not record.bhb_codes and record.section_path)
+        unsure = sorted((record for record in after if record.bgb_year == year), key=lambda record: record.provenance.confidence)[:3]
+        lines.append(f"  {year}: {len(ids_old):,} → {len(ids_new):,} entries; {len(ids_old & ids_new):,} the same, {len(ids_new - ids_old):,} new, "
+                     f"{len(ids_old - ids_new):,} gone; {sum(uncoded.values()):,} without a code")
+        if ids_old and len(ids_old - ids_new) > 0.02 * len(ids_old):
+            lines.append("     many ids gone: a corrected text gives an entry a new id, and its hand corrections and links go with the old one")
+        lines.extend(f"     heading without a code: {heading} ({n})" for heading, n in uncoded.most_common(8))
+        lines.extend(f"     least sure ({record.provenance.confidence:.2f}): {(record.printed or '')[:110]}" for record in unsure
+                     if record.provenance.confidence < 0.6 and record.id not in old)
+    return lines
 
 
 def without_front_matter(records: list[Record]) -> tuple[list[Record], int]:
@@ -814,11 +858,36 @@ def _identifiers_pilot(size: int, seed: int) -> None:
     _identifiers_write(pilot_sample(records, size, seed), build_dir() / "identifiers" / "pilot.csv")
 
 
-def _identifiers_match(source: str, offline: bool = False) -> None:
+def _identifiers_match(source: str, offline: bool = False, new: bool = False, patient: int = 0) -> None:
+    """Match one source's articles and chapters, or all of them. A printed entry of 2009–2017 behind the catalogue's
+    record is left out (the catalogue's record is asked). ``new`` asks only for the entries without a row yet."""
+    import csv
+    import time
+
+    from bhb.citations import behind_catalogue
+    from bhb.identifiers import Throttled
+
     records = read_jsonl(build_dir() / "records.jsonl")
-    chosen = [record for record in records if record.source == source and record.role == "entry" and record.type in ("article", "chapter") and record.title]
-    print(f"{len(chosen)} articles and chapters from {source}", flush=True)
-    _identifiers_write(chosen, build_dir() / "identifiers" / f"{source}.csv", offline)
+    for name in ("vsmart", "print-straive", "print-pdf", "manuscript") if source == "all" else (source,):
+        out = build_dir() / "identifiers" / f"{name}.csv"
+        present = {record.id for record in records}
+        rows = list(csv.DictReader(out.open(encoding="utf-8"))) if new and out.exists() else []
+        rows = [row for row in rows if row["id"] in present]
+        known = {row["id"] for row in rows}
+        chosen = [record for record in records if record.source == name and record.role == "entry" and record.type in ("article", "chapter")
+                  and record.title and not behind_catalogue(record) and record.id not in known]
+        print(f"{len(chosen)} articles and chapters from {name}" + (f" not asked before ({len(rows)} rows kept)" if new else ""), flush=True)
+        if not chosen:
+            continue
+        for pause in range(patient + 1):
+            try:
+                _identifiers_write(chosen, out, offline, rows)
+                break
+            except Throttled as error:
+                if pause == patient:
+                    raise SystemExit(f"crossref: {error}; nothing written, the cache keeps every answer: run the same command again later")
+                print(f"crossref: {error}; waiting half an hour (pause {pause + 1} of {patient})", flush=True)
+                time.sleep(1800)
 
 
 def _identifiers_vabb(limit: int | None) -> None:
@@ -1326,7 +1395,8 @@ def _citations_key(models: list[str], variant: str, batch_size: int, split: str,
         handle.write("\n" + text)
 
 
-def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool, dry_run: bool = False) -> None:
+def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool, dry_run: bool = False,
+                   everything: bool = False, retry_unanswered: bool = False) -> None:
     """The full pass (§5c): the printed entries without a DOI or VABB match, and every collected volume, parsed by
     prompt v4 in batches of ten with the rules after it; then every title translated, the parsed ones from the
     model's title. Every answer is cached, so the run resumes where it stopped; it stops when the key runs out.
@@ -1343,8 +1413,8 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
 
     from bhb import citations
     from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
-                               behind_catalogue, is_collected_volume, make_batches, parsed_by_pass, previous_translations, tidy,
-                               title_request_cached)
+                               behind_catalogue, is_collected_volume, known_unanswered, make_batches, parsed_by_pass,
+                               previous_answers, previous_translations, printed_key, tidy, title_request_cached)
 
     citations.OFFLINE = dry_run
     from bhb.ocr_compare import vocabulary
@@ -1359,17 +1429,25 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
     to_parse = {record.id for record in all_records if parsed_by_pass(record) and record.printed and wanted(record) and (
         not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed))}
     journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
+    run_dir = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    # An answer made from the same printed text is kept, as a translation is; only the other entries are asked.
+    texts = {record.id: printed_key(record.printed) for record in all_records if record.printed}
+    kept = {} if everything else {record_id: row for record_id, row in previous_answers(run_dir / "answers.jsonl", model, PARSE_VERSION).items()
+                                  if texts.get(record_id) == row["printed"]}
+    silent = {} if everything or retry_unanswered else known_unanswered(run_dir / "unanswered.jsonl")
+    ask = {record_id for record_id in to_parse if record_id not in kept and silent.get(record_id) != texts[record_id]}
     batches = []
     for batch in make_batches([record for record in all_records if parsed_by_pass(record) and wanted(record)], journals):
-        items = [item for item in batch.items if item.id in to_parse]
+        items = [item for item in batch.items if item.id in ask]
         if items:
             batches.append(Batch(batch.section, batch.before, items))
-    run_dir = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
     out = run_dir.with_name(run_dir.name + "-dry") if dry_run else run_dir
     out.mkdir(parents=True, exist_ok=True)
     cache = build_dir() / "cache" / "citations"
     left = credit()
-    print(f"{len(to_parse):,} entries to parse in {len(batches):,} batches; {model}, prompt v{PARSE_VERSION}; "
+    print(f"{len(to_parse):,} entries of the pass: {len(to_parse & set(kept)):,} with an answer from the same text, "
+          f"{sum(1 for i in to_parse - set(kept) if i not in ask):,} without an answer when asked before, "
+          f"{len(ask):,} to parse in {len(batches):,} batches; {model}, prompt v{PARSE_VERSION}; "
           f"credit left: {'no limit' if left is None else f'${left:.2f}'}", flush=True)
     stop = threading.Event()
     lock = threading.Lock()
@@ -1403,14 +1481,24 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
     if dry_run:
         print(f"dry run: {spent['requests']:,} parse requests not in the cache (not sent)", flush=True)
     counts = vocabulary(record.printed for record in all_records)
-    answers = {}
-    for _, (found, _) in parsed:
+    answers = {record_id: row["answer"] for record_id, row in kept.items()}
+    # Asked and not answered: every reply of the batch came, none of them a refusal, and the entry was not in it.
+    silent = {record_id: key for record_id, key in silent.items() if texts.get(record_id) == key}
+    for batch, (found, replies) in parsed:
+        if not any((reply.error or "").startswith(("HTTP", "offline")) for reply in replies):
+            silent.update({item.id: texts[item.id] for item in batch.items if item.id not in found})
         for record_id, answer in found.items():
+            silent.pop(record_id, None)
             record = records[record_id]
             answer = tidy(answer, record.printed, record.bgb_year)
             answer["ocr_fixes"] = [] if born_digital(record) else checked_ocr_fixes(answer, record.printed, counts)
             answers[record_id] = answer
     review = Counter()
+    if (out / "answers.jsonl").exists():
+        shutil.copyfile(out / "answers.jsonl", out / "answers.previous.jsonl")
+    with (out / "unanswered.jsonl").open("w", encoding="utf-8") as handle:
+        for record_id in sorted(silent):
+            handle.write(json.dumps({"id": record_id, "printed": silent[record_id]}) + "\n")
     with (out / "answers.jsonl").open("w", encoding="utf-8") as handle, (out / "review.csv").open("w", encoding="utf-8", newline="") as sheet:
         writer = csv.writer(sheet)
         writer.writerow(["id", "reason", "detail", "printed"])
@@ -1420,7 +1508,8 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
             if answer is None:
                 writer.writerow([record_id, "unanswered", "", record.printed]); review["unanswered"] += 1
                 continue
-            handle.write(json.dumps({"id": record_id, "model": model, "prompt": PARSE_VERSION, "answer": answer}, ensure_ascii=False) + "\n")
+            handle.write(json.dumps({"id": record_id, "model": model, "prompt": PARSE_VERSION, "printed": texts[record_id], "answer": answer},
+                                    ensure_ascii=False) + "\n")
             found, total = copied_values(answer, record.printed)
             reasons = []
             if found < total:
@@ -1433,6 +1522,9 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
                 reasons.append(("OCR fix proposed", f"{fix['printed']} → {fix['corrected']}"))
             for reason, detail in reasons:
                 writer.writerow([record_id, reason, detail, record.printed]); review[reason] += 1
+        # An entry that has left the pass (it got a DOI, or was linked to the catalogue) keeps its answer too.
+        for record_id in sorted(set(kept) - to_parse):
+            handle.write(json.dumps(kept[record_id], ensure_ascii=False) + "\n")
     translated = {}
     if translate and not stop.is_set():
         items = []
@@ -1487,7 +1579,7 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
             check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers,
                                only={item.id for item in new})
     lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
-             f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
+             f"Parsed: {len(to_parse & set(answers)):,} of {len(to_parse):,} entries, {len(ask):,} of them asked in {len(batches):,} batches, ${spent['parse']:.2f}.",
              f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",
              f"New requests: {spent['requests']:,}." + (" Stopped: OpenRouter refused payment (key limit or account credit)." if stop.is_set() else ""),
              "", "Review list (review.csv):", *[f"- {reason}: {n:,}" for reason, n in review.most_common()]]
@@ -1650,7 +1742,7 @@ def _citations_translate(models: list[str], per_language: int, seed: int, reason
         print("\n".join(lines), flush=True)
 
 
-def _identifiers_write(sample, out: Path, offline: bool = False) -> None:
+def _identifiers_write(sample, out: Path, offline: bool = False, kept: list[dict] | None = None) -> None:
     import csv
     from collections import Counter
 
@@ -1662,7 +1754,10 @@ def _identifiers_write(sample, out: Path, offline: bool = False) -> None:
     counts: Counter[tuple[str, str, bool]] = Counter()
     with out.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["id", "source", "type", "year", "host", "accepted", "doi", "title", "author", "year_ok", "container", "page", "ours", "theirs", "their_container"])
+        fields = ["id", "source", "type", "year", "host", "accepted", "doi", "title", "author", "year_ok", "container", "page", "ours", "theirs", "their_container"]
+        writer.writerow(fields)
+        for row in kept or []:
+            writer.writerow([row.get(field) or "" for field in fields])
         for match in matches:
             record = by_id[match.record_id]
             counts[(record.source, record.type, match.accepted)] += 1

@@ -44,6 +44,11 @@ MARGIN = 1.5 if WORKERS > 1 else 1.05
 INTERVAL_MIN = 0.5 if WORKERS > 1 else 0.0
 # Tries per query before a run stops: a 429 or a server error is asked again after a growing wait (``_backoff``).
 ATTEMPTS = 8
+# Crossref throttles a long run now and then (23–24 Nov 2026: 58 answers "429" in 45,000 questions). This many within
+# THROTTLED_WITHIN seconds end the run (``Throttled``); every answer is in the cache, so the next run goes on there.
+THROTTLED_AFTER = 3
+THROTTLED_WITHIN = 600
+_seen_429: list[float] = []
 _last_start = 0.0
 _lock = threading.Lock()
 FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-print,published-online,volume,issue,page,type,ISSN,ISBN"
@@ -51,6 +56,17 @@ FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-prin
 # A title this similar to a candidate's counts as the same title; below it, the OCR has to explain the difference.
 TITLE_SAME = 95
 TITLE_CLOSE = 85
+
+
+class Throttled(Exception):
+    """Crossref answered 429 (too many requests) several times in a short while: ask again later."""
+
+
+def _note_429(now: float) -> None:
+    _seen_429.append(now)
+    if sum(1 for seen in _seen_429 if now - seen < THROTTLED_WITHIN) >= THROTTLED_AFTER:
+        _seen_429.clear()
+        raise Throttled(f"{THROTTLED_AFTER} answers 429 within {THROTTLED_WITHIN // 60} minutes")
 
 
 @dataclass
@@ -167,6 +183,8 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
         except urllib.error.HTTPError as error:
             if error.code not in (429, 500, 502, 503, 504) or attempt == ATTEMPTS - 1:
                 raise
+            if error.code == 429:
+                _note_429(time.monotonic())
             time.sleep(_backoff(error, attempt))
         except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException):
             # A dropped connection ("Remote end closed connection without response", a Mac waking from sleep) is

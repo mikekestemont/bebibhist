@@ -346,6 +346,31 @@ def title_request_cached(items: list[Item], model: str, cache: Path) -> bool:
     return (cache / f"{hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}.json").exists()
 
 
+def printed_key(text: str | None) -> str:
+    """A short hash of an entry's printed text, spaces aside: what an answer of the pass was made from."""
+    return hashlib.sha1(" ".join((text or "").split()).encode("utf-8")).hexdigest()[:16]
+
+
+def previous_answers(path: Path, model: str, prompt: str) -> dict[str, dict]:
+    """The answers of the last run that name the text they were made from (``printed``), by id, when this run would
+    ask the same model with the same prompt. The requests go in batches, so an entry that leaves a batch (it got a
+    DOI, or was linked to the catalogue) or a new one before it changes the request and misses the cache for all of
+    it: on 24 Nov 2026 that was 1,875 requests for 313 changed entries. An answer whose text is unchanged is kept."""
+    if not path.is_file():
+        return {}
+    rows = (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+    return {row["id"]: row for row in rows if row.get("printed") and row.get("model") == model and row.get("prompt") == prompt}
+
+
+def known_unanswered(path: Path) -> dict[str, str]:
+    """The entries the model was asked and gave no answer for (their batches come back without them), with the key
+    of their text: not asked again while the text is the same."""
+    if not path.is_file():
+        return {}
+    rows = (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+    return {row["id"]: row["printed"] for row in rows}
+
+
 def previous_translations(path: Path) -> dict[str, dict]:
     """The rows of an earlier run's ``translations.jsonl`` that name the title they were made from (``source``, with
     the ``languages`` read then), by id; rows without it are left out, so their titles are translated again."""

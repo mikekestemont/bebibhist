@@ -366,3 +366,17 @@ def test_a_title_case_running_head_the_entry_no_longer_prints_is_taken_out_of_it
     # A yearly bibliography of that title prints it: kept.
     yearly = {"title": "Bibliographie de l’histoire de Belgique 1951"}
     assert _without_running_head(yearly, "Dhondt (J.). Bibliographie de l’histoire de Belgique 1951. R. du Nord, 1952.") == yearly
+
+
+def test_an_answer_made_from_the_same_text_is_kept(tmp_path):
+    import json
+
+    from bhb.citations import known_unanswered, previous_answers, printed_key
+
+    path = tmp_path / "answers.jsonl"
+    rows = [{"id": "a", "model": "m", "prompt": "4", "printed": printed_key("Jan. Een titel."), "answer": {}},
+            {"id": "b", "model": "other", "prompt": "4", "printed": "x", "answer": {}}, {"id": "c", "model": "m", "prompt": "4", "answer": {}}]
+    path.write_text("\n".join(json.dumps(row) for row in rows))
+    kept = previous_answers(path, "m", "4")
+    assert set(kept) == {"a"} and kept["a"]["printed"] == printed_key(" Jan.  Een titel.\n") != printed_key("Jan. Een andere titel.")
+    assert previous_answers(tmp_path / "none", "m", "4") == {} and known_unanswered(tmp_path / "none") == {}
