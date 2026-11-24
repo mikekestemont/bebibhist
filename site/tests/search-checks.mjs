@@ -66,6 +66,8 @@ const checks = [
   // A word finds every longer word it begins, in however many index files they are: at least what the most common of them
   // finds (4,763 for nation, where national alone had 9,493; 24 Nov 2026).
   { name: "a word finds what its longer words find (nation, national)", hash: "#/search?q=nation", count: [10500, 16000], atLeastAs: "#/search?q=national&match=whole" },
+  // It opened with every record that has a subject (213,181).
+  { name: "a subject in an index file Pagefind cannot load (Diplomatieke geschiedenis)", hash: "#/search?subject=III.D.2.a.4.i.", count: [3200, 5200] },
   { name: "a word in an index file Pagefind cannot load (bibliothèque)", hash: "#/search?q=biblioth%C3%A8que&match=whole", count: [1700, 2600], contains: /biblioth/i },
   // A name with its particles is one name: van der Weyden finds Vander Weyden.
   { name: "a name with particles (van der Weyden, author)", hash: "#/search?q=van%20der%20Weyden&field=author", count: [3, 40], contains: /Weyden/ },
