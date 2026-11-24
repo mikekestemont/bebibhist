@@ -1,5 +1,8 @@
+import type { FilterCounts, Filters } from "./facets.ts";
+import { createSearcher, gunzip, type Found, type PagefindModule, type Ranking, type Searcher, type SearchOptions } from "./searcher.ts";
 import { nameWords, personName, personWord } from "./words.js";
 export { nameWords };
+export type { Filters };
 /** The words the index holds for a record, per tag, space-separated (``storedWords`` in scripts/build-index.mjs):
  * its own text ("og"), the translations' new words ("tw"), its title ("ot"), the translated title's new words
  * ("tt"), its people ("au"), its volume or journal ("in") and its series ("se"). */
@@ -291,11 +294,9 @@ function escapeRegExp(value: string): string {
 
 export interface SearchResponse {
   results: { id: string; data: () => Promise<Hit> }[];
-  filters?: Record<string, Record<string, number>>;
+  /** The filter counts of the list, computed when they are asked (``Searcher.counts``). */
+  counts: () => Promise<FilterCounts | null>;
 }
-
-/** A list of values means "all of them" in Pagefind; `{ any: [...] }` means "one of them", as for a range of years. */
-export type Filters = Record<string, string[] | { any: string[] }>;
 
 /** The ticked values of one filter group, any of which a record may have: "Chapter" and "Book" together find both. A
  * plain list asks for all of them at once, which no record has. The groups themselves narrow each other. */
@@ -313,15 +314,13 @@ export function yearFilter(from: number, to: number, now = new Date().getFullYea
   return { any: years };
 }
 
-interface Pagefind {
-  init: () => Promise<void>;
-  filters: () => Promise<Record<string, Record<string, number>>>;
-  search: (
-    query: string | null,
-    options?: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
-  ) => Promise<SearchResponse>;
-  options: (settings: { basePath?: string; ranking?: { pageLength?: number; termSimilarity?: number } }) => Promise<void>;
-  preload: (query: string) => Promise<void>;
+/** The search, as the page uses it. */
+export interface Engine {
+  search: (query: string | null, options?: SearchOptions) => Promise<SearchResponse>;
+  /** A list of no hits. */
+  nothing: () => SearchResponse;
+  /** Reads in the background what a first search does not need and the next ones do (the filters). */
+  warm: () => void;
 }
 
 /** Pagefind favours short records (default 0.75), so a short stub could outrank the work it points to.
@@ -336,34 +335,39 @@ const PAGE_LENGTH_WEIGHT = 0.4;
  * (Mike, 10 Nov 2026). */
 const TERM_SIMILARITY = 10;
 
-let engine: Pagefind | null = null;
+const RANKING: Ranking = { pageLength: PAGE_LENGTH_WEIGHT, termSimilarity: TERM_SIMILARITY };
 
-export async function loadEngine(): Promise<Pagefind> {
+let engine: Engine | null = null;
+
+export async function loadEngine(): Promise<Engine> {
   if (engine) return engine;
   // Resolve against the page, not the bundle. A relative import from /assets/
   // would request /assets/pagefind/, where the index is not deployed.
   const url = new URL(`${import.meta.env.BASE_URL}pagefind/pagefind.js`, document.baseURI).href;
-  let loaded: Pagefind;
+  const basePath = url.replace(/pagefind\.js$/, "");
+  let searcher: Searcher;
   try {
-    loaded = await workerPagefind(url);
+    searcher = await workerSearcher(url);
   } catch {
     // A browser without module workers computes on the page's thread, as before.
-    const importer = new Function("url", "return import(url)") as (url: string) => Promise<Pagefind>;
-    loaded = await importer(url);
+    const importer = new Function("url", "return import(url)") as (url: string) => Promise<PagefindModule>;
+    searcher = createSearcher(await importer(url), basePath);
   }
-  // Pagefind finds its index next to its own script only on a page's thread; in a worker it falls back to
-  // "/pagefind/", which is not where the site is published (/bebibhist/pagefind/). So it is told.
-  const basePath = url.replace(/pagefind\.js$/, "");
-  await loaded.options({ basePath, ranking: { pageLength: PAGE_LENGTH_WEIGHT, termSimilarity: TERM_SIMILARITY } });
-  await loaded.init();
-  await loaded.filters();
+  await searcher.init(RANKING);
   recordsBase = `${basePath}records/`;
   // A result's data comes from the record files (``recordOf``), not from Pagefind's fragments, which are not published.
-  engine = { ...loaded, search: async (query, options) => {
-    if (query) await loadPrefixChunks(loaded, query);
-    const response = await loaded.search(query, options);
-    return { ...response, results: response.results.map(({ id }) => ({ id, data: () => recordOf(id) })) };
-  } };
+  const response = ({ ids, search }: Found): SearchResponse => ({
+    results: ids.map((id) => ({ id, data: () => recordOf(id) })),
+    counts: () => searcher.counts(search),
+  });
+  engine = {
+    search: async (query, options) => {
+      if (query) await loadPrefixChunks(searcher, query);
+      return response(await searcher.search(query, options));
+    },
+    nothing: () => response({ ids: [], search: 0 }),
+    warm: () => { searcher.warm().catch(() => {}); },
+  };
   return engine;
 }
 
@@ -381,7 +385,7 @@ export async function recordOf(id: string): Promise<Hit> {
   if (!recordFiles.has(key)) {
     const loading = fetch(`${recordsBase}${key}.bin`).then(async (response) => {
       if (!response.ok) throw new Error(`records/${key}.bin: ${response.status}`);
-      return JSON.parse(await gunzipText(new Uint8Array(await response.arrayBuffer())));
+      return JSON.parse(new TextDecoder().decode(await gunzip(new Uint8Array(await response.arrayBuffer()))));
     });
     // A file that could not be read is asked for again next time.
     loading.catch(() => recordFiles.delete(key));
@@ -392,19 +396,11 @@ export async function recordOf(id: string): Promise<Hit> {
   return { url: `#/record/${encodeURIComponent(record.m.id)}`, meta: record.m, words: record.w };
 }
 
-/** The text of a gzip file; a server that sent it already unpacked (Content-Encoding: gzip) is read as it is. */
-async function gunzipText(bytes: Uint8Array): Promise<string> {
-  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return new TextDecoder().decode(bytes);
-  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream("gzip"));
-  return new Response(stream).text();
-}
-
 /**
- * Pagefind in a worker (pagefind-worker.ts), behind the same functions: the page's thread stays free while a
- * search computes, so the page answers and the hourglass keeps turning. A result's data is read from the record
- * files (``recordOf``).
+ * The search in a worker (pagefind-worker.ts), behind the same functions: the page's thread stays free while a
+ * search computes, so the page answers and the hourglass keeps turning.
  */
-async function workerPagefind(url: string): Promise<Pagefind> {
+async function workerSearcher(url: string): Promise<Searcher> {
   const worker = new Worker(new URL("./pagefind-worker.ts", import.meta.url), { type: "module" });
   const waiting = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
   let next = 0;
@@ -429,14 +425,11 @@ async function workerPagefind(url: string): Promise<Pagefind> {
     });
   await Promise.race([call("load", url), failed]);
   return {
-    init: () => call("init"),
-    filters: () => call("filters"),
-    options: (settings) => call("options", settings),
+    init: (ranking) => call("init", ranking),
     preload: (query) => call("preload", query),
-    search: async (query, options) => {
-      const response = await call<{ results: { id: string }[]; filters?: Record<string, Record<string, number>> }>("search", query, options);
-      return { ...response, results: response.results.map(({ id }) => ({ id, data: () => recordOf(id) })) };
-    },
+    search: (query, options) => call("search", query, options),
+    counts: (search) => call("counts", search),
+    warm: () => call("warm"),
   };
 }
 
@@ -453,7 +446,7 @@ let preloading: Promise<void> = Promise.resolve();
  * word with "zz" after it sorts after those longer words, so its chunk is loaded too. Pagefind 1.5 fixes this, but
  * also makes every metadata field searchable.
  */
-function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
+function loadPrefixChunks(searcher: Searcher, query: string): Promise<void> {
   const prefixes: string[] = [];
   for (const word of query.toLowerCase().split(/\s+/)) {
     // A field word ("au_vanthemse") stops at its tag and two letters: "au" or "au_" would load the chunks of every
@@ -473,7 +466,7 @@ function loadPrefixChunks(pagefind: Pagefind, query: string): Promise<void> {
   }
   // One preload at a time: two searches run side by side for optional function words.
   preloading = preloading.then(async () => {
-    for (const prefix of prefixes) await pagefind.preload(prefix);
+    for (const prefix of prefixes) await searcher.preload(prefix);
   });
   return preloading;
 }
@@ -739,7 +732,7 @@ export function contentWords(query: string): string[] {
  * search lists them already. Nothing new is downloaded except the records shown.
  */
 export async function relatedByMeaning(
-  pagefind: Pagefind,
+  engine: Engine,
   top: Hit[],
   query: string,
   known: (id: string) => Hit | null,
@@ -760,7 +753,7 @@ export async function relatedByMeaning(
     .sort((a, b) => b[1].score - a[1].score)
     .slice(0, limit * 2)
     .map(([id]) => id);
-  const loaded = await Promise.all(ranked.map(async (id) => known(id) || (await findRecord(pagefind, id))));
+  const loaded = await Promise.all(ranked.map(async (id) => known(id) || (await findRecord(engine, id))));
   const words = contentWords(query);
   return loaded
     .filter((hit): hit is Hit => hit !== null)
@@ -811,37 +804,28 @@ export const STRICT_LIMIT = 2000;
  * a list of more than ``STRICT_LIMIT`` hits.
  */
 export async function searchBoth(
-  pagefind: Pagefind,
+  engine: Engine,
   strict: string | null,
   loose: string | null,
-  options: { filters?: Filters; sort?: Record<string, "asc" | "desc"> },
+  options: SearchOptions,
   current: () => boolean = () => true,
 ): Promise<SearchResponse> {
-  if (!loose || loose === strict) return pagefind.search(strict, options);
-  const more = await pagefind.search(loose, options);
+  if (!loose || loose === strict) return engine.search(strict, options);
+  const more = await engine.search(loose, options);
   // A search no longer wanted (another began) does not start its second half: the worker computes one at a time.
   if (options.sort || more.results.length > STRICT_LIMIT || !current()) return more;
-  const all = await pagefind.search(strict, options);
+  const all = await engine.search(strict, options);
   const first = new Set(all.results.map((result) => result.id));
-  return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], filters: more.filters };
+  return { results: [...all.results, ...more.results.filter((result) => !first.has(result.id))], counts: more.counts };
 }
 
-/** No hits, with every filter value counted zero, so the filter column keeps its values. */
-export async function nothingFound(pagefind: Pagefind): Promise<SearchResponse> {
-  const all = await pagefind.filters();
-  return {
-    results: [],
-    filters: Object.fromEntries(Object.entries(all).map(([key, values]) => [key, Object.fromEntries(Object.keys(values).map((value) => [value, 0]))])),
-  };
-}
-
-export async function findRecord(pagefind: Pagefind, id: string): Promise<Hit | null> {
-  const direct = await pagefind.search(foldQuery(id));
+export async function findRecord(engine: Engine, id: string): Promise<Hit | null> {
+  const direct = await engine.search(foldQuery(id));
   const found = await match(direct, id);
   if (found) return found;
   const printed = id.match(/^bhb:(\d{4})-(.+)$/);
   if (!printed) return null;
-  const response = await pagefind.search(printed[2], { filters: { year: [printed[1]] } });
+  const response = await engine.search(printed[2], { filters: { year: [printed[1]] } });
   return match(response, id);
 }
 
