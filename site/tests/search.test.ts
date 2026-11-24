@@ -1,8 +1,9 @@
 // Unit tests for the search helpers. Run with: node --experimental-strip-types --test tests/
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { gzipSync } from "node:zlib";
 
-import { AUTHOR_SHARE, anyOf, authorQuery, authorsFirst, citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { AUTHOR_SHARE, anyOf, authorQuery, authorsFirst, citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, recordOf, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
 import { nameWords } from "../src/lib/words.js";
 
 test("a year range matches any of its years, not all of them at once", () => {
@@ -181,4 +182,27 @@ test("author hits come first only when they are a fair share of the hits (plan Â
 test("several ticked values of one filter group ask for any of them", () => {
   assert.deepEqual(anyOf(["chapter", "book"]), { any: ["chapter", "book"] });
   assert.deepEqual(anyOf(["book"]), ["book"]);
+});
+
+test("a record is read by its number, from a file of its own index, once", async () => {
+  const realFetch = globalThis.fetch;
+  const asked: string[] = [];
+  let status = 503;
+  globalThis.fetch = (async (url: string) => {
+    asked.push(url);
+    const records = Array.from({ length: 32 }, (_, at) => ({ m: { id: `${url}#${at}` }, w: { og: "word" } }));
+    return new Response(gzipSync(JSON.stringify(records)), { status });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(recordOf("und_a", 33), /503/);
+    status = 200;
+    const found = await recordOf("und_a", 33);
+    assert.deepEqual([found.meta.id, found.words], ["und_a/1.bin#1", { og: "word" }]);
+    assert.equal((await recordOf("und_a", 63)).meta.id, "und_a/1.bin#31");
+    assert.equal((await recordOf("und_a", 31)).meta.id, "und_a/0.bin#31");
+    assert.equal((await recordOf("und_b", 33)).meta.id, "und_b/1.bin#1");
+    assert.deepEqual(asked, ["und_a/1.bin", "und_a/1.bin", "und_a/0.bin", "und_b/1.bin"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

@@ -24,7 +24,7 @@ const checks = [
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
-  // The order is a file of its own (scripts/sort-files.mjs); by relevance another entry comes first.
+  // The order is a file of its own (scripts/index-files.mjs); by relevance another entry comes first.
   { name: "a list sorted by year of publication, oldest first (Tollebeek)", hash: "#/search?q=tollebeek&field=author&sort=pubyear-asc", count: [100, 200], first: /mensonges/ },
   // Two ticked types find either (6 of 24 Nov 2026: 5 chapters and a book); asked for together they found none.
   { name: "two types, either of them (chapter or book)", hash: "#/search?q=Kestemont+%28Mike%29&field=author&type=chapter&type=book", count: [5, 15] },

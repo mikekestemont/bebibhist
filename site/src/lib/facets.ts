@@ -18,29 +18,23 @@ export type FilterCounts = Record<string, Record<string, number>>;
 /** Filter value → the numbers of its pages (records), as a filter file lists them. */
 export type FilterValues = Map<string, Uint32Array>;
 
-/** What is not needed by every search (ids, numbers) is read when it is first asked. */
+/** The records of one file, in the order of the index (``recordOf`` in search.ts, scripts/index-files.mjs). */
+export const RECORDS_PER_FILE = 32;
+
 export interface IndexMeta {
-  /** The number of words of each page (record), by its number: the order in which the records were indexed. */
+  /** The number of words of each page (record), by its number: the order in which the records were indexed. A page's
+   * number is its id as well. */
   wordCounts: Uint32Array;
   chunks: Chunk[];
   /** Filter name → the name of its file. */
   filterFiles: Map<string, string>;
-  /** The id of each page. */
-  ids: () => string[];
-  /** Id → page number. */
-  numbers: () => Map<string, number>;
-  /** Where the list of sort orders begins, for the script that makes them files of their own (scripts/sort-files.mjs). */
+  /** Where the list of sort orders begins, for the script that makes them files of their own (scripts/index-files.mjs). */
   sortsAt: number;
 }
 
 const UNSORTED = 0xffffffff;
-/** After every word that can be ranked here (``rankable``). */
+/** After every word that can be ranked here (``taggedWords``). */
 const END = "~";
-
-function once<T>(make: () => T): () => T {
-  let made: T | undefined;
-  return () => (made ??= make());
-}
 
 /** pagefind.*.pf_meta: [version, [[id, words]], [[from, to, file]], [[filter, file]], [[sort key, [page]]]], the last of
  * them an empty list, since the orders are files of their own (``readRank``). */
@@ -48,7 +42,6 @@ export function readMeta(bytes: Uint8Array): IndexMeta {
   const reader = new Reader(bytes);
   reader.list();
   reader.skipText();
-  const idsAt = reader.at;
   const wordCounts = new Uint32Array(reader.list());
   for (let page = 0; page < wordCounts.length; page += 1) {
     reader.list();
@@ -66,24 +59,7 @@ export function readMeta(bytes: Uint8Array): IndexMeta {
     const name = reader.text();
     filterFiles.set(name, reader.text());
   }
-  const sortsAt = reader.at;
-  const ids = once(() => {
-    const again = new Reader(bytes, idsAt);
-    return Array.from({ length: again.list() }, () => {
-      again.list();
-      const id = again.text();
-      again.number();
-      return id;
-    });
-  });
-  return {
-    wordCounts,
-    chunks,
-    filterFiles,
-    ids,
-    numbers: once(() => new Map(ids().map((id, number) => [id, number]))),
-    sortsAt,
-  };
+  return { wordCounts, chunks, filterFiles, sortsAt: reader.at };
 }
 
 /** filter/*.pf_filter: [filter, [[value, [page]]]]. */

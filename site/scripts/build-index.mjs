@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { gunzipSync, gzipSync } from "node:zlib";
+import { gunzipSync } from "node:zlib";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
 import { keyWord, nameWords, personWord } from "../src/lib/words.js";
-import { writeSortFiles } from "./sort-files.mjs";
+import { writeIndexFiles } from "./index-files.mjs";
 
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
@@ -69,7 +69,7 @@ if (!index) {
   process.exit(1);
 }
 
-// Entry id → its index words per tag (``storedWords``), for the record files (``writeRecordFiles``).
+// Entry id → its index words per tag (``storedWords``), for the record files (``writeIndexFiles``).
 const recordWords = new Map();
 // Entry kept in search → the other volumes' listings of the same publication (filled by countContainers).
 const listedAgain = new Map();
@@ -233,8 +233,7 @@ await rm(stagingPath, { recursive: true, force: true });
 const written = await index.writeFiles({ outputPath: stagingPath });
 if (written.errors?.length) console.error(written.errors.join("\n"));
 await close();
-await writeRecordFiles(stagingPath, indexed);
-console.log(await writeSortFiles(stagingPath));
+console.log(await writeIndexFiles(stagingPath, recordWords));
 await rm(previousPath, { recursive: true, force: true });
 try {
   await rename(outputPath, previousPath);
@@ -248,7 +247,6 @@ if (wasm.size < 1000) {
   console.error(`pagefind wasm is ${wasm.size} bytes; search cannot start`);
   process.exit(1);
 }
-await ensureEntry(outputPath, indexed);
 await writeKnownWords(`${outputPath}/index`, knownPath);
 await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, subjectCounts)));
 await writePlaces(placesPath, placeCounts, placePeriods);
@@ -262,63 +260,6 @@ console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${ou
   for await (const chunk of createReadStream(recordsPath)) hash.update(chunk);
   await writeFile(new URL("../public/index-source.json", import.meta.url).pathname,
     JSON.stringify({ records_sha256: hash.digest("hex"), entries: indexed }) + "\n");
-}
-
-/**
- * The records the page shows, in 4,096 files instead of Pagefind's one fragment per record (180,000 files): GitHub
- * Pages copies every file of a deployment, and from 10 Nov 2026 that copy of about 200,000 files stalled past its
- * 10 minutes on three of eight deployments. A search result's id is its fragment's name ("und_0083ebf"); the first
- * three hex digits after the language name its file, records/008.bin, which holds every record whose id begins so
- * ({id: {m: meta, w: index words}}, gzip). The page reads that file instead of the fragment (``recordOf`` in
- * src/lib/search.ts), and the fragments are not published. A record file is about 28 kB.
- */
-async function writeRecordFiles(dir, expected) {
-  const fragments = `${dir}/fragment`;
-  const files = new Map();
-  let count = 0;
-  for (const name of await readdir(fragments)) {
-    if (!name.endsWith(".pf_fragment")) continue;
-    const id = name.slice(0, -".pf_fragment".length);
-    const hash = id.slice(id.indexOf("_") + 1);
-    if (!/^[0-9a-f]{3}/.test(hash)) throw new Error(`unexpected fragment name ${name}`);
-    const fragment = JSON.parse(gunzipSync(await readFile(`${fragments}/${name}`)).subarray("pagefind_dcd".length).toString("utf8"));
-    const words = recordWords.get(fragment.meta.id);
-    if (!words) throw new Error(`no index words for ${fragment.meta.id} (${name})`);
-    const key = hash.slice(0, 3);
-    if (!files.has(key)) files.set(key, {});
-    files.get(key)[id] = { m: fragment.meta, w: words };
-    count += 1;
-  }
-  if (count !== expected) throw new Error(`${count} fragments for ${expected} indexed entries`);
-  await mkdir(`${dir}/records`, { recursive: true });
-  let bytes = 0;
-  for (const [key, records] of files) {
-    const body = gzipSync(JSON.stringify(records), { level: 9 });
-    bytes += body.length;
-    await writeFile(`${dir}/records/${key}.bin`, body);
-  }
-  await rm(fragments, { recursive: true, force: true });
-  console.log(`records: ${count} in ${files.size} files, ${Math.round(bytes / 1048576)} MB → ${dir}/records`);
-}
-
-/** Pagefind 1.4 sometimes leaves pagefind-entry.json empty, and search then never starts. */
-async function ensureEntry(dir, pageCount) {
-  const entryPath = `${dir}/pagefind-entry.json`;
-  const entry = await stat(entryPath).catch(() => null);
-  if (entry && entry.size > 20) return;
-  const names = await readdir(dir);
-  const meta = names.find((name) => name.startsWith("pagefind.") && name.endsWith(".pf_meta"));
-  const hash = meta?.slice("pagefind.".length, -".pf_meta".length);
-  if (!hash) {
-    console.error("pagefind-entry.json is empty and no metadata file was found");
-    process.exit(1);
-  }
-  const body = {
-    version: "1.4.0",
-    languages: { und: { hash, wasm: "unknown", page_count: pageCount } },
-  };
-  await writeFile(entryPath, `${JSON.stringify(body, null, 2)}\n`);
-  console.log("rewrote empty pagefind-entry.json");
 }
 
 function sortKeys(record) {
