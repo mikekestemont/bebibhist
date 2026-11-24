@@ -8,6 +8,7 @@
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
   import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField, type SearchResponse } from "./lib/search";
+  import { tip } from "./lib/tip";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -1287,7 +1288,7 @@
 {#snippet fieldValue(row: { value: string; italic?: boolean; authors?: boolean; orcids?: Map<string, { id: string; note: string }>; fullNames?: Map<string, FullName>; derived?: string; marked?: string; container?: string; suffix?: string; containerTitle?: string; href?: string; free?: string })}
   {#if row.href}
     <a class="derived" href={row.href} title={row.derived} target="_blank" rel="noopener">{row.value}</a>{#if row.free}
-      <span class="tag tag-free" title={row.free}>{@render padlock()}{text.freeToRead}</span>{/if}
+      <span class="tag tag-free" use:tip={row.free}>{@render padlock()}{text.freeToRead}</span>{/if}
   {:else if row.container}
     <a class={row.derived ? "container-link derived" : "container-link"} href={row.container} title={[row.derived, row.containerTitle || text.containerWhy].filter(Boolean).join(" ")}>{#if row.italic}<em>{row.value}</em>{:else}{row.value}{/if}</a>{row.suffix || ""}
   {:else if row.authors}
@@ -1473,7 +1474,7 @@
 {/snippet}
 
 {#snippet openAccess(source: string)}
-  <span class="open-access" title={source === "persee" ? text.freePersee : text.freeOpenAlex} aria-label={text.freeToRead}>{@render padlock()}</span>
+  <span class="open-access" role="img" use:tip={source === "persee" ? text.freePersee : text.freeOpenAlex} aria-label={`${text.freeToRead}. ${source === "persee" ? text.freePersee : text.freeOpenAlex}`}>{@render padlock()}</span>
 {/snippet}
 
 {#snippet resultRow(hit: Hit)}
