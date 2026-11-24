@@ -85,3 +85,33 @@ def test_regions_that_would_show_the_same_name_are_found():
     found = repeated(regions_, names)
     # Two at one level (in any language), and a child named like its parent (the parent keeps its name).
     assert ["r1.0", "r1.1"] in found and ["r2.0"] in found and len(found) == 2
+
+
+def test_the_remote_namer_asks_once_per_prompt_and_returns_the_names_as_json(tmp_path, monkeypatch):
+    import json
+
+    from bhb import citations, topicmap
+    from bhb.citations import Reply
+
+    sent = []
+
+    def fake_call(body, cache):
+        sent.append(body)
+        assert body["provider"]["only"] == ["mistral/eu"] and body["model"] == topicmap.REMOTE_MODEL
+        assert body["response_format"]["json_schema"]["schema"] == topicmap.NAME_SCHEMA
+        return Reply({"en": "Beguines", "nl": "Begijnen", "fr": "Béguines"}, body["model"], "Mistral", 0.0004, 10, 5, 0, 0.1, False)
+
+    monkeypatch.setattr(citations, "call", fake_call)
+    namer = topicmap.RemoteNamer(tmp_path)
+    answers = namer.ask_many(["prompt one", "prompt one", "prompt two"])
+    assert len(sent) == 2 and namer.sent == 2 and round(namer.cost, 4) == 0.0008
+    assert topicmap.parse_name(answers[0]) == {"en": "Beguines", "nl": "Begijnen", "fr": "Béguines"}
+    assert json.loads(answers[1]) == json.loads(answers[0])
+
+
+def test_the_chain_can_name_the_regions_remotely():
+    from bhb import chain
+
+    steps = {step.label: args for _, step, args in chain.plan("topicmap-layout", "topicmap-apply", with_map=True, remote_names=True)}
+    assert steps["topicmap-names"] == ["topicmap", "names", "--remote"]
+    assert {step.label: args for _, step, args in chain.plan("topicmap-names", "topicmap-names", with_map=True)}["topicmap-names"] == ["topicmap", "names"]

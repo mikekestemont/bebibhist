@@ -46,7 +46,7 @@ STEPS: tuple[Step, ...] = (
     Step("journals-last", ("journals", "apply"), "Ibid., journal ids, duplicates"),
     Step("language-again", ("language", "apply")),
     Step("topicmap-layout", ("topicmap", "layout"), "about 5 minutes", map_only=True),
-    Step("topicmap-names", ("topicmap", "names"), "the local model, about an hour", map_only=True),
+    Step("topicmap-names", ("topicmap", "names"), "the local model, about two hours; --remote-names: OpenRouter, minutes", map_only=True),
     Step("topicmap-apply", ("topicmap", "apply")),
     Step("release", ("release",), "packs the dataset; publishes nothing"),
 )
@@ -72,7 +72,7 @@ def _index(name: str | int | None, default: int) -> int:
 
 
 def plan(start: str | int | None = None, stop: str | int | None = None, with_map: bool = False,
-         build_flags: Iterable[str] = ()) -> list[tuple[int, Step, list[str]]]:
+         build_flags: Iterable[str] = (), remote_names: bool = False) -> list[tuple[int, Step, list[str]]]:
     """The steps to run, as (number, step, bhb arguments), from ``start`` to ``stop`` included."""
     first, last = _index(start, 0), _index(stop, len(STEPS) - 1)
     if first > last:
@@ -83,6 +83,8 @@ def plan(start: str | int | None = None, stop: str | int | None = None, with_map
         if step.map_only and not with_map:
             continue
         args = list(step.args) + (list(build_flags) if step.label == "build" else [])
+        if step.label == "topicmap-names" and remote_names:
+            args.append("--remote")
         chosen.append((position + 1, step, args))
     return chosen
 

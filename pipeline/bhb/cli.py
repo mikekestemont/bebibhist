@@ -99,8 +99,10 @@ def main(argv: list[str] | None = None) -> None:
     topicmap = sub.add_parser("topicmap", help="the topic map: layout, named regions, positions in the records")
     topicmap_sub = topicmap.add_subparsers(dest="topicmap_command", required=True)
     topicmap_sub.add_parser("layout", help="place every entry (UMAP) and cut the map into regions: build/topicmap/layout.npz")
-    topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
-    topicmap_sub.add_parser("dedupe", help="rename the regions that share a name (data/curated/topic_regions.json)")
+    tnames = topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
+    tnames.add_argument("--remote", action="store_true", help="through OpenRouter instead (Mistral Small, cached; minutes, about $0.10)")
+    tdedupe = topicmap_sub.add_parser("dedupe", help="rename the regions that share a name (data/curated/topic_regions.json)")
+    tdedupe.add_argument("--remote", action="store_true", help="through OpenRouter instead of the local model")
     topicmap_sub.add_parser("apply", help="write each entry's position and region into build/records.jsonl")
 
     language = sub.add_parser("language", help="language of publication from the title (needs the language extra)")
@@ -198,7 +200,8 @@ def main(argv: list[str] | None = None) -> None:
     chain.add_argument("--list", action="store_true", help="print the numbered steps and stop")
     chain.add_argument("--from", dest="start", help="first step, by number or label (default: build)")
     chain.add_argument("--to", dest="stop", help="last step, by number or label (default: release)")
-    chain.add_argument("--map", action="store_true", help="also make the topic map's layout and region names again (about an hour)")
+    chain.add_argument("--map", action="store_true", help="also make the topic map's layout and region names again (about two hours)")
+    chain.add_argument("--remote-names", action="store_true", help="with --map: name the regions through OpenRouter (minutes, about $0.10)")
     chain.add_argument("--with-manuscripts", action="store_true", help="passed to bhb build")
     chain.add_argument("--with-print-years", action="store_true", help="passed to bhb build")
     chain.add_argument("--max-parse", type=int, default=0, help="parse requests not in the cache the paid step may send (default 0)")
@@ -379,7 +382,7 @@ def main(argv: list[str] | None = None) -> None:
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
         return
     if args.command == "topicmap":
-        _topicmap(args.topicmap_command)
+        _topicmap(args.topicmap_command, getattr(args, "remote", False))
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -421,7 +424,7 @@ def main(argv: list[str] | None = None) -> None:
             print(release_chain.list_steps())
             return
         flags = [flag for flag, on in (("--with-manuscripts", args.with_manuscripts), ("--with-print-years", args.with_print_years)) if on]
-        steps = release_chain.plan(args.start, args.stop, args.map, flags)
+        steps = release_chain.plan(args.start, args.stop, args.map, flags, args.remote_names)
         if args.print_only:
             for number, step, step_args in steps:
                 print(f"{number:>2}. bhb {' '.join(step_args)}" + ("   (after a dry run as guard)" if step.label == "citations-run" else ""))
@@ -702,7 +705,7 @@ def _load_built_records() -> list[Record]:
     return read_jsonl(path)
 
 
-def _topicmap(command: str) -> None:
+def _topicmap(command: str, remote: bool = False) -> None:
     import json
 
     import numpy as np
@@ -728,13 +731,14 @@ def _topicmap(command: str) -> None:
     if command == "names":
         records = read_jsonl(path)
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
-        namer = topicmap.Namer(folder / "names-cache.jsonl")
+        namer = _namer(remote, folder)
         names = topicmap.name_regions(ids, xy, member, regions, texts, namer)
         topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
         # Hand corrections last, so they also reach the names the dedupe step made.
         fixed = topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
         curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}")
+        print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}"
+              + (f"; {namer.sent} requests sent, ${namer.cost:.2f}" if remote else ""))
         return
     if command == "dedupe":
         # The current names, with the regions that share a name renamed (also part of "names").
@@ -742,7 +746,7 @@ def _topicmap(command: str) -> None:
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
         document = json.loads(curated.read_text(encoding="utf-8"))
         names = {row["id"]: row["name"] for row in document["regions"] if row.get("name")}
-        topicmap.dedupe_names(ids, xy, member, regions, texts, names, topicmap.Namer(folder / "names-cache.jsonl"))
+        topicmap.dedupe_names(ids, xy, member, regions, texts, names, _namer(remote, folder))
         topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
         curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"topicmap: names → {curated}")
@@ -752,6 +756,13 @@ def _topicmap(command: str) -> None:
         count = topicmap.apply(records, ids, xy, member, max(region.level for region in regions))
         write_jsonl(path, records)
         print(f"topicmap: {count} entries placed → {path}")
+
+
+def _namer(remote: bool, folder: Path):
+    """The local model, or with ``--remote`` the same questions through OpenRouter (cached in build/topicmap/openrouter)."""
+    from bhb import topicmap
+
+    return topicmap.RemoteNamer(folder / "openrouter") if remote else topicmap.Namer(folder / "names-cache.jsonl")
 
 
 def _similar(model_name: str | None, k: int | None, batch_size: int, records_path: Path | None) -> None:

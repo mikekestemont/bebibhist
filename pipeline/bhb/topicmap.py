@@ -13,7 +13,8 @@ Regions. The map is cut into cells by k-means on the positions, so that every pa
 clustering left two thirds of the titles outside any region); the cells are grouped into larger regions by
 k-means on their centres, weighted by size: three nested levels of about 24, 120 and 600 regions.
 
-Names. A local model (Mistral Small 3.2, 4-bit, through mlx-lm) names each region in Dutch, French and English: a
+Names. A local model (Mistral Small 3.2, 4-bit, through mlx-lm), or with ``--remote`` Mistral Small through OpenRouter
+(``RemoteNamer``), names each region in Dutch, French and English: a
 cell from a sample of its titles and its most distinctive words, a larger region from the names of its parts and
 a sample of titles. Every answer is cached by its prompt, so a rerun only asks what changed.
 """
@@ -293,6 +294,46 @@ class Namer:
                     self.cache[self.key(prompt)] = answer
                     handle.write(json.dumps({"key": self.key(prompt), "answer": answer}, ensure_ascii=False) + "\n")
         return [self.cache[self.key(prompt)] for prompt in prompts]
+
+
+REMOTE_MODEL = "mistralai/mistral-small-2603"
+NAME_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["en", "nl", "fr"],
+               "properties": {"en": {"type": "string"}, "nl": {"type": "string"}, "fr": {"type": "string"}}}
+
+
+class RemoteNamer:
+    """The same questions through OpenRouter (decision of 24 Nov 2026): Mistral Small, pinned, on Mistral's EU
+    endpoint, the answer held to the three names by a JSON schema; every request cached like the citation pass
+    (``bhb.citations.call``), so a rerun only pays for what changed. Minutes instead of the local model's two hours,
+    for about ten cents."""
+
+    def __init__(self, cache: Path, model: str = REMOTE_MODEL, workers: int = 6, log=print):
+        self.cache, self.model, self.workers, self.log = cache, model, workers, log
+        self.cost, self.sent = 0.0, 0
+
+    def body(self, prompt: str) -> dict:
+        from bhb.citations import request_body
+
+        body = request_body("Answer with the JSON object only.", prompt, NAME_SCHEMA, self.model, name="region_name")
+        body["max_tokens"] = 400
+        return body
+
+    def ask(self, prompt: str) -> str:
+        return self.ask_many([prompt])[0]
+
+    def ask_many(self, prompts: list[str], batch: int = 8, max_tokens: int = 120) -> list[str]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from bhb.citations import call
+
+        unique = list(dict.fromkeys(prompts))
+        with ThreadPoolExecutor(self.workers) as pool:
+            replies = dict(zip(unique, pool.map(lambda prompt: call(self.body(prompt), self.cache), unique)))
+        for reply in replies.values():
+            if not reply.cached:
+                self.sent += 1
+                self.cost += reply.cost
+        return [json.dumps(replies[prompt].content, ensure_ascii=False) if replies[prompt].content else "" for prompt in prompts]
 
 
 def name_regions(
