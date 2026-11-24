@@ -27,13 +27,28 @@ from bhb.textutil import fold
 _PARTICLE = (
     r"(?:van der|van den|van de|vanden|de la|de|van|der|den|ten|ter|du|des|von|af|d'|l')"
 )
+# An entry: its number, then its author, a title, or "(s.n.)" for nobody (2013: "91727 (s.n.). Bibliographie
+# régionale …", 79 entries that ran into the entry before).
 _ENTRY = re.compile(
-    rf"^(\d{{5,6}})(bis|ter|quater)?\s+((?:{_PARTICLE}\s+)?(?:[A-ZÀ-Ý«“\"\[]|\d).*)$"
+    rf"^(\d{{5,6}})(bis|ter|quater)?\s+((?:{_PARTICLE}\s+)?(?:[A-ZÀ-Ý«“\"\[]|\d|\((?:s\.\s?n\.)?\)).*)$"
 )
 _HEADER = re.compile(
-    r"^(?:Bibliographie de l'Histoire de Belgique|Bibliografie van de Geschiedenis van België)\s*$",
+    r"^(?:Bibliographie de l['’]Histoire de Belgique|Bibliografie van de Geschiedenis van België)\s*$",
     re.IGNORECASE,
 )
+# The running head as it was left inside entries that cross a page (2010–2017 and the 2018 proof print a curly
+# apostrophe, which the header line above did not allow until 24 Nov 2026: 2,048 entries).
+_RUNNING_HEAD = r"BIBLIOGRAPHIE DE L['’]HISTOIRE DE BELGIQUE|BIBLIOGRAFIE VAN DE GESCHIEDENIS VAN BELGI[EË]"
+_HEAD_IN_WORD = re.compile(rf"-\s*(?:{_RUNNING_HEAD})\s*(?=[a-zà-ÿ])")
+_HEAD = re.compile(rf"\s*(?:{_RUNNING_HEAD})\s*")
+
+
+def strip_running_head(text: str | None) -> str | None:
+    """The text without a running head left inside it, joined as the reader joins lines: a word broken by the page
+    ("Ver- HEAD sailles") is joined, otherwise a space is left ("Etudes HEAD Bourguignonnes")."""
+    if not text or not _HEAD.search(text):
+        return text
+    return _HEAD.sub(" ", _HEAD_IN_WORD.sub("", text)).strip() or None
 _PAGE_MARK = re.compile(r"^\d+\*$")
 # A line of the index of names or places that follows the last entry: "Abbeloos (Jan-Frederik): 62743, 62774".
 _INDEX_LINE = re.compile(r"^[^:]{2,80}:\s*\d{5}(?:,\s*\d{5})*,?$")

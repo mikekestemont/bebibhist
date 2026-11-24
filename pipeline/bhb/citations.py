@@ -987,6 +987,20 @@ def _letters(text: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", fold(text or ""))
 
 
+def _without_running_head(value):
+    """An answer with the volume's running head taken out of its texts: the model copied it from entries that cross a
+    page in the PDF volumes of 2010–2017 and the 2018 proof (``strip_running_head``)."""
+    from bhb.ingest.pdf_volume import strip_running_head
+
+    if isinstance(value, str):
+        return strip_running_head(value)
+    if isinstance(value, list):
+        return [_without_running_head(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _without_running_head(item) for key, item in value.items()}
+    return value
+
+
 def answer_fits(answer: dict, printed: str) -> bool:
     """An answer belongs to its entry when at least half the words of its title and subtitle are printed in it. On
     the pass of 24 Nov 2026, 41 of 164,053 answers fell short: an answer given for a neighbouring entry in the batch
@@ -1022,6 +1036,71 @@ def grounded_numbers(value: str, printed: str) -> bool:
     return all(number in numbers for number in re.findall(r"\d+", value))
 
 
+_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)?")
+
+
+def restore_printed_words(text: str | None, printed: str, words) -> tuple[str | None, int]:
+    """The text with each word the model changed silently put back as printed, and how many. A word the printed entry
+    lacks is compared with the printed word in its place: one with a neighbour in common (the word before or after),
+    the same first letter, at most one letter longer or shorter and at most one edit (two for a word of eight letters
+    or more). The model's word stays only when it is much more common in the bibliography (``words``, folded word
+    counts of every printed entry: at least 5 and ten times the printed word, or at least 3 against a printed word
+    found once, "portugaise" 9 against "portuguaise" 1), which makes it a correction of a misreading ("Viaanderen" →
+    Vlaanderen); otherwise the printed word comes back ("Tourtnai", "bewongen", "Prieesters", "heksenjagt"; about 90
+    titles of the pass of 24 Nov 2026)."""
+    from rapidfuzz.distance import Levenshtein
+
+    if not text:
+        return text, 0
+    printed_words = [match.group(0) for match in _WORD.finditer(printed)]
+    folded_printed = [fold(word) for word in printed_words]
+    known = set(folded_printed)
+    ours = [match for match in _WORD.finditer(text)]
+    folded_ours = [fold(match.group(0)) for match in ours]
+    replacements: dict[int, str] = {}
+    for index, folded in enumerate(folded_ours):
+        if folded in known or len(folded) < 4:
+            continue
+        before = folded_ours[index - 1] if index else None
+        after = folded_ours[index + 1] if index + 1 < len(folded_ours) else None
+        limit = 2 if len(folded) >= 8 else 1
+        close = set()
+        for position, other in enumerate(folded_printed):
+            if other[:1] != folded[:1] or abs(len(other) - len(folded)) > 1 or Levenshtein.distance(folded, other) > limit:
+                continue
+            neighbours = (folded_printed[position - 1] if position else None,
+                          folded_printed[position + 1] if position + 1 < len(folded_printed) else None)
+            if (before and before == neighbours[0]) or (after and after == neighbours[1]):
+                close.add(position)
+        if len({folded_printed[position] for position in close}) != 1:
+            continue
+        position = min(close)
+        mine, theirs = words.get(folded, 0), words.get(folded_printed[position], 0)
+        if (mine >= 5 and mine >= 10 * theirs) or (theirs <= 1 and mine >= 3):
+            continue
+        replacements[index] = printed_words[position]
+    if not replacements:
+        return text, 0
+    pieces, last = [], 0
+    for index, match in enumerate(ours):
+        if index in replacements:
+            pieces += [text[last:match.start()], replacements[index]]
+            last = match.end()
+    pieces.append(text[last:])
+    return "".join(pieces), len(replacements)
+
+
+def word_counts(records):
+    """Folded word counts over every printed entry, for ``restore_printed_words``."""
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    for record in records:
+        if record.printed:
+            counts.update(fold(word) for word in _WORD.findall(record.printed))
+    return counts
+
+
 def drop_repeated_subtitle(record) -> bool:
     """A subtitle that repeats the journal or volume, or the title, is dropped, and a title that ends with its own
     subtitle loses that end: the model gave the journal as subtitle as well in 1,398 answers of the pass of 24 Nov 2026
@@ -1040,7 +1119,7 @@ def drop_repeated_subtitle(record) -> bool:
     return False
 
 
-def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset()) -> None:
+def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset(), words=None) -> None:
     """Write a model answer into its record. The model's fields replace the parser's: on the hand-checked key 97.1 %
     of the fields are right against 84.5 %, and every field filled in from the parser makes it worse (§5c). Kept from
     the parser: every field when the answer does not fit the entry (``answer_fits``, flagged ``llm-answer-refused``), the persons where the model gives none (642 entries, nearly all with a printed author) or names one the
@@ -1053,7 +1132,7 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     the language stay; the model's OCR fixes are not applied to the text (``apply_citations`` keeps them for search)."""
     from bhb.model import Host, Person, Series
 
-    answer = item["answer"]
+    answer = _without_running_head(item["answer"])
     flags = record.provenance.flags
     if record.printed and not answer_fits(answer, record.printed):
         if "llm-answer-refused" not in flags:
@@ -1128,6 +1207,11 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     record.series = Series(title=_text(series.get("title")), number=_text(series.get("number"))) if _text(series.get("title")) else None
     record.note = _text(answer.get("note"))
     drop_repeated_subtitle(record)
+    if words is not None and record.printed:
+        record.title, title_restored = restore_printed_words(record.title, record.printed, words)
+        record.subtitle, subtitle_restored = restore_printed_words(record.subtitle, record.printed, words)
+        if (title_restored or subtitle_restored) and "words-as-printed" not in flags:
+            flags.append("words-as-printed")
     record.provenance.parser = f"{item.get('model', '').split('/')[-1]}@v{item.get('prompt', '')}"
     if "parsed-llm" not in flags:
         flags.append("parsed-llm")
@@ -1138,6 +1222,7 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
     from collections import Counter, defaultdict
 
     counts: Counter[str] = Counter()
+    words = word_counts(records)
     contributors: dict[str, set[str]] = defaultdict(set)
     for record in records:
         if record.host and record.host.id and "split-from-contents" in record.provenance.flags:
@@ -1149,13 +1234,14 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
         item = answers.get(record.id)
         if item is not None and record.printed:
             before = (record.type, record.title, record.year)
-            apply_answer(record, item, frozenset(contributors.get(record.id, ())))
+            apply_answer(record, item, frozenset(contributors.get(record.id, ())), words)
             refused = "llm-answer-refused" in record.provenance.flags
             record.ocr_corrected = [] if born_digital(record) or refused else [
                 fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
             counts["answer refused (not this entry's)" if refused else "parsed"] += 1
             counts["persons kept from the parser"] += "persons-from-parser" in record.provenance.flags
             counts["pages kept from the parser"] += "pages-from-parser" in record.provenance.flags
+            counts["title words put back as printed"] += "words-as-printed" in record.provenance.flags
             counts["OCR fixes for search"] += len(record.ocr_corrected)
             counts["type changed"] += record.type != before[0]
             counts["title changed"] += record.title != before[1]

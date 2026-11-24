@@ -342,3 +342,16 @@ def test_a_subtitle_that_repeats_the_journal_or_the_title_is_dropped():
     assert drop_repeated_subtitle(journal) and journal.subtitle is None
     assert drop_repeated_subtitle(twice) and (twice.title, twice.subtitle) == ("Antonia Depoorter", "een hoogstaande vrouw uit Ronse")
     assert not drop_repeated_subtitle(month) and month.subtitle == "Mai 1958"
+
+
+def test_a_word_the_model_changed_silently_is_put_back_unless_it_corrects_a_misreading():
+    from collections import Counter
+
+    from bhb.citations import restore_printed_words
+
+    words = Counter({"vlaanderen": 9117, "viaanderen": 7, "bewogen": 208, "portugaise": 9, "portuguaise": 1, "tournai": 2307})
+    printed = "Smet (A.). Viaanderen, een bewogen geschiedenis. Prestige de l’armurerie portuguaise. Tournai et Mons, 1990."
+    assert restore_printed_words("Vlaanderen, een bewongen geschiedenis", printed, words) == ("Vlaanderen, een bewogen geschiedenis", 1)
+    assert restore_printed_words("Prestige de l’armurerie portugaise", printed, words) == ("Prestige de l’armurerie portugaise", 0)
+    assert restore_printed_words("Tourtnai et Mons", printed, words) == ("Tournai et Mons", 1)
+    assert restore_printed_words("Tourtnai", printed, words) == ("Tourtnai", 0)  # no neighbour to place it by

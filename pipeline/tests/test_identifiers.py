@@ -421,3 +421,23 @@ def test_a_dropped_connection_is_asked_again(monkeypatch, tmp_path):
     monkeypatch.setattr(identifiers.time, "sleep", lambda seconds: None)
     assert identifiers.fetch({"query.bibliographic": "x"}, tmp_path) == {"message": {"items": []}}
     assert len(calls) == 2
+
+
+def test_a_doi_set_by_hand_wins_and_needs_no_match(tmp_path, monkeypatch):
+    import bhb.identifiers as identifiers
+    from bhb.model import Provenance
+
+    yante = Record(id="bhb:vs-1196384", source="vsmart", bgb_year=2011, type="chapter", year=2011,
+                   title="Le commerce espagnol dans les Pays-Bas", persons=[Person(family="Yante")], provenance=Provenance())
+    monkeypatch.setattr(identifiers, "load_identifiers_by_hand", lambda path=None: [
+        {"id": yante.id, "doi": "https://doi.org/10.1484/J.PCEEB.3.307", "checked_by": "", "date": "", "note": ""}])
+    counts = identifiers.apply_identifiers([yante], tmp_path, tmp_path)
+    assert yante.doi == "10.1484/j.pceeb.3.307" and yante.identifiers_from["doi"] == "hand"
+    assert counts["doi by hand"] == 1
+
+
+def test_the_hand_file_parses():
+    from bhb.identifiers import load_identifiers_by_hand
+
+    rows = load_identifiers_by_hand()
+    assert rows and all(row["id"].startswith("bhb:") and row["doi"].startswith("10.") for row in rows)

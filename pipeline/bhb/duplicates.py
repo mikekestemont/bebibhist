@@ -134,8 +134,42 @@ def _words(text: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", fold(text or "")))
 
 
+# How the catalogue names nobody: an entry the volume prints without an author has "s.n." or "Redactie" there.
+_NOBODY = {"s n", "sn", "s", "redactie", "red", "la redaction", "redaction", "anoniem", "anonyme", "anonymous", "anon"}
+
+
 def _first_family(record) -> str:
-    return _words(record.persons[0].family) if record.persons else ""
+    family = _words(record.persons[0].family) if record.persons else ""
+    return "" if family in _NOBODY else family
+
+
+_NOBODY_FIRST = re.compile(r"^\s*(?:Redactie|Red\.|La rédaction)\.?\s*", re.I)
+
+
+def _names_nobody(record) -> bool:
+    """The record names "s.n." or "Redactie" as its author (rather than nobody at all)."""
+    return bool(record.persons) and _words(record.persons[0].family) in _NOBODY
+
+
+def _contains_name(family: str, other: str) -> bool:
+    """One family name is a whole part of the other: "Deveen" of "De Pauw-Deveen", "Sindani" of "Kiangu Sindani",
+    "Prochno" of "Prochno-Schinkel" (a compound name written in full in one source only)."""
+    ours, theirs = family.split(), other.split()
+    shorter, longer = sorted((ours, theirs), key=len)
+    return bool(shorter) and len(shorter) < len(longer) and all(word in longer for word in shorter) and len("".join(shorter)) >= 4
+
+
+def _host_printed(record, other) -> bool:
+    """The catalogue record's journal or volume is named in the printed entry (or it names none)."""
+    host = _words(other.host.title) if other.host and other.host.title else ""
+    return not host or host in _words(record.printed)
+
+
+def _anonymous_fit(record, other) -> bool:
+    """A catalogue record by "s.n." or "Redactie" pairs with a printed entry without author when its journal or
+    volume is named in the entry and its title has a word, not only years ("1914-1918", "1917": too many entries
+    begin so)."""
+    return _host_printed(record, other) and bool(re.search(r"[^\W\d_]{3,}", other.title or ""))
 
 
 def _years_named(text: str) -> set[str]:
@@ -195,10 +229,15 @@ def link_print_to_catalogue(records) -> int:
         for record in printed:
             if record.duplicate_of:
                 continue
-            title = _words(record.title)
+            family = _first_family(record)
+            # No author on either side ("s.n." or "Redactie" in the catalogue, read as nobody): the printed title often
+            # carries more (a "Redactie." before it, a subtitle, the journal's first words); against a catalogue
+            # record that names "s.n." or "Redactie", its journal or volume must be named in the printed entry.
+            title = _words(record.title if family else _NOBODY_FIRST.sub("", record.title))
             best, best_score = None, 0.0
-            for other in catalogue.get(_first_family(record), ()):
-                if other.id in used or abs(other.bgb_year - record.bgb_year) != leeway or not _may_pair(record, other, title):
+            for other in catalogue.get(family, ()):
+                if (other.id in used or abs(other.bgb_year - record.bgb_year) != leeway or not _may_pair(record, other, title)
+                        or (not family and _names_nobody(other) and not _anonymous_fit(record, other))):
                     continue
                 score = fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
                 if score >= TITLE_AGREE and score > best_score:
@@ -221,7 +260,7 @@ def link_print_to_catalogue(records) -> int:
                     or not _may_pair(record, other, title)):
                 continue
             other_family = _first_family(other)
-            if other_family == family or fuzz.ratio(family, other_family) < NAME_AGREE:
+            if other_family == family or (fuzz.ratio(family, other_family) < NAME_AGREE and not _contains_name(family, other_family)):
                 continue
             score = fuzz.ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
             score = max(score, fuzz.ratio(title, _words(other.title)))

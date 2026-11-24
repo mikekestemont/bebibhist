@@ -610,3 +610,22 @@ def test_the_front_matter_of_a_pdf_volume_is_left_out():
     entry = Record(id="bhb:2016-p14", source="print-pdf", bgb_year=2016, printed="Barbazon (Yvon). Bibliographie régionale.",
                    section_path=["I. BIBLIOGRAPHIES ET SCIENCES AUXILIAIRES"])
     assert without_front_matter([front, entry]) == ([entry], 1)
+
+
+def test_an_entry_of_a_pdf_volume_may_open_with_s_n():
+    from bhb.ingest.pdf_volume import _ENTRY
+
+    assert _ENTRY.match("91727 (s.n.). Bibliographie régionale. Ardenne Wallonne.")
+    assert not _ENTRY.match("12345 (1999) suite")
+
+
+def test_the_running_head_left_inside_an_entry_is_taken_out():
+    from bhb.ingest.pdf_volume import _HEADER, strip_running_head
+
+    assert _HEADER.match("BIBLIOGRAPHIE DE L’HISTOIRE DE BELGIQUE")
+    assert strip_running_head("Centre Européen d’Etudes BIBLIOGRAPHIE DE L’HISTOIRE DE BELGIQUE Bourguignonnes") == \
+        "Centre Européen d’Etudes Bourguignonnes"
+    assert strip_running_head("Gent, Provincie Oost- BIBLIOGRAPHIE DE L’HISTOIRE DE BELGIQUE Vlaanderen, 2016") == \
+        "Gent, Provincie Oost- Vlaanderen, 2016"
+    assert strip_running_head("Ver- BIBLIOGRAPHIE DE L’HISTOIRE DE BELGIQUE sailles, 1999") == "Versailles, 1999"
+    assert strip_running_head("Bibliographie de l’histoire de Belgique 1951") == "Bibliographie de l’histoire de Belgique 1951"

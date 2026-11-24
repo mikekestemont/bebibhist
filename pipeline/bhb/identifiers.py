@@ -407,6 +407,19 @@ def _journal_over_catalogue(record, item: dict) -> bool:
     return True
 
 
+def load_identifiers_by_hand(path: Path | None = None) -> list[dict[str, str]]:
+    """The DOIs set by hand: one row per entry (id, doi, checked_by, date, note)."""
+    import csv
+
+    from bhb.paths import repo_root
+
+    path = path or repo_root() / "data" / "curated" / "identifiers_by_hand.csv"
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
 def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
     """Write the accepted matches into the records: the DOI from Crossref (it wins when VABB gives another), ISSNs
     and ISBNs from both, and for an article whose journal record was not exported, the journal name its own match or
@@ -453,6 +466,14 @@ def apply_identifiers(records, folder: Path, cache: Path) -> dict[str, int]:
             if _journal_over_catalogue(record, item):
                 counts["journal of the doi over the catalogue's volume"] += 1
             counts["doi from crossref"] += 1
+    # DOIs set by hand (data/curated/identifiers_by_hand.csv), checked against the DOI's own record: they win over a
+    # match, and survive a new match of the source.
+    for row in load_identifiers_by_hand():
+        record = by_id.get(row["id"])
+        if record is not None and row.get("doi"):
+            record.doi = normalise_doi(row["doi"])
+            record.identifiers_from["doi"] = "hand"
+            counts["doi by hand"] += 1
     vabb = folder / "vabb.csv"
     if vabb.exists():
         for row in csv.DictReader(vabb.open(encoding="utf-8")):

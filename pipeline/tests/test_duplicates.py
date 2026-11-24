@@ -151,3 +151,34 @@ def test_a_yearly_series_or_a_short_title_a_year_apart_is_not_paired():
                record("bhb:2016-2", "print-pdf", 2016, "Avant-propos")]
     link_duplicates([series, preface, *entries])
     assert [entry.duplicate_of for entry in entries] == [None, None]
+
+
+def test_anonymous_entries_and_compound_names_pair_with_the_catalogue():
+    from bhb.duplicates import link_print_to_catalogue
+    from bhb.model import Host, Person, Provenance, Record
+
+    def printed(n, title, persons=(), host=None, printed_text=None):
+        return Record(id=f"bhb:2015-p{n}", source="print-pdf", bgb_year=2015, type="article", title=title,
+                      persons=list(persons), host=Host(title=host) if host else None,
+                      printed=printed_text or title, provenance=Provenance())
+
+    def catalogue(n, title, family, host=None, given=None):
+        return Record(id=f"bhb:vs-{n}", source="vsmart", bgb_year=2015, type="article", title=title,
+                      persons=[Person(family=family, given=given)] if family else [], host=Host(title=host) if host else None,
+                      provenance=Provenance())
+
+    eisden = printed(1, "Herinneringen. Marieke Frensen. Eisden", host="Driemaandelijks tijdschrift",
+                     printed_text="Herinneringen. Marieke Frensen. Eisden. Driemaandelijks tijdschrift, 2015, 3, pp. 4-9.")
+    redactie = printed(2, "Redactie. Pro Justitia anno 1862", host="Heemkundige Kring Moerbeke",
+                       printed_text="Redactie. Pro Justitia anno 1862. Heemkundige Kring Moerbeke, 2015, pp. 1-3.")
+    elsewhere = printed(3, "Herinneringen aan de mijn", host="Ons Heem", printed_text="Herinneringen aan de mijn. Ons Heem, 2015.")
+    years = printed(4, "1917 : het leven onder de Duitse bezetting", printed_text="1917 : het leven onder de Duitse bezetting. Gent, 2015.")
+    compound = printed(5, "Monumenten getuigen, enkele beschouwingen", [Person(family="Deveen", given="Ann")])
+    records = [eisden, redactie, elsewhere, years, compound,
+               catalogue(1, "Herinneringen", "s.n.", "Eisden"), catalogue(2, "Pro Justitia anno 1862", "redactie", "Heemkundige Kring Moerbeke"),
+               catalogue(3, "Herinneringen", "s.n.", "Eisden"), catalogue(4, "1917", "s.n."),
+               catalogue(5, "Monumenten getuigen, enkele beschouwingen", "De Pauw-Deveen", given="Ann")]
+    link_print_to_catalogue(records)
+    assert eisden.duplicate_of == "bhb:vs-1" and redactie.duplicate_of == "bhb:vs-2"
+    assert elsewhere.duplicate_of is None and years.duplicate_of is None
+    assert compound.duplicate_of == "bhb:vs-5"
