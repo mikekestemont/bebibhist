@@ -509,7 +509,6 @@
     // second, small search of the people's words tells them apart; the counts stay those of the whole list.
     let results = response.results;
     authorIds = new Set();
-    authorCount = 0;
     const named = field === "all" && askedText && !personName(askedText) && !unknown.length && results.length > 1 ? authorQuery(askedText) : null;
     if (named && !(await unknownWords(named)).length) {
       const byAuthor = await engine.search([named, within].filter(Boolean).join(" "), filters ? { filters } : {});
@@ -517,10 +516,7 @@
       const authored = new Set(byAuthor.results.map((result) => result.id));
       const ordered = authorsFirst(results, authored);
       if (ordered) {
-        // The hits of this list that are author hits (the author search can find a few more, through a given name
-        // written out from KBR's catalogue).
-        authorCount = results.filter((result) => authored.has(result.id)).length;
-        // A list sorted by year keeps its order; it still offers the author search.
+        // A list sorted by year keeps its order. No note says how many are the person's own (Mike, 24 Nov 2026).
         if (!sort) {
           results = ordered;
           authorIds = authored;
@@ -579,18 +575,9 @@
 
   // The hits shown that were found only through a longer word (they follow the whole-word hits).
   let partialIds = $state<Set<string>>(new Set());
-  // The hits of a name searched in all text whose authors or editors bear it, listed first, and how many the author
-  // search finds (0 when the words are no name: fewer than AUTHOR_SHARE of the hits).
+  // The hits of a name searched in all text whose authors or editors bear it, listed first (none when the words are
+  // no name: fewer than AUTHOR_SHARE of the hits).
   let authorIds = $state<Set<string>>(new Set());
-  let authorCount = $state(0);
-
-  /** The same search by author, from the first page. */
-  function authorHref(): string {
-    const next = new URLSearchParams(params);
-    next.set("field", "author");
-    next.delete("page");
-    return `#/search?${next.toString()}`;
-  }
 
   /** Whether a record's indexed words hold each of ``words`` whole, under the search's tag ("aw" for "aw_brugge_"). */
   function hasWholeWords(stored: IndexWords | undefined, words: string[], tag: string): boolean {
@@ -1237,11 +1224,8 @@
 
 {#snippet matchNotes()}
   {@const wholeOnly = params.get("match") === "whole"}
-  {#if authorCount || notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
+  {#if notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
     <div class="match-notes">
-      {#if authorCount}
-        <p>{(authorIds.size ? text.authorsFirst : text.authorsFound).replace("{n}", authorCount.toLocaleString(lang))} <a href={authorHref()}>{text.onlyAsAuthor}</a></p>
-      {/if}
       {#if notices.place}
         <p><a href={placeHref(notices.place.key)}>{text.placeIndexLink.replace("{place}", placeLabel(notices.place.key, notices.place.name)).replace("{n}", notices.place.n.toLocaleString(lang))}</a> <span class="note">{text.placeIndexWhy}</span></p>
       {/if}
