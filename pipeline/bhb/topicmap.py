@@ -478,11 +478,21 @@ def fix_names(names: dict[str, dict[str, str]], fixes: Path) -> int:
     return count
 
 
-def regions_document(regions_: list[Region], names: dict[str, dict[str, str]]) -> dict:
-    """The committed regions file: the tree, centres, sizes and names, and how they were made."""
+def named_by(namer) -> str:
+    """The model that named the regions, as the regions file states it."""
+    if isinstance(namer, RemoteNamer):
+        return f"{namer.model} through OpenRouter (Mistral's EU endpoint)"
+    return f"{MODEL}@{REVISION}"
+
+
+def regions_document(regions_: list[Region], names: dict[str, dict[str, str]], by: str | None = None) -> dict:
+    """The committed regions file: the tree, centres, sizes and names, and how they were made (``by``: the model
+    that named them, ``named_by``; the local model when not given)."""
+    by = by or f"{MODEL}@{REVISION}"
     return {
-        "about": "Regions of the topic map (bhb topicmap): nested k-means cells on the UMAP layout, named by "
-        f"{MODEL}@{REVISION} (machine-made names, not checked by hand).",
+        "about": f"Regions of the topic map (bhb topicmap): nested k-means cells on the UMAP layout, named by {by} "
+        "(machine-made names, not checked by hand).",
+        "named_by": by,
         "levels": list(LEVELS),
         "regions": [
             {"id": r.id, "level": r.level, "parent": r.parent, "x": r.x, "y": r.y, "n": r.n, **({"name": names[r.id]} if r.id in names else {})}

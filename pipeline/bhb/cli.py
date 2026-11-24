@@ -736,7 +736,8 @@ def _topicmap(command: str, remote: bool = False) -> None:
         topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
         # Hand corrections last, so they also reach the names the dedupe step made.
         fixed = topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
-        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        document = topicmap.regions_document(regions, names, topicmap.named_by(namer))
+        curated.write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}"
               + (f"; {namer.sent} requests sent, ${namer.cost:.2f}" if remote else ""))
         return
@@ -746,9 +747,14 @@ def _topicmap(command: str, remote: bool = False) -> None:
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
         document = json.loads(curated.read_text(encoding="utf-8"))
         names = {row["id"]: row["name"] for row in document["regions"] if row.get("name")}
-        topicmap.dedupe_names(ids, xy, member, regions, texts, names, _namer(remote, folder))
+        namer = _namer(remote, folder)
+        renamed = topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
         topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
-        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        # The model that named the regions stays named; one that renamed some of them is added.
+        by = document.get("named_by") or f"{topicmap.MODEL}@{topicmap.REVISION}"
+        if renamed and topicmap.named_by(namer) != by:
+            by = f"{by}; shared names renamed by {topicmap.named_by(namer)}"
+        curated.write_text(json.dumps(topicmap.regions_document(regions, names, by), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"topicmap: names → {curated}")
         return
     if command == "apply":

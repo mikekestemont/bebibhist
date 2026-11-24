@@ -207,3 +207,15 @@ def test_the_successions_file_keeps_tseg_apart():
 
     rows = {(row["predecessor_id"], row["successor"]) for row in load_successions()}
     assert ("issn:0303-9935", "issn:1572-1701") in rows
+
+
+def test_a_title_set_with_a_full_stop_is_not_read_as_abbreviated():
+    from collections import Counter
+
+    from bhb.journals import _abbreviated
+
+    faro = Counter({"Faro / Tijdschrift over cultureel erfgoed": 209, "Faro. Tijdschrift over cultureel erfgoed": 36})
+    assert not _abbreviated("Faro. Tijdschrift over cultureel erfgoed", faro)
+    vieux = Counter({"Bull. Soc. R. Le Vieux-Liège": 40})
+    assert _abbreviated("Bull. Soc. R. Le Vieux-Liège", vieux)
+    assert not _abbreviated("Faro / Tijdschrift over cultureel erfgoed", faro)

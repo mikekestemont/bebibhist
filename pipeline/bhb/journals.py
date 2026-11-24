@@ -134,6 +134,20 @@ def _slug(title: str) -> str:
     return "t:" + re.sub(r"\s+", "-", spelling_key(title))[:60]
 
 
+_DOTTED = re.compile(r"\b(\w{1,6})\.")
+
+
+def _abbreviated(form: str, forms: Counter) -> bool:
+    """A spelling with a short word cut off by a dot ("Bull. Soc. R."), unless the title's undotted spellings write
+    that same word out: "Faro. Tijdschrift over cultureel erfgoed", as the printed volumes of 2009–2017 set a title
+    and its subtitle, is "Faro / Tijdschrift …" (36 of its 291 articles; read as abbreviated, the journal lost its id)."""
+    dotted = _DOTTED.findall(form)
+    if not dotted:
+        return False
+    plain = {word.lower() for other in forms if not _DOTTED.search(other) for word in re.findall(r"\w+", other)}
+    return any(word.lower() not in plain for word in dotted)
+
+
 def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     """The journal list and the spelling map: folded spelling → (journal id, rule)."""
     articles = [record for record in records if record.role == "entry" and record.type == "article" and record.host
@@ -205,7 +219,7 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             continue
         # Written out when abbreviated forms are fewer than one in ten: an OCR slip ("La. Vie wallonne", once among
         # 482) does not make a journal's name an abbreviation.
-        abbreviated = sum(k for form, k in shown[spelling].items() if re.search(r"\b\w{1,6}\.", form))
+        abbreviated = sum(k for form, k in shown[spelling].items() if _abbreviated(form, shown[spelling]))
         words = tuple(_content(spelling.split()))
         if words and abbreviated * 10 < n:
             forms_of[words].append(spelling)

@@ -115,3 +115,13 @@ def test_the_chain_can_name_the_regions_remotely():
     steps = {step.label: args for _, step, args in chain.plan("topicmap-layout", "topicmap-apply", with_map=True, remote_names=True)}
     assert steps["topicmap-names"] == ["topicmap", "names", "--remote"]
     assert {step.label: args for _, step, args in chain.plan("topicmap-names", "topicmap-names", with_map=True)}["topicmap-names"] == ["topicmap", "names"]
+
+
+def test_the_regions_file_names_the_model_that_named_the_regions(tmp_path):
+    from bhb import topicmap
+
+    remote = topicmap.RemoteNamer(tmp_path)
+    document = topicmap.regions_document([], {}, topicmap.named_by(remote))
+    assert document["named_by"].startswith("mistralai/mistral-small-2603 through OpenRouter")
+    assert "mistral-small-2603" in document["about"] and topicmap.MODEL not in document["about"]
+    assert topicmap.regions_document([], {})["named_by"] == f"{topicmap.MODEL}@{topicmap.REVISION}"
