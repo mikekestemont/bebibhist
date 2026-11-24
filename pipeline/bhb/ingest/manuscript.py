@@ -115,6 +115,10 @@ def read_docx(path: Path) -> list[Paragraph]:
     for node in root.iter(_W + "p"):
         runs: list[tuple[str, bool, bool]] = []
         for run in node.iter(_W + "r"):
+            # Text moved with tracked changes stands at its old place too, marked as moved away; deleted text is not read
+            # at all (Word keeps it in another element).
+            if any(parent.tag == _W + "moveFrom" for parent in run.iterancestors()):
+                continue
             text = "".join(
                 "\t" if child.tag == _W + "tab" else "-" if child.tag == _W + "noBreakHyphen" else (child.text or "")
                 for child in run
@@ -536,18 +540,36 @@ def load_manuscript(path: Path, year: int | None = None, scheme: dict[str, Schem
         "headings": sum(block.kind == "heading" for block in blocks),
         "types": {kind: sum(r.type == kind for r in records) for kind in ("article", "chapter", "book", "other")},
         "below_0.6": sum(r.provenance.confidence < 0.6 for r in records),
+        "without a code": sum(not r.bhb_codes for r in records),
+        **({"tracked changes": marks} if (marks := tracked(path)) else {}),
         **{flag: sum(flag in r.provenance.flags for r in records) for flag in flags},
     }
     return records, report
 
 
 def manuscript_paths(folder: Path) -> list[Path]:
-    """The newest manuscript per year in ``folder`` (by name: a later "def" or version sorts last)."""
-    by_year: dict[int, Path] = {}
-    for path in sorted(folder.glob("*.docx")):
+    """The manuscripts in ``folder``, one per year. A file whose name gives no year, and two files of one year (two
+    versions, or a Word file and its proof), stop the reading: by name alone the wrong one would win, or a year would
+    be read twice. The one not to read goes to ``superseded/``."""
+    by_year: dict[int, list[Path]] = {}
+    for path in sorted([*folder.glob("*.docx"), *folder.glob("*.pdf"), *folder.glob("*.doc")]):
         if path.name.startswith("~$"):
             continue
         year = year_of(path)
-        if year is not None:
-            by_year[year] = path
-    return [by_year[year] for year in sorted(by_year)]
+        if year is None:
+            raise ValueError(f"{path.name}: no BGB year in the name (name it like BGBBHB2022.docx, or move it to superseded/)")
+        if path.suffix == ".doc":
+            raise ValueError(f"{path.name}: the old Word format; save it as .docx")
+        by_year.setdefault(year, []).append(path)
+    for year, paths in by_year.items():
+        if len(paths) > 1:
+            raise ValueError(f"{year}: {len(paths)} files ({', '.join(path.name for path in paths)}); keep the one to read, move the others to superseded/")
+    return [by_year[year][0] for year in sorted(by_year) if by_year[year][0].suffix == ".docx"]
+
+
+def tracked(path: Path) -> dict[str, int]:
+    """What a .docx still holds of the editing: tracked insertions, deletions and moves, and comments."""
+    with zipfile.ZipFile(path) as archive:
+        xml = archive.read("word/document.xml").decode("utf-8")
+    return {name: n for name, tag in (("inserted", "ins"), ("deleted", "del"), ("moved", "moveFrom"), ("comments", "commentReference"))
+            if (n := len(re.findall(rf"<w:{tag}[ >/]", xml)))}

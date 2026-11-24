@@ -15,7 +15,9 @@ made it; nothing is reviewed yet, and the printed citation and the journal name 
 from __future__ import annotations
 
 import csv
+import io
 import re
+import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -311,13 +313,23 @@ def write(journals: list[dict], mapping: dict[str, tuple[str, str]], count: Coun
             writer.writerow([spelling, journal, rule, count[spelling]])
 
 
+def _previous_rows(path: Path) -> list[dict[str, str]]:
+    """The rows of a journal list as committed, or as on disk outside a repository. Not the file an earlier step of
+    the same chain wrote: the first journals step reads the parser's titles, and a journal it made up ("Revue
+    historique" for "Rev. histor. ardennaise") would be kept as "previous" by the steps after the citation pass."""
+    try:
+        text = subprocess.run(["git", "show", f"HEAD:./{path.name}"], cwd=path.parent, capture_output=True,
+                              check=True).stdout.decode("utf-8")
+    except (OSError, subprocess.CalledProcessError):
+        if not path.exists():
+            return []
+        text = path.read_text(encoding="utf-8")
+    return list(csv.DictReader(io.StringIO(text, newline="")))
+
+
 def previous_ids(folder: Path) -> dict[str, str]:
-    """Spelling → journal id in the list written last (``journal_spellings.csv``), or {} when there is none."""
-    path = folder / "journal_spellings.csv"
-    if not path.exists():
-        return {}
-    with path.open(encoding="utf-8", newline="") as handle:
-        return {row["spelling"]: row["journal"] for row in csv.DictReader(handle)}
+    """Spelling → journal id in the committed list (``journal_spellings.csv``), or {} when there is none."""
+    return {row["spelling"]: row["journal"] for row in _previous_rows(folder / "journal_spellings.csv")}
 
 
 def keep_ids(journals: list[dict], mapping: dict[str, tuple[str, str]], count: Counter, previous: dict[str, str]) -> int:
@@ -347,8 +359,7 @@ def keep_previous(journals: list[dict], mapping: dict[str, tuple[str, str]], cou
     """A spelling that the previous list gave a journal and the new list gives none keeps that journal, and the
     journal comes back to the list if it left it: a journal's id does not come and go with the counts of a run
     ("Curia Arduennae", 15 articles under one spelling on 21 Nov and 14 on 24 Nov, below ``FULL_TITLE_MIN``)."""
-    path = folder / "journals.csv"
-    old_rows = {row["id"]: row for row in csv.DictReader(path.open(encoding="utf-8", newline=""))} if path.exists() else {}
+    old_rows = {row["id"]: row for row in _previous_rows(folder / "journals.csv")}
     listed = {row["id"]: row for row in journals}
     kept = 0
     for spelling, journal in previous.items():

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from bhb.identifiers import USER_AGENT, _full_given, numbers_agree, same_name
 from bhb.kbr_harvest import _RECORD, FAULTS, OAI, get
+from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
 from bhb.textutil import fold, squash
@@ -173,6 +174,7 @@ class Target:
     publisher: str
     isbn: list[str]
     chapters: list[str] = field(default_factory=list)
+    main: str = ""  # the title without its subtitle, where the fields keep them apart
 
 
 def targets(records) -> list[Target]:
@@ -183,11 +185,15 @@ def targets(records) -> list[Target]:
         if record.role == "entry" and record.type == "book" and record.title:
             title = ": ".join(part for part in (record.title, record.subtitle) if part)
             found.append(Target(record.id, title, record.year, [person.family for person in record.persons],
-                                (record.publisher.name if record.publisher else "") or "", list(record.isbn)))
+                                (record.publisher.name if record.publisher else "") or "",
+                                # An ISBN that came from KBR would let a match confirm itself.
+                                [] if record.identifiers_from.get("isbn", "").startswith("kbr") else list(record.isbn),
+                                main=record.title if record.subtitle else ""))
     for key, (volume, chapters) in hosts(records, since=None).items():
         title = ": ".join(part for part in (volume.title, volume.subtitle) if part)
         found.append(Target(f"volume:{key}", title, volume.year, [person.family for person in volume.persons],
-                            (volume.publisher.name if volume.publisher else "") or "", [], chapters))
+                            (volume.publisher.name if volume.publisher else "") or "", [], chapters,
+                            main=volume.title if volume.subtitle else ""))
     return found
 
 
@@ -239,8 +245,10 @@ def match(records, books_found) -> tuple[list[KbrMatch], dict[str, int]]:
     for target in wanted:
         whole, main = _keys(target.title)
         by_title[whole].append((target, True))
-        if main:
-            by_title[main].append((target, False))
+        # The fields join a title and its subtitle as "title: subtitle", which ``_keys`` reads as one title.
+        own = fold(target.main)
+        for key in {main, own if len(own.split()) >= 3 else ""} - {"", whole}:
+            by_title[key].append((target, False))
         for number in target.isbn:
             by_isbn[re.sub(r"[^0-9X]", "", number.upper())].append(target)
     found: dict[str, list[tuple[str, Book]]] = defaultdict(list)
@@ -280,6 +288,30 @@ def match(records, books_found) -> tuple[list[KbrMatch], dict[str, int]]:
     return matches, dict(counts)
 
 
+def keep_previous(matches: list[KbrMatch], previous: list[dict], records) -> list[KbrMatch]:
+    """The matches of the last file whose entry (or volume) has none now, while its title still fits: a link on the
+    site does not come and go with the fields of a run (24 Nov 2026: of 857 links lost against 9,299 found, most were
+    right). A volume's row is kept for the chapters the new matches do not cover."""
+    by_id = {record.id: record for record in records}
+    covered = {key for found in matches for key in (found.chapters if found.key.startswith("volume:") else [found.key])}
+    kept = []
+    for row in previous:
+        volume = row["id"].startswith("volume:")
+        ids = [key for key in (row["chapters"].split(";") if volume else [row["id"]]) if key in by_id and key not in covered]
+        fitting = []
+        for key in ids:
+            record = by_id[key]
+            title = (record.host.title if record.host else "") if volume else " ".join(filter(None, (record.title, record.subtitle)))
+            if fuzz.token_set_ratio(fold(title or ""), fold(row["ours"])) >= PREVIOUS_AGREE:
+                fitting.append(key)
+        if fitting:
+            kept.append(KbrMatch(row["id"], fitting if volume else [], row["kbr"], [n for n in row["isbn"].split(";") if n], row["basis"],
+                                 int(row["shelf_year"]) if row["shelf_year"] else None, int(row["year"]) if row["year"] else None,
+                                 row["ours"], row["theirs"], row["creators"].split(" | ")))
+    return kept
+
+
+PREVIOUS_AGREE = 85
 MATCH_COLUMNS = ["id", "chapters", "kbr", "isbn", "basis", "shelf_year", "year", "ours", "theirs", "creators"]
 
 

@@ -1,5 +1,6 @@
 import type { FilterCounts, Filters } from "./facets.ts";
-import { createSearcher, gunzip, type Found, type PagefindModule, type Ranking, type Searcher, type SearchOptions } from "./searcher.ts";
+import type { Ranking } from "./ranking.ts";
+import { createSearcher, gunzip, type Found, type PagefindModule, type Searcher, type SearchOptions } from "./searcher.ts";
 import { nameWords, personName, personWord } from "./words.js";
 export { nameWords };
 export type { Filters };
@@ -361,10 +362,7 @@ export async function loadEngine(): Promise<Engine> {
     counts: () => searcher.counts(search),
   });
   engine = {
-    search: async (query, options) => {
-      if (query) await loadPrefixChunks(searcher, query);
-      return response(await searcher.search(query, options));
-    },
+    search: async (query, options) => response(await searcher.search(query, options)),
     nothing: () => response({ ids: [], search: 0 }),
     warm: () => { searcher.warm().catch(() => {}); },
   };
@@ -426,49 +424,10 @@ async function workerSearcher(url: string): Promise<Searcher> {
   await Promise.race([call("load", url), failed]);
   return {
     init: (ranking) => call("init", ranking),
-    preload: (query) => call("preload", query),
     search: (query, options) => call("search", query, options),
     counts: (search) => call("counts", search),
     warm: () => call("warm"),
   };
-}
-
-const preloaded = new Set<string>();
-let preloading: Promise<void> = Promise.resolve();
-
-/**
- * Pagefind 1.4 stores the last word of each index chunk shortened ("beguinag"), so a longer word such as
- * "beguinages" sorts between two chunks. Pagefind then loads neither, falls back to a short prefix ("b") and
- * returns tens of thousands of hits; once the right chunk is in memory, the word is found. 788 words were
- * affected (abbaye, travaux, Tollebeek …). Preloading the chunks of each word's shorter prefixes puts that
- * chunk in memory first. A word also matches the longer words it begins with, and Pagefind loads only the chunk of
- * the word itself: "abbaye" ends one chunk and "abbayes" begins the next, which halved the hits (2,477 of 4,515). The
- * word with "zz" after it sorts after those longer words, so its chunk is loaded too. Pagefind 1.5 fixes this, but
- * also makes every metadata field searchable.
- */
-function loadPrefixChunks(searcher: Searcher, query: string): Promise<void> {
-  const prefixes: string[] = [];
-  for (const word of query.toLowerCase().split(/\s+/)) {
-    // A field word ("au_vanthemse") stops at its tag and two letters: "au" or "au_" would load the chunks of every
-    // author name, about ten in a row before an author search.
-    const shortest = /^[a-z]{2}_/.test(word) ? 5 : 2;
-    if (word.length >= shortest && !preloaded.has(`${word}zz`)) {
-      preloaded.add(`${word}zz`);
-      prefixes.push(`${word}zz`);
-    }
-    for (let size = word.length - 1; size >= shortest; size -= 1) {
-      const prefix = word.slice(0, size);
-      if (!preloaded.has(prefix)) {
-        preloaded.add(prefix);
-        prefixes.push(prefix);
-      }
-    }
-  }
-  // One preload at a time: two searches run side by side for optional function words.
-  preloading = preloading.then(async () => {
-    for (const prefix of prefixes) await searcher.preload(prefix);
-  });
-  return preloading;
 }
 
 export function foldQuery(query: string): string {
@@ -552,27 +511,21 @@ export function relaxedQuery(query: string, field: SearchField = "all", translat
 }
 
 /**
- * The longer index words a whole-word search leaves out, per query word ("brugge" → bruggen, brugges …), the
- * shortest first: the result says so and offers them (the reviewer's "bruggen" for Brugge, 9 Nov 2026). ``tag`` is the
- * Pagefind tag of the search ("aw", "au" …). Only words of letters, of three letters or more, are looked up.
+ * Whether one of the words begins a longer word of the index ("brugge": bruggen), by which a hit may have been found.
+ * ``tag`` is the Pagefind tag of the search ("aw", "au" …). Only words of letters, of three letters or more, are
+ * looked up.
  */
-export async function longerWords(words: string[], tag: string, limit = 6): Promise<{ word: string; longer: string[]; more: number }[]> {
-  const found: { word: string; longer: string[]; more: number }[] = [];
+export async function beginsLongerWords(words: string[], tag: string): Promise<boolean> {
   for (const word of words) {
     if (word.length < 3 || !/^\p{L}+$/u.test(word)) continue;
     const token = `${tag}_${word}`;
     const list = await knownFile(token.slice(0, 5));
     if (!list) continue;
-    const all: string[] = [];
     for (let low = lowerBound(list, token); low < list.length && list[low].startsWith(token); low += 1) {
-      const candidate = list[low].slice(3).replace(/_$/, "");
-      if (candidate !== word && list[low].endsWith("_")) all.push(candidate);
+      if (list[low].endsWith("_") && list[low].slice(3).replace(/_$/, "") !== word) return true;
     }
-    // The nearest forms first ("bruggen", "brugges" before "bruggehooft"): the shortest, then in order.
-    const longer = [...all].sort((a, b) => a.length - b.length || (a < b ? -1 : 1)).slice(0, limit);
-    if (all.length) found.push({ word, longer, more: all.length - longer.length });
   }
-  return found;
+  return false;
 }
 
 function lowerBound(list: string[], token: string): number {

@@ -23,10 +23,13 @@ function cbor(value: unknown): number[] {
 
 // Five records: 0 and 3 are medieval, 1 is both; 4 has no language; "order" lacks record 2.
 const IDS = ["und_aaaaaaa", "und_bbbbbbb", "und_ccccccc", "und_ddddddd", "und_eeeeeeee"];
-const META = ["1.4.0", IDS.map((id, index) => [id, 100000 + index]), [["aw_abbaye", "aw_béguin", "und_1"]],
+const META = ["1.4.0", IDS.map((id, index) => [id, 100000 + index]), [["aw_abbaye", "aw_béguin", "und_1"], ["aw_bibliothekenp", "aw_biblioth", "und_2"], ["aw_bibliotu", "zz", "und_3"]],
   [["period", "und_p"], ["language", "und_l"], ["pubyear", "und_y"]], [["order", [3, 1, 4, 0]]]];
 const FILES: Record<string, unknown> = {
   "pagefind.und_x.pf_meta": META,
+  "index/und_1.pf_index": [[["aw_abbaye_", [[0, [1]], [1, [1]], [4, [1]]]], ["aw_abbayes_", [[2, [1]]]]]],
+  "index/und_2.pf_index": [[["aw_bibliotheque_", [[1, [1]], [3, [1]]]]]],
+  "index/und_3.pf_index": [[["aw_bibliotheques_", [[0, [1]]]]]],
   "filter/und_p.pf_filter": ["period", [["medieval", [0, 1, 3]], ["contemporary", [1, 2, 4]]]],
   "filter/und_l.pf_filter": ["language", [["nl", [0, 1]], ["fr", [2, 3]]]],
   "filter/und_y.pf_filter": ["pubyear", [["1990", [0, 2]], ["1991", [1]], ["2021", [3, 4]]]],
@@ -37,9 +40,16 @@ const pages = (...list: number[]) => Uint32Array.from(list);
 
 test("the index files are read: ids, filter files, sort orders, values", () => {
   const meta = readMeta(bytes("pagefind.und_x.pf_meta"));
-  assert.deepEqual(meta.ids, IDS);
+  assert.deepEqual(meta.ids(), IDS);
+  assert.equal(meta.numbers().get(IDS[3]), 3);
+  assert.deepEqual([...meta.wordCounts], [100000, 100001, 100002, 100003, 100004]);
+  assert.deepEqual(meta.chunks, [
+    { from: "aw_abbaye", to: "aw_béguin", until: "aw_bibliothekenp", file: "und_1" },
+    { from: "aw_bibliothekenp", to: "aw_biblioth", until: "aw_bibliotu", file: "und_2" },
+    { from: "aw_bibliotu", to: "zz", until: "~", file: "und_3" },
+  ]);
   assert.deepEqual([...meta.filterFiles], [["period", "und_p"], ["language", "und_l"], ["pubyear", "und_y"]]);
-  assert.deepEqual([...meta.ranks.get("order")!].map((rank) => (rank > 10 ? null : rank)), [3, 1, null, 0, 2]);
+  assert.deepEqual([...meta.ranks().get("order")!].map((rank) => (rank > 10 ? null : rank)), [3, 1, null, 0, 2]);
   assert.deepEqual([...VALUES.get("period")!.get("medieval")!], [0, 1, 3]);
   const far = readFilter(Uint8Array.from(cbor(["f", [["v", [23, 24, 255, 256, 65535, 65536, 241716]]]])));
   assert.deepEqual([...far.get("v")!], [23, 24, 255, 256, 65535, 65536, 241716]);
@@ -60,7 +70,7 @@ test("filters: a list asks for every value, any for one of them, an unknown one 
 });
 
 test("sort orders run both ways and leave out records without the key", () => {
-  const { ranks } = readMeta(bytes("pagefind.und_x.pf_meta"));
+  const ranks = readMeta(bytes("pagefind.und_x.pf_meta")).ranks();
   assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), { order: "asc" }, ranks)], [3, 1, 4, 0]);
   assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), { order: "desc" }, ranks)], [0, 4, 1, 3]);
   assert.deepEqual([...sortPages(pages(2, 0), { other: "asc" }, ranks)], [2, 0]);
@@ -106,7 +116,7 @@ test("a ranked list waits for no filter, and Pagefind is never asked to filter o
   await searcher.init({});
   const found = await searcher.search("aw_abbaye");
   assert.deepEqual(found.ids, [IDS[4], IDS[1], IDS[0]]);
-  assert.deepEqual(asked, ["pagefind-entry.json"]);
+  assert.deepEqual(asked, ["pagefind-entry.json", "pagefind.und_x.pf_meta", "index/und_1.pf_index"]);
   const counts = await searcher.counts(found.search);
   assert.deepEqual(counts!.period, { medieval: 2, contemporary: 2 });
   assert.deepEqual(counts!.pubyear, { "1990": 1, "1991": 1, "2021": 1 });
@@ -115,6 +125,21 @@ test("a ranked list waits for no filter, and Pagefind is never asked to filter o
   assert.ok(calls.every((args) => args.length === 1));
   // Each file of the index is read once.
   assert.equal(new Set(asked).size, asked.length);
+});
+
+test("every longer word is found, through a file Pagefind cannot load too", async () => {
+  const { searcher, asked, calls } = searcherOver([IDS[2]]);
+  await searcher.init({});
+  const query = () => calls.map(([words]) => words).filter(Boolean);
+  // Read here, since Pagefind has no way to the second file; the best first, equal scores in the order of the index.
+  assert.deepEqual((await searcher.search("aw_bibliotheque")).ids, [IDS[1], IDS[3]]);
+  assert.ok(asked.includes("index/und_2.pf_index") && !asked.includes("index/und_1.pf_index"));
+  assert.deepEqual((await searcher.search("aw_bibliotheque_")).ids, [IDS[1], IDS[3]]);
+  assert.deepEqual([...(await searcher.search("aw_biblio")).ids].sort(), [IDS[0], IDS[1], IDS[3]]);
+  assert.deepEqual(query(), []);
+  // The others are Pagefind's, which is given the files first.
+  assert.deepEqual((await searcher.search("aw_abbaye")).ids, [IDS[2]]);
+  assert.deepEqual(query(), ["aw_abbaye"]);
 });
 
 test("without words, every record that passes the filters, in the order of the index", async () => {

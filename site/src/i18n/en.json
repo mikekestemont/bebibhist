@@ -328,14 +328,9 @@
   "fromOpenLibrary": "Found automatically in Open Library, by title, author and year; only a work with a single edition is used. Not checked by hand.",
   "placeIndexLink": "{place} in the place index: {n} publications",
   "placeIndexWhy": "The place index lists the publications about the place. This text search finds every entry with the word, also as a place of publication or in a journal's name.",
-  "andMore": "and {n} more",
-  "wholeWords": "Whole words only. Not included: {words}.",
-  "alsoLonger": "Include longer words",
   "wholeWordsOnly": "Whole words only",
   "searchAllText": "Search all text for “{q}”",
   "nameVariants": "This name is written in more than one way here:",
   "alsoListed": "Also listed elsewhere in the Bibliography",
-  "alsoListedNote": "The same publication, printed again in another volume of the Bibliography or under another heading of the same volume, is shown here as one record.",
-  "tierDivider": "Found through longer words: {words}",
-  "longerNote": "Words that begin with the query's words are found too, after the entries with the whole word: {words}."
+  "alsoListedNote": "The same publication, printed again in another volume of the Bibliography or under another heading of the same volume, is shown here as one record."
 }

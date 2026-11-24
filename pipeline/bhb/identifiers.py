@@ -44,6 +44,11 @@ MARGIN = 1.5 if WORKERS > 1 else 1.05
 INTERVAL_MIN = 0.5 if WORKERS > 1 else 0.0
 # Tries per query before a run stops: a 429 or a server error is asked again after a growing wait (``_backoff``).
 ATTEMPTS = 8
+# Crossref throttles a long run now and then (23–24 Nov 2026: 58 answers "429" in 45,000 questions). This many within
+# THROTTLED_WITHIN seconds end the run (``Throttled``); every answer is in the cache, so the next run goes on there.
+THROTTLED_AFTER = 3
+THROTTLED_WITHIN = 600
+_seen_429: list[float] = []
 _last_start = 0.0
 _lock = threading.Lock()
 FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-print,published-online,volume,issue,page,type,ISSN,ISBN"
@@ -51,6 +56,17 @@ FIELDS = "DOI,title,subtitle,author,editor,container-title,issued,published-prin
 # A title this similar to a candidate's counts as the same title; below it, the OCR has to explain the difference.
 TITLE_SAME = 95
 TITLE_CLOSE = 85
+
+
+class Throttled(Exception):
+    """Crossref answered 429 (too many requests) several times in a short while: ask again later."""
+
+
+def _note_429(now: float) -> None:
+    _seen_429.append(now)
+    if sum(1 for seen in _seen_429 if now - seen < THROTTLED_WITHIN) >= THROTTLED_AFTER:
+        _seen_429.clear()
+        raise Throttled(f"{THROTTLED_AFTER} answers 429 within {THROTTLED_WITHIN // 60} minutes")
 
 
 @dataclass
@@ -133,7 +149,8 @@ def query_params(record, in_journal: bool = False, issn: str | None = None) -> d
     """The Crossref query for one entry, or None when it has no title or year. With ``in_journal``, an article whose
     journal has an ISSN is looked for in that journal only (under ``issn``, or the number that names the journal)."""
     title = _full_title(record.title, record.subtitle)
-    if not title or not record.year:
+    # Some volumes of the 1950s print the year with two digits ("53"): no date Crossref takes.
+    if not title or not record.year or not 1000 <= int(record.year) <= 2100:
         return None
     first = _first_author(record)
     host = record.host.title if record.host and record.host.title else ""
@@ -165,8 +182,16 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
                 _pace(response.headers)
             break
         except urllib.error.HTTPError as error:
+            if error.code == 400:
+                # A question Crossref does not understand: no candidates, kept in the cache, and the run goes on (the
+                # rehearsal of 24 Nov 2026 stopped at one of 15,000).
+                print(f"  crossref: 400, not understood: {params['query.bibliographic'][:80]} ({params['filter']})", flush=True)
+                data = {"message": {"items": []}, "refused": 400}
+                break
             if error.code not in (429, 500, 502, 503, 504) or attempt == ATTEMPTS - 1:
                 raise
+            if error.code == 429:
+                _note_429(time.monotonic())
             time.sleep(_backoff(error, attempt))
         except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException):
             # A dropped connection ("Remote end closed connection without response", a Mac waking from sleep) is

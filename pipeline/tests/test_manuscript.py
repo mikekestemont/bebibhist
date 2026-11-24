@@ -3,6 +3,8 @@
 import re
 import zipfile
 
+import pytest
+
 from bhb.ingest.manuscript import HeadingCodes, Paragraph, bold_names, is_heading, load_manuscript, manuscript_paths, year_of
 from bhb.scheme import SchemeEntry
 
@@ -120,9 +122,30 @@ def test_the_same_text_twice_gets_two_keys(tmp_path):
 def test_year_and_newest_file_per_year(tmp_path):
     assert year_of(tmp_path / "BGBBHB2020def.docx") == 2020
     assert year_of(tmp_path / "BGB-BHB 2021 versie 3.docx") == 2021
-    for name in ("BGBBHB2020.docx", "BGBBHB2020def.docx", "~$BGBBHB2021.docx", "notes.docx"):
+    for name in ("BGBBHB2020def.docx", "~$BGBBHB2021.docx", "BGBBHB2019(defingediend).docx"):
         write_docx(tmp_path / name)
-    assert [p.name for p in manuscript_paths(tmp_path)] == ["BGBBHB2020def.docx"]
+    (tmp_path / "BGBBHB2018-drukproef.pdf").write_bytes(b"")
+    assert [p.name for p in manuscript_paths(tmp_path)] == ["BGBBHB2019(defingediend).docx", "BGBBHB2020def.docx"]
+    # Two files of a year, a name without a year and the old Word format stop the reading instead of being guessed at.
+    for name, message in (("BGBBHB2020(2).docx", "2020: 2 files"), ("BGBBHB2020-drukproef.pdf", "2020: 2 files"), ("notes.docx", "no BGB year"),
+                          ("BGBBHB2022.doc", "old Word format")):
+        (tmp_path / name).write_bytes(b"")
+        with pytest.raises(ValueError, match=message):
+            manuscript_paths(tmp_path)
+        (tmp_path / name).unlink()
+
+
+def test_text_moved_with_tracked_changes_is_read_once(tmp_path):
+    from bhb.ingest.manuscript import read_docx, tracked
+
+    path = write_docx(tmp_path / "BGBBHB2022.docx")
+    with zipfile.ZipFile(path) as archive:
+        xml = archive.read("word/document.xml").decode("utf-8")
+    moved = '<w:p><w:moveFrom w:id="1">' + run("Verplaatst.") + '</w:moveFrom><w:ins w:id="2">' + run("Toegevoegd.") + '</w:ins><w:del w:id="3"><w:r><w:delText>Weg.</w:delText></w:r></w:del></w:p>'
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("word/document.xml", xml.replace("</w:body>", moved + "</w:body>"))
+    assert read_docx(path)[-1].text == "Toegevoegd."
+    assert tracked(path) == {"inserted": 1, "deleted": 1, "moved": 1}
 
 
 def test_bold_names():
