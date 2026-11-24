@@ -194,6 +194,16 @@ def main(argv: list[str] | None = None) -> None:
     ctrans.add_argument("--workers", type=int, default=8)
     ctrans.add_argument("--seed", type=int, default=4)
 
+    chain = sub.add_parser("chain", help="the README's release chain as one command (bhb/chain.py); stops before paying for more than allowed")
+    chain.add_argument("--list", action="store_true", help="print the numbered steps and stop")
+    chain.add_argument("--from", dest="start", help="first step, by number or label (default: build)")
+    chain.add_argument("--to", dest="stop", help="last step, by number or label (default: release)")
+    chain.add_argument("--map", action="store_true", help="also make the topic map's layout and region names again (about an hour)")
+    chain.add_argument("--with-manuscripts", action="store_true", help="passed to bhb build")
+    chain.add_argument("--with-print-years", action="store_true", help="passed to bhb build")
+    chain.add_argument("--max-parse", type=int, default=0, help="parse requests not in the cache the paid step may send (default 0)")
+    chain.add_argument("--max-translate", type=int, default=0, help="translation requests the paid step may send (default 0)")
+    chain.add_argument("--print", dest="print_only", action="store_true", help="show the commands that would run, run nothing")
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
@@ -404,6 +414,21 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "similar":
         _similar(args.model, args.k, args.batch_size, args.records)
+        return
+    if args.command == "chain":
+        from bhb import chain as release_chain
+        if args.list:
+            print(release_chain.list_steps())
+            return
+        flags = [flag for flag, on in (("--with-manuscripts", args.with_manuscripts), ("--with-print-years", args.with_print_years)) if on]
+        steps = release_chain.plan(args.start, args.stop, args.map, flags)
+        if args.print_only:
+            for number, step, step_args in steps:
+                print(f"{number:>2}. bhb {' '.join(step_args)}" + ("   (after a dry run as guard)" if step.label == "citations-run" else ""))
+            return
+        code = release_chain.run_chain(steps, build_dir() / "chain.log", args.max_parse, args.max_translate)
+        if code:
+            raise SystemExit(code)
         return
     if args.command == "release":
         records = args.records or build_dir() / "records.jsonl"
