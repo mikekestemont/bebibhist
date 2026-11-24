@@ -24,6 +24,8 @@ const checks = [
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
+  // Two ticked types find either (6 of 24 Nov 2026: 5 chapters and a book); asked for together they found none.
+  { name: "two types, either of them (chapter or book)", hash: "#/search?q=Kestemont+%28Mike%29&field=author&type=chapter&type=book", count: [5, 15] },
   // A name in all text lists what the name wrote or edited first (plan §4f, point 8): Bisschop's chapter in a volume
   // Vanthemsche edited (bhb:vs-1250412) was among his own work; now it follows the 145 of his own, at about 173.
   { name: "a name in all text, its own work first (Vanthemsche)", hash: "#/search?q=vanthemsche&per=100", count: [700, 1150], first: /Vanthemsche/, lacks: /Bisschop/ },
