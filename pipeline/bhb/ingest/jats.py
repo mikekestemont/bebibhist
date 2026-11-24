@@ -30,6 +30,7 @@ _DECADE = (
     (1990, 1999, "BGB_1990-99"),
     (2000, 2007, "BGB_2000-07"),
     (2008, 2008, "BGB_2008"),
+    *((year, year, f"BGB_{year}") for year in range(2009, 2018)),  # the yearly volumes on rbph-btfg.be
 )
 
 
@@ -48,9 +49,19 @@ def year_of(path: Path) -> int:
     return int(match.group(1))
 
 
+def start_of(year: int) -> int:
+    return next(start for start, end, _label in _DECADE if start <= year <= end)
+
+
 def pdf_link(year: int, page: int | None = None, print_page: int | None = None) -> PdfLink:
-    name = next(label for start, end, label in _DECADE if start <= year <= end)
-    url = f"https://www.rbph-btfg.be/dowload_PDFs/{name}.php"
+    name = next((label for start, end, label in _DECADE if start <= year <= end), None)
+    if name is None:
+        # A volume not on rbph-btfg.be (2018, received from the editor as the typeset PDF): its page, no link.
+        return PdfLink(page=page, print_page=print_page)
+    # The decade files are served through a .php page; a yearly volume (2008 on) is the PDF itself ("BGB_2008.php"
+    # answers 404, checked 21 Nov 2026).
+    suffix = "php" if start_of(year) < 2008 else "pdf"
+    url = f"https://www.rbph-btfg.be/dowload_PDFs/{name}.{suffix}"
     if page:
         url = f"{url}#page={page}"
     return PdfLink(file=f"{name}.pdf", page=page, print_page=print_page, url=url)
@@ -85,7 +96,13 @@ def load_jats(path: Path, source: str) -> list[Record]:
             continue
         record, raw_refs = _ref_to_record(element, year, path, source, path_of(stack))
         pending.append((record, raw_refs))
-    _apply_labels(pending)
+    if root.findtext("front/article-meta/article-id[@pub-id-type='numbering']") == "none":
+        # A volume printed without entry numbers (2016–2017): an entry's id is its place, "bhb:2016-p12".
+        for record, _refs in pending:
+            record.id = f"bhb:{year}-{(record.provenance.xml_id or '').removeprefix('ref')}"
+            record.print_number = None
+    else:
+        _apply_labels(pending)
     records = [record for record, _refs in pending]
     known = {record.id for record in records}
     for record, raw_refs in pending:

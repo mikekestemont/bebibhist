@@ -35,6 +35,8 @@ from rapidfuzz import fuzz
 from bhb.textutil import fold
 
 API = "https://openrouter.ai/api/v1/chat/completions"
+# True for a dry run: a request not in the cache is not sent (its reply is empty, with the error "offline").
+OFFLINE = False
 REFERER = "https://github.com/mikekestemont/bebibhist"
 # Raised whenever the prompt or the schema changes; the cache is keyed on the whole request anyway.
 PROMPT_VERSION = "3"
@@ -263,6 +265,8 @@ def call(body: dict, cache: Path) -> Reply:
     seconds = 0.0
     if cached:
         data = json.loads(path.read_text(encoding="utf-8"))
+    elif OFFLINE:
+        return Reply(None, body["model"], None, 0.0, 0, 0, 0, 0.0, False, "offline: not in the cache, not sent")
     else:
         encoded = json.dumps(body).encode()
         headers = {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json", "HTTP-Referer": REFERER, "X-Title": "bebibhist"}
@@ -319,7 +323,7 @@ def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
         return {entry["id"]: entry for entry in entries}, replies
     if reply.content is not None:
         reply.error = reply.error or "ids do not match"
-    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+    if len(batch.items) == 1 or (reply.error or "").startswith(("HTTP 4", "offline")):
         return {}, replies  # a refused request (a parameter the model does not take) fails alone as well
     answers: dict[str, dict] = {}
     before = batch.before
@@ -331,13 +335,32 @@ def ask_batch(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
     return answers, replies
 
 
+def _titles_body(items: list[Item], model: str, reasoning: str | None = None, provider: str | None = None) -> dict:
+    user = "\n".join(f"[{item.id}] ({'+'.join(item.hints) or '?'}) {item.printed}" for item in items)
+    return request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider)
+
+
+def title_request_cached(items: list[Item], model: str, cache: Path) -> bool:
+    """Whether ``ask_titles`` would find this request in the cache (nothing is sent)."""
+    body = _titles_body(items, model)
+    return (cache / f"{hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}.json").exists()
+
+
+def previous_translations(path: Path) -> dict[str, dict]:
+    """The rows of an earlier run's ``translations.jsonl`` that name the title they were made from (``source``, with
+    the ``languages`` read then), by id; rows without it are left out, so their titles are translated again."""
+    if not path.is_file():
+        return {}
+    rows = (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+    return {row["id"]: row for row in rows if row.get("source")}
+
+
 def ask_titles(items: list[Item], model: str, cache: Path, reasoning: str | None = None,
                provider: str | None = None) -> tuple[dict[str, dict], Reply]:
     """Translations of title-only items (``Item.printed`` holds the title, ``Item.hints`` the languages the local
     identifier read), checked per id like a batch. The model gives all three; a translation into a language of the
     title, or one that only copies the title, is dropped by rule."""
-    user = "\n".join(f"[{item.id}] ({'+'.join(item.hints) or '?'}) {item.printed}" for item in items)
-    reply = call(request_body(TRANSLATE, user, TITLES, model, reasoning, name="titles", provider=provider), cache)
+    reply = call(_titles_body(items, model, reasoning, provider), cache)
     titles = (reply.content or {}).get("titles") or []
     if [title.get("id") for title in titles] != [item.id for item in items]:
         reply.error = reply.error or "ids do not match"
@@ -805,6 +828,26 @@ def draft_hint(record) -> str:
     return "draft: " + " | ".join(parts)
 
 
+def parsed_by_pass(record) -> bool:
+    """The entries the citation pass parses: the printed volumes, and a volume received as typeset text (the 2018
+    proof, kept as a manuscript); the Word manuscripts are read from their formatting instead."""
+    return record.source.startswith("print") or "typeset-proof" in record.provenance.flags
+
+
+def behind_catalogue(record) -> bool:
+    """A printed entry of 2009–2017 linked to the catalogue's record of the same publication: the site shows the
+    catalogue's record, so the pass neither parses nor translates the printed one (about 44,000 entries)."""
+    from bhb.duplicates import PRINTED_CATALOGUE_YEARS
+
+    return bool(record.duplicate_of) and record.source == "print-pdf" and record.bgb_year in PRINTED_CATALOGUE_YEARS
+
+
+def born_digital(record) -> bool:
+    """The printed volumes from 2008 on are read from their own PDF text, not from a scan: what looks like an OCR
+    error there is the printed spelling, so no OCR fix is kept (1964 and 1965 come from Persée's scans)."""
+    return (record.source == "print-pdf" and (record.bgb_year or 0) >= 2008) or "typeset-proof" in record.provenance.flags
+
+
 def checked_ocr_fixes(answer: dict, printed: str, counts=None) -> list[dict]:
     """The model's OCR fixes that pass a rule: one word, printed as such, one or two letters changed, no digits; and,
     given the bibliography's word counts (``bhb.ocr_compare.vocabulary``), a printed word that hardly occurs
@@ -838,7 +881,7 @@ def ask_parse(batch: Batch, model: str, cache: Path, reasoning: str | None = Non
         return {entry["id"]: entry for entry in entries}, replies
     if reply.content is not None:
         reply.error = reply.error or "ids do not match"
-    if len(batch.items) == 1 or (reply.error or "").startswith("HTTP 4"):
+    if len(batch.items) == 1 or (reply.error or "").startswith(("HTTP 4", "offline")):
         return {}, replies
     answers: dict[str, dict] = {}
     before = batch.before
@@ -940,10 +983,158 @@ def name_university_press(publisher) -> bool:
     return False
 
 
-def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset()) -> None:
+def _letters(text: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", fold(text or ""))
+
+
+# The running head as the volumes print it in title case (2008–2017, the 2018 proof): an answer made before the reader
+# took it out of an entry still carries it, mostly as a note (232 answers, rebuild of 24 Nov 2026).
+_TITLE_HEAD = re.compile(r"\s*(?:Bibliographie de l['’]Histoire de Belgique|Bibliografie van de Geschiedenis van België)\s*")
+
+
+def _without_running_head(value, printed: str | None = None):
+    """An answer with the volume's running head taken out of its texts: the model copied it from entries that cross a
+    page in the PDF volumes of 2010–2017 and the 2018 proof (``strip_running_head``). Given the entry's printed text,
+    the head in title case goes too when that text no longer prints it; the yearly bibliographies of that title print
+    it, and keep it."""
+    from bhb.ingest.pdf_volume import strip_running_head
+
+    if isinstance(value, str):
+        value = strip_running_head(value)
+        if value and printed is not None and _TITLE_HEAD.search(value) and not _TITLE_HEAD.search(printed):
+            value = _TITLE_HEAD.sub(" ", value).strip() or None
+        return value
+    if isinstance(value, list):
+        return [_without_running_head(item, printed) for item in value]
+    if isinstance(value, dict):
+        return {key: _without_running_head(item, printed) for key, item in value.items()}
+    return value
+
+
+def answer_fits(answer: dict, printed: str) -> bool:
+    """An answer belongs to its entry when at least half the words of its title and subtitle are printed in it. On
+    the pass of 24 Nov 2026, 41 of 164,053 answers fell short: an answer given for a neighbouring entry in the batch
+    (the 2018 proof, Lunula, three answers shifted by one), a title translated ("1104 dagen van Brussel naar Londen"
+    for "1104 jours de Bruxelles à Londres") or rewritten. Those entries keep the parser's fields. A title whose words
+    the model corrected (OCR) still fits."""
+    words = re.findall(r"[a-z0-9]+", fold(" ".join(_text(answer.get(key)) or "" for key in ("title", "subtitle"))))
+    if len(words) < 2:
+        return True
+    printed_words = set(re.findall(r"[a-z0-9]+", fold(printed)))
+    return sum(word in printed_words for word in words) * 2 >= len(words)
+
+
+# "Id." (read "ld." or "id." by OCR), "Idem", "Eid.", "Eadem": the author of the entry before, whom the model reads from
+# the batch; the parser often names nobody there.
+_SAME_AUTHOR = re.compile(r"^\W*(?:bis\s+)?(?:id|ld|idem|eid|eadem)\b", re.I)
+
+
+def grounded_name(family: str | None, printed: str, parsed=()) -> bool:
+    """A family name the model gives is in the printed text, or one the parser read (an "Id." entry names its author
+    through the entry before). On the pass of 24 Nov 2026, 314 of 164,053 answers named a person the text does not:
+    a co-author taken from a neighbouring entry ("Huys" beside Meulemeester), another entry's author (Renier for
+    Vandenbranden) or a name spelled otherwise ("Eraw" for Erauw)."""
+    name = _letters(family)
+    return (not name or name in _letters(printed) or any(_letters(person.family) == name for person in parsed)
+            or bool(_SAME_AUTHOR.match(printed)))
+
+
+def grounded_numbers(value: str, printed: str) -> bool:
+    """Every number of a page range the model gives is printed (a range written out, "252–53" as "252–253", counts
+    as not printed and keeps the parser's form). 58 answers of the pass gave pages that no entry printed."""
+    numbers = set(re.findall(r"\d+", printed))
+    return all(number in numbers for number in re.findall(r"\d+", value))
+
+
+_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)?")
+
+
+def restore_printed_words(text: str | None, printed: str, words) -> tuple[str | None, int]:
+    """The text with each word the model changed silently put back as printed, and how many. A word the printed entry
+    lacks is compared with the printed word in its place: one with a neighbour in common (the word before or after),
+    the same first letter, at most one letter longer or shorter and at most one edit (two for a word of eight letters
+    or more). The model's word stays only when it is much more common in the bibliography (``words``, folded word
+    counts of every printed entry: at least 5 and ten times the printed word, or at least 3 against a printed word
+    found once, "portugaise" 9 against "portuguaise" 1), which makes it a correction of a misreading ("Viaanderen" →
+    Vlaanderen); otherwise the printed word comes back ("Tourtnai", "bewongen", "Prieesters", "heksenjagt"; about 90
+    titles of the pass of 24 Nov 2026)."""
+    from rapidfuzz.distance import Levenshtein
+
+    if not text:
+        return text, 0
+    printed_words = [match.group(0) for match in _WORD.finditer(printed)]
+    folded_printed = [fold(word) for word in printed_words]
+    known = set(folded_printed)
+    ours = [match for match in _WORD.finditer(text)]
+    folded_ours = [fold(match.group(0)) for match in ours]
+    replacements: dict[int, str] = {}
+    for index, folded in enumerate(folded_ours):
+        if folded in known or len(folded) < 4:
+            continue
+        before = folded_ours[index - 1] if index else None
+        after = folded_ours[index + 1] if index + 1 < len(folded_ours) else None
+        limit = 2 if len(folded) >= 8 else 1
+        close = set()
+        for position, other in enumerate(folded_printed):
+            if other[:1] != folded[:1] or abs(len(other) - len(folded)) > 1 or Levenshtein.distance(folded, other) > limit:
+                continue
+            neighbours = (folded_printed[position - 1] if position else None,
+                          folded_printed[position + 1] if position + 1 < len(folded_printed) else None)
+            if (before and before == neighbours[0]) or (after and after == neighbours[1]):
+                close.add(position)
+        if len({folded_printed[position] for position in close}) != 1:
+            continue
+        position = min(close)
+        mine, theirs = words.get(folded, 0), words.get(folded_printed[position], 0)
+        if (mine >= 5 and mine >= 10 * theirs) or (theirs <= 1 and mine >= 3):
+            continue
+        replacements[index] = printed_words[position]
+    if not replacements:
+        return text, 0
+    pieces, last = [], 0
+    for index, match in enumerate(ours):
+        if index in replacements:
+            pieces += [text[last:match.start()], replacements[index]]
+            last = match.end()
+    pieces.append(text[last:])
+    return "".join(pieces), len(replacements)
+
+
+def word_counts(records):
+    """Folded word counts over every printed entry, for ``restore_printed_words``."""
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    for record in records:
+        if record.printed:
+            counts.update(fold(word) for word in _WORD.findall(record.printed))
+    return counts
+
+
+def drop_repeated_subtitle(record) -> bool:
+    """A subtitle that repeats the journal or volume, or the title, is dropped, and a title that ends with its own
+    subtitle loses that end: the model gave the journal as subtitle as well in 1,398 answers of the pass of 24 Nov 2026
+    ("Voici le temps de la foire", subtitle "Si Liège m’était conté…", the journal), and wrote the subtitle twice in 25.
+    True when it changed something."""
+    subtitle = _letters(record.subtitle)
+    if not subtitle:
+        return False
+    if subtitle in (_letters(record.title), _letters(record.host.title if record.host else None)):
+        record.subtitle = None
+        return True
+    for separator in (": ", " : ", ". ", " – ", " — ", ", "):
+        if record.title and record.title.endswith(separator + record.subtitle):
+            record.title = record.title[: -len(separator + record.subtitle)].rstrip()
+            return True
+    return False
+
+
+def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset(), words=None) -> None:
     """Write a model answer into its record. The model's fields replace the parser's: on the hand-checked key 97.1 %
     of the fields are right against 84.5 %, and every field filled in from the parser makes it worse (§5c). Kept from
-    the parser: the persons where the model gives none (642 entries, nearly all with a printed author), the year
+    the parser: every field when the answer does not fit the entry (``answer_fits``, flagged ``llm-answer-refused``), the persons where the model gives none (642 entries, nearly all with a printed author) or names one the
+    printed text does not (``grounded_name``, flagged ``persons-from-parser``), pages the text does not print
+    (``pages-from-parser``), the host title of an "Ibid." entry, the chapter type of an entry linked to its volume through "Cfr. n°", the year
     where the model gives none, the link to the volume's record (``host.id``) with the volume's
     editors and subtitle, a host it found through a cross-reference where the model gives none, and the roles it reads
     that the schema lacks (compiler, preface, illustrator). A collected volume's authors are not its chapters'
@@ -951,16 +1142,27 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     the language stay; the model's OCR fixes are not applied to the text (``apply_citations`` keeps them for search)."""
     from bhb.model import Host, Person, Series
 
-    answer = item["answer"]
+    answer = _without_running_head(item["answer"], record.printed or "")
     flags = record.provenance.flags
+    if record.printed and not answer_fits(answer, record.printed):
+        if "llm-answer-refused" not in flags:
+            flags.append("llm-answer-refused")
+        return
     kind = answer.get("type")
     if kind == "review":
         kind = "article" if answer.get("host") else "other"
+    if kind == "article" and record.type == "chapter" and record.host and record.host.id and "host-from-cross-ref" in flags:
+        kind = "chapter"  # linked to its volume through "Cfr. n°": the model read "Album C. Wyffels, pp. 555–569" as a journal
     if kind in TYPES:
         record.type = kind
     roles = {fold(person.family): person.role for person in record.persons if person.role in _PARSER_ROLES}
+    model_persons = answer.get("persons") or []
+    if record.printed and any(not grounded_name(person.get("family"), record.printed, record.persons) for person in model_persons):
+        model_persons = [{"family": person.family, "given": person.given, "role": person.role} for person in record.persons]
+        if "persons-from-parser" not in flags:
+            flags.append("persons-from-parser")
     persons = []
-    for person in answer.get("persons") or []:
+    for person in model_persons:
         family = _text(person.get("family"))
         if not family:
             continue
@@ -977,6 +1179,14 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     record.subtitle = _text(answer.get("subtitle"))
     record.title_translated = _text(answer.get("title_translated"))
     given = {key: _text(value) for key, value in (answer.get("host") or {}).items() if key in ("title", "volume", "issue", "year", "pages")}
+    if "host-from-ibid" in flags and record.host and record.host.title:
+        # "Ibid.": the host of the entry printed before, which the parser takes from it; the model, seeing a batch,
+        # took another entry's host or wrote "Ibid." in 712 of 2,085 such entries (spot check, 24 Nov 2026).
+        given["title"] = record.host.title
+    if given.get("pages") and record.printed and not grounded_numbers(given["pages"], record.printed):
+        given["pages"] = record.host.pages if record.host else None  # pages the printed text does not hold
+        if "pages-from-parser" not in flags:
+            flags.append("pages-from-parser")
     if any(given.values()):
         before = record.host
         record.host = Host(**given)
@@ -1006,6 +1216,12 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset())
     series = answer.get("series") or {}
     record.series = Series(title=_text(series.get("title")), number=_text(series.get("number"))) if _text(series.get("title")) else None
     record.note = _text(answer.get("note"))
+    drop_repeated_subtitle(record)
+    if words is not None and record.printed:
+        record.title, title_restored = restore_printed_words(record.title, record.printed, words)
+        record.subtitle, subtitle_restored = restore_printed_words(record.subtitle, record.printed, words)
+        if (title_restored or subtitle_restored) and "words-as-printed" not in flags:
+            flags.append("words-as-printed")
     record.provenance.parser = f"{item.get('model', '').split('/')[-1]}@v{item.get('prompt', '')}"
     if "parsed-llm" not in flags:
         flags.append("parsed-llm")
@@ -1016,6 +1232,7 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
     from collections import Counter, defaultdict
 
     counts: Counter[str] = Counter()
+    words = word_counts(records)
     contributors: dict[str, set[str]] = defaultdict(set)
     for record in records:
         if record.host and record.host.id and "split-from-contents" in record.provenance.flags:
@@ -1027,9 +1244,14 @@ def apply_citations(records, answers: dict[str, dict], translations: dict[str, d
         item = answers.get(record.id)
         if item is not None and record.printed:
             before = (record.type, record.title, record.year)
-            apply_answer(record, item, frozenset(contributors.get(record.id, ())))
-            record.ocr_corrected = [fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
-            counts["parsed"] += 1
+            apply_answer(record, item, frozenset(contributors.get(record.id, ())), words)
+            refused = "llm-answer-refused" in record.provenance.flags
+            record.ocr_corrected = [] if born_digital(record) or refused else [
+                fix["corrected"] for fix in (item.get("answer") or {}).get("ocr_fixes") or []]
+            counts["answer refused (not this entry's)" if refused else "parsed"] += 1
+            counts["persons kept from the parser"] += "persons-from-parser" in record.provenance.flags
+            counts["pages kept from the parser"] += "pages-from-parser" in record.provenance.flags
+            counts["title words put back as printed"] += "words-as-printed" in record.provenance.flags
             counts["OCR fixes for search"] += len(record.ocr_corrected)
             counts["type changed"] += record.type != before[0]
             counts["title changed"] += record.title != before[1]

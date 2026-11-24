@@ -13,7 +13,8 @@ Regions. The map is cut into cells by k-means on the positions, so that every pa
 clustering left two thirds of the titles outside any region); the cells are grouped into larger regions by
 k-means on their centres, weighted by size: three nested levels of about 24, 120 and 600 regions.
 
-Names. A local model (Mistral Small 3.2, 4-bit, through mlx-lm) names each region in Dutch, French and English: a
+Names. A local model (Mistral Small 3.2, 4-bit, through mlx-lm), or with ``--remote`` Mistral Small through OpenRouter
+(``RemoteNamer``), names each region in Dutch, French and English: a
 cell from a sample of its titles and its most distinctive words, a larger region from the names of its parts and
 a sample of titles. Every answer is cached by its prompt, so a rerun only asks what changed.
 """
@@ -295,6 +296,46 @@ class Namer:
         return [self.cache[self.key(prompt)] for prompt in prompts]
 
 
+REMOTE_MODEL = "mistralai/mistral-small-2603"
+NAME_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["en", "nl", "fr"],
+               "properties": {"en": {"type": "string"}, "nl": {"type": "string"}, "fr": {"type": "string"}}}
+
+
+class RemoteNamer:
+    """The same questions through OpenRouter (decision of 24 Nov 2026): Mistral Small, pinned, on Mistral's EU
+    endpoint, the answer held to the three names by a JSON schema; every request cached like the citation pass
+    (``bhb.citations.call``), so a rerun only pays for what changed. Minutes instead of the local model's two hours,
+    for about ten cents."""
+
+    def __init__(self, cache: Path, model: str = REMOTE_MODEL, workers: int = 6, log=print):
+        self.cache, self.model, self.workers, self.log = cache, model, workers, log
+        self.cost, self.sent = 0.0, 0
+
+    def body(self, prompt: str) -> dict:
+        from bhb.citations import request_body
+
+        body = request_body("Answer with the JSON object only.", prompt, NAME_SCHEMA, self.model, name="region_name")
+        body["max_tokens"] = 400
+        return body
+
+    def ask(self, prompt: str) -> str:
+        return self.ask_many([prompt])[0]
+
+    def ask_many(self, prompts: list[str], batch: int = 8, max_tokens: int = 120) -> list[str]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from bhb.citations import call
+
+        unique = list(dict.fromkeys(prompts))
+        with ThreadPoolExecutor(self.workers) as pool:
+            replies = dict(zip(unique, pool.map(lambda prompt: call(self.body(prompt), self.cache), unique)))
+        for reply in replies.values():
+            if not reply.cached:
+                self.sent += 1
+                self.cost += reply.cost
+        return [json.dumps(replies[prompt].content, ensure_ascii=False) if replies[prompt].content else "" for prompt in prompts]
+
+
 def name_regions(
     ids: list[str], xy: np.ndarray, member: np.ndarray, regions_: list[Region], texts: dict[str, str], namer: Namer, log=print
 ) -> dict[str, dict[str, str]]:
@@ -437,11 +478,21 @@ def fix_names(names: dict[str, dict[str, str]], fixes: Path) -> int:
     return count
 
 
-def regions_document(regions_: list[Region], names: dict[str, dict[str, str]]) -> dict:
-    """The committed regions file: the tree, centres, sizes and names, and how they were made."""
+def named_by(namer) -> str:
+    """The model that named the regions, as the regions file states it."""
+    if isinstance(namer, RemoteNamer):
+        return f"{namer.model} through OpenRouter (Mistral's EU endpoint)"
+    return f"{MODEL}@{REVISION}"
+
+
+def regions_document(regions_: list[Region], names: dict[str, dict[str, str]], by: str | None = None) -> dict:
+    """The committed regions file: the tree, centres, sizes and names, and how they were made (``by``: the model
+    that named them, ``named_by``; the local model when not given)."""
+    by = by or f"{MODEL}@{REVISION}"
     return {
-        "about": "Regions of the topic map (bhb topicmap): nested k-means cells on the UMAP layout, named by "
-        f"{MODEL}@{REVISION} (machine-made names, not checked by hand).",
+        "about": f"Regions of the topic map (bhb topicmap): nested k-means cells on the UMAP layout, named by {by} "
+        "(machine-made names, not checked by hand).",
+        "named_by": by,
         "levels": list(LEVELS),
         "regions": [
             {"id": r.id, "level": r.level, "parent": r.parent, "x": r.x, "y": r.y, "n": r.n, **({"name": names[r.id]} if r.id in names else {})}

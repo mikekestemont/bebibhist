@@ -134,6 +134,20 @@ def _slug(title: str) -> str:
     return "t:" + re.sub(r"\s+", "-", spelling_key(title))[:60]
 
 
+_DOTTED = re.compile(r"\b(\w{1,6})\.")
+
+
+def _abbreviated(form: str, forms: Counter) -> bool:
+    """A spelling with a short word cut off by a dot ("Bull. Soc. R."), unless the title's undotted spellings write
+    that same word out: "Faro. Tijdschrift over cultureel erfgoed", as the printed volumes of 2009–2017 set a title
+    and its subtitle, is "Faro / Tijdschrift …" (36 of its 291 articles; read as abbreviated, the journal lost its id)."""
+    dotted = _DOTTED.findall(form)
+    if not dotted:
+        return False
+    plain = {word.lower() for other in forms if not _DOTTED.search(other) for word in re.findall(r"\w+", other)}
+    return any(word.lower() not in plain for word in dotted)
+
+
 def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     """The journal list and the spelling map: folded spelling → (journal id, rule)."""
     articles = [record for record in records if record.role == "entry" and record.type == "article" and record.host
@@ -162,6 +176,15 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
             alone[record.issn[0]] += 1
         for issn in record.issn[1:]:
             together[tuple(sorted((record.issn[0], issn)))] += 1
+    # A journal renamed with a new ISSN stays apart from its predecessor even when articles list both numbers
+    # (journal_successions.csv, a row of two ISSN ids: TSEG, 1572-1701, and the Tijdschrift voor sociale
+    # geschiedenis, 0303-9935, which Crossref also lists on two TSEG articles). Pairs that touch a predecessor's number are
+    # joined last, so that a successor's own numbers are together before the check.
+    successions = load_successions()
+    apart = [(row["predecessor_id"][5:], row["successor"][5:]) for row in successions
+             if row["predecessor_id"].startswith("issn:") and row["successor"].startswith("issn:")]
+    predecessors = {old for old, _new in apart}
+    pairs = []
     votes: dict[str, Counter[str]] = defaultdict(Counter)
     for record in articles:
         if record.issn:
@@ -169,9 +192,13 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
                 pair = tuple(sorted((record.issn[0], issn)))
                 if together[pair] < 2 and alone[pair[0]] and alone[pair[1]]:
                     continue
-                first, other = root(record.issn[0]), root(issn)
-                parent[max(first, other)] = min(first, other)
+                pairs.append(pair)
             votes[spelling_key(record.host.title)][record.issn[0]] += 1
+    for pair in sorted(pairs, key=lambda pair: bool(predecessors & set(pair))):
+        first, other = root(pair[0]), root(pair[1])
+        if any({root(old), root(new)} == {first, other} for old, new in apart):
+            continue
+        parent[max(first, other)] = min(first, other)
     mapping: dict[str, tuple[str, str]] = {}
     for spelling, counter in votes.items():
         if spelling in GENERIC:
@@ -182,28 +209,59 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
         best, n = journals.most_common(1)[0]
         if n >= 2 * sum(journals.values()) / 3:
             mapping[spelling] = (f"issn:{best}", "issn")
-    # 2. Frequent spellings written out in full.
+    # 2. Frequent spellings written out in full. Spellings that differ only in small words ("Bulletin du Comité
+    # flamand de France" and "Bulletin Comité flamand de France"; "Archief- en/et bibliotheekwezen") are one title:
+    # their articles count together, and they get one journal, named by the most frequent of them. Counted apart, a
+    # second form of a title would become a journal of its own and leave its abbreviations fitting two journals.
+    forms_of: dict[tuple[str, ...], list[str]] = defaultdict(list)
     for spelling, n in count.items():
-        if spelling in mapping or spelling in GENERIC or n < FULL_TITLE_MIN:
+        if spelling in mapping or spelling in GENERIC:
             continue
         # Written out when abbreviated forms are fewer than one in ten: an OCR slip ("La. Vie wallonne", once among
         # 482) does not make a journal's name an abbreviation.
-        abbreviated = sum(k for form, k in shown[spelling].items() if re.search(r"\b\w{1,6}\.", form))
-        if abbreviated * 10 < n:
-            mapping[spelling] = (_slug(spelling), "full")
+        abbreviated = sum(k for form, k in shown[spelling].items() if _abbreviated(form, shown[spelling]))
+        words = tuple(_content(spelling.split()))
+        if words and abbreviated * 10 < n:
+            forms_of[words].append(spelling)
+    for spellings in forms_of.values():
+        if sum(count[spelling] for spelling in spellings) < FULL_TITLE_MIN:
+            continue
+        lead = max(spellings, key=lambda spelling: (count[spelling], spelling))
+        for spelling in spellings:
+            mapping[spelling] = (_slug(lead), "full")
     # 4. A full title that is another plus a place, subtitle or volume joins it.
     full = sorted((s for s, (_, rule) in mapping.items() if rule == "full"), key=len)
     for longer in full:
         for shorter in full:
             if shorter != longer and len(shorter) >= 5 and longer.startswith(shorter + " ") and len(longer.split()) - len(shorter.split()) <= 4:
-                mapping[longer] = (mapping[shorter][0], "variant")
+                # The other forms of the longer title go with it ("Intermédiaire des généalogistes" with "L'…").
+                moved, target = mapping[longer][0], mapping[shorter][0]
+                if moved != target:
+                    for spelling, (journal, _rule) in list(mapping.items()):
+                        if journal == moved:
+                            mapping[spelling] = (target, "variant")
+                break
+    # 4b. A spelling with too few articles of its own that is a journal's full title plus a place, volume or
+    # subtitle joins it too ("Molenecho’s (Zulte)", "La Revue Nouvelle. 28ᵉ année. T").
+    for spelling in sorted(count, key=len):
+        if spelling in mapping or spelling in GENERIC:
+            continue
+        for shorter in full:
+            if len(shorter) >= 5 and spelling.startswith(shorter + " ") and len(spelling.split()) - len(shorter.split()) <= 4:
+                mapping[spelling] = (mapping[shorter][0], "variant")
                 break
     # 3. Abbreviations that fit exactly one journal.
     targets = dict(mapping)
     for spelling in count:
         if spelling in mapping or spelling in GENERIC:
             continue
-        journals = {targets[target][0] for target in targets if is_abbreviation(spelling, target)}
+        fits = [target for target in targets if is_abbreviation(spelling, target)]
+        journals = {targets[target][0] for target in fits}
+        if len(journals) > 1:
+            # Fitting several, it goes to the one title it covers word for word, if there is one: "Bull. de la Comm.
+            # r. des monuments et des sites" is not "… des monuments, sites et fouilles".
+            words = len(_content(spelling.split()))
+            journals = {targets[target][0] for target in fits if len(_content(target.split())) == words} or journals
         if len(journals) == 1:
             mapping[spelling] = (journals.pop(), "abbreviation")
     # 5. A journal renamed under one ISSN: the spellings of its articles from before the new name go to the
@@ -213,7 +271,6 @@ def build(records) -> tuple[list[dict], dict[str, tuple[str, str]]]:
     for record in articles:
         if year := record.year or record.bgb_year:
             years[spelling_key(record.host.title)].append(int(year))
-    successions = load_successions()
     names = {row["predecessor_id"]: row["predecessor_title"] for row in successions}
     for row in successions:
         for spelling, (journal, _rule) in list(mapping.items()):
@@ -285,13 +342,41 @@ def keep_ids(journals: list[dict], mapping: dict[str, tuple[str, str]], count: C
     return len(renamed)
 
 
+def keep_previous(journals: list[dict], mapping: dict[str, tuple[str, str]], count: Counter, previous: dict[str, str],
+                  folder: Path) -> int:
+    """A spelling that the previous list gave a journal and the new list gives none keeps that journal, and the
+    journal comes back to the list if it left it: a journal's id does not come and go with the counts of a run
+    ("Curia Arduennae", 15 articles under one spelling on 21 Nov and 14 on 24 Nov, below ``FULL_TITLE_MIN``)."""
+    path = folder / "journals.csv"
+    old_rows = {row["id"]: row for row in csv.DictReader(path.open(encoding="utf-8", newline=""))} if path.exists() else {}
+    listed = {row["id"]: row for row in journals}
+    kept = 0
+    for spelling, journal in previous.items():
+        if spelling in mapping or not count[spelling] or spelling in GENERIC:
+            continue
+        if journal not in listed:
+            if journal not in old_rows:
+                continue
+            row = dict(old_rows[journal], spellings=0, articles=0)
+            journals.append(row)
+            listed[journal] = row
+        mapping[spelling] = (journal, "previous")
+        listed[journal]["spellings"] = int(listed[journal]["spellings"]) + 1
+        listed[journal]["articles"] = int(listed[journal]["articles"]) + count[spelling]
+        kept += 1
+    journals.sort(key=lambda row: -int(row["articles"]))
+    return kept
+
+
 def apply_journals(records, folder: Path) -> dict[str, int]:
     """Resolve "Ibid.", build the journal list and give every article its journal id (``journal_id``)."""
     counts = Counter({"ibid resolved": resolve_ibid(records)})
     journals, mapping = build(records)
     articles = Counter(spelling_key(record.host.title) for record in records
                        if record.role == "entry" and record.type == "article" and record.host and record.host.title)
-    counts["ids kept"] = keep_ids(journals, mapping, articles, previous_ids(folder))
+    previous = previous_ids(folder)
+    counts["ids kept"] = keep_ids(journals, mapping, articles, previous)
+    counts["spellings kept from the previous list"] = keep_previous(journals, mapping, articles, previous, folder)
     write(journals, mapping, articles, folder)
     for record in records:
         record.journal_id = None

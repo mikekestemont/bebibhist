@@ -120,3 +120,13 @@ def test_a_name_that_is_also_a_word_opens_a_title_only_as_a_word():
     assert matcher.find("Gent en Namen 25 jaar later") == [("gent", "44021")]
     assert matcher.find("Zo ging dat in 1852 Namen onbetaemelijk") == []
     assert matcher.find("Het beleg te Namen in 1692") == [("namen", "92094")]
+
+
+def test_a_place_mostly_written_with_a_capital_is_not_a_common_word():
+    from bhb.model import Record
+    from bhb.places import common_words
+
+    titles = ["De kleur geel in de kunst"] * 5 + ["Geel in de Eerste Wereldoorlog"] * 120 + ["Een gele en een rode roos"]
+    records = [Record(id=f"bhb:x-{n}", source="print-straive", bgb_year=1990, title=title) for n, title in enumerate(titles)]
+    assert "geel" not in common_words(records, {"geel": "13008"})
+    assert "geel" in common_words(records[:10], {"geel": "13008"})

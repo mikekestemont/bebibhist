@@ -101,8 +101,10 @@ def repair(entry: Entry, wrong: list[str], cache: Path, model: str = MODEL) -> t
 
 def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit: int | None = None,
         only: set[str] | None = None, log=print) -> Counter:
-    """Check every translation of ``run_dir/translations.jsonl`` and repair the wrong ones in place (the old file is
-    kept as ``translations.before-check.jsonl``); ``run_dir/translation-check.csv`` lists every change."""
+    """Check every translation of ``run_dir/translations.jsonl`` (or those of the ids in ``only``) and repair the wrong
+    ones in place (the old file is kept as ``translations.before-check.jsonl``); ``run_dir/translation-check.csv``
+    lists every change, an earlier check's changes for the other ids kept. Each translation is judged against the
+    title it was made from (``source``) where the row names it, else against the entry's title."""
     from bhb.io_utils import read_jsonl
 
     records = {record.id: record for record in read_jsonl(records_path)}
@@ -114,9 +116,11 @@ def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit:
         if record is None or (only and row["id"] not in only):
             continue
         given = {code: (row.get(code) or "").strip() for code in LANGUAGES if (row.get(code) or "").strip()}
-        title = ": ".join(part for part in (record.title, record.subtitle) if part)
-        if record.title_translated:
-            title += f" [{record.title_translated}]"
+        title = row.get("source")
+        if not title:
+            title = ": ".join(part for part in (record.title, record.subtitle) if part)
+            if record.title_translated:
+                title += f" [{record.title_translated}]"
         if given and title:
             entries.append(Entry(row["id"], title, list(record.language_suggested or []), given))
     entries = entries[:limit] if limit else entries
@@ -164,16 +168,21 @@ def run(run_dir: Path, records_path: Path, cache: Path, workers: int = 8, limit:
     for key, code, _title, _old, new, _verdict in changes:
         if new:
             fixed.setdefault(key, {})[code] = new
-    if not limit and not only:
+    if not limit:
         shutil.copyfile(path, run_dir / "translations.before-check.jsonl")
         with path.open("w", encoding="utf-8") as handle:
             for row in rows:
                 for code, value in fixed.get(row["id"], {}).items():
                     row[code] = value
                 handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    with (run_dir / "translation-check.csv").open("w", encoding="utf-8", newline="") as handle:
+    sheet = run_dir / "translation-check.csv"
+    earlier = []
+    if only and sheet.is_file():
+        with sheet.open(encoding="utf-8", newline="") as handle:
+            earlier = [line for line in list(csv.reader(handle))[1:] if line and line[0] not in only]
+    with sheet.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["id", "language", "title", "translation judged wrong", "new translation (empty: none given, the old one kept)", "check of the new one"])
-        writer.writerows(sorted(changes))
+        writer.writerows(sorted(earlier + changes))
     log(f"translations: {dict(counts)}")
     return counts

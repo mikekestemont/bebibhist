@@ -12,6 +12,9 @@ it against the printed volume, when. The kinds:
 - ``type``: the entry's kind of publication (``article``, ``chapter``, ``book``, ``journal-issue``), when the source
   gave the wrong one; nothing else changes (Guy Vanthemsche's notice on Moulaert in an online dictionary, catalogued
   as an article).
+- ``order``: the order of the people, when the source has them in the wrong order. ``wrong`` and ``right`` list the
+  family names, separated by "; ", in the entry's order and in the right one; only those people move, nothing else
+  changes (Haverals and Kestemont's "Silent voices" in the 2020 manuscript, listed with the second author first).
 
 The row keeps the wrong reading, and the raw files are never changed, so nothing is lost. A row whose wrong text the
 entry no longer holds (a new delivery fixed it, or the id changed) is reported, not applied.
@@ -27,7 +30,7 @@ from pathlib import Path
 
 from bhb.paths import repo_root
 
-KINDS = ("ocr", "print", "name", "type")
+KINDS = ("ocr", "print", "name", "type", "order")
 TYPES = ("article", "chapter", "book", "journal-issue", "other")
 # Fields that are identifiers or links, not text: never rewritten.
 _SKIP = {"id", "provenance", "similar", "similar_scores", "place_ids", "place_suggested", "bhb_codes", "categories",
@@ -48,11 +51,19 @@ def name_corrections_path() -> Path:
     return repo_root() / "data" / "curated" / "ocr_names.csv"
 
 
+def citation_pass_corrections_path() -> Path:
+    """The citation pass's OCR fixes (``ocr_fixes``), kept by the word-count rule (``checked_ocr_fixes``) and read in
+    their printed context by Claude on 24 Nov 2026 (1,267 of 1,485 kept), not checked against the scans: kind ``print``,
+    so the parsed fields are corrected and the printed citation stays as printed (a misspelling may be the volume's
+    own: "Rottterdam", "Massachusets")."""
+    return repo_root() / "data" / "curated" / "ocr_citation_pass.csv"
+
+
 def load_corrections(path: Path | None = None) -> list[dict[str, str]]:
     """The hand corrections, then the machine-found ones; or the rows of one file."""
     if path is None:
         return (load_corrections(corrections_path()) + load_corrections(machine_corrections_path())
-                + load_corrections(name_corrections_path()))
+                + load_corrections(name_corrections_path()) + load_corrections(citation_pass_corrections_path()))
     if not path.is_file():
         return []
     with path.open(encoding="utf-8", newline="") as handle:
@@ -90,6 +101,22 @@ def _replace(value, wrong: str, right: str):
     return value, False
 
 
+def _reorder(persons: list, wrong: str, right: str) -> bool:
+    """Put the people named in ``wrong`` (family names separated by "; ", in their present order) in the order of
+    ``right``, in the places they hold; whether anything moved."""
+    present = [name.strip() for name in wrong.split(";")]
+    wanted = [name.strip() for name in right.split(";")]
+    if sorted(present) != sorted(wanted) or len(set(present)) != len(present):
+        return False
+    places = [index for index, person in enumerate(persons) if person.family in present]
+    if [persons[index].family for index in places] != present:
+        return False
+    by_family = {persons[index].family: persons[index] for index in places}
+    for index, family in zip(places, wanted):
+        persons[index] = by_family[family]
+    return True
+
+
 def apply_corrections(records, rows: list[dict[str, str]] | None = None, again: bool = False) -> int:
     """Apply the corrections to the records in place; returns how many rows were applied. A machine-found row
     (``checked_by`` "machine: …") flags the entry ``corrected-ocr-machine``, so it shows as machine-derived.
@@ -111,6 +138,8 @@ def apply_corrections(records, rows: list[dict[str, str]] | None = None, again: 
             changed = record.type == row["wrong"] and row["right"] in TYPES
             if changed:
                 record.type = row["right"]
+        elif row["kind"] == "order":
+            changed = _reorder(record.persons, row["wrong"], row["right"])
         elif row["kind"] == "name":
             _, changed = _replace(record.persons, row["wrong"], row["right"])
         else:

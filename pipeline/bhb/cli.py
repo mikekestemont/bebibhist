@@ -37,6 +37,8 @@ def main(argv: list[str] | None = None) -> None:
     pdfvol = ingest_sub.add_parser("pdfvol", help="1964, 1965 and 2008 from PDF")
     pdfvol.add_argument("--out", type=Path)
     pdfvol.add_argument("--skip-convert", action="store_true", help="do not rebuild BGB_2008.xml")
+    pdfyears = ingest_sub.add_parser("pdfyears", help="the printed yearly volumes 2009–2017 from PDF (data/raw/pdf/BGB_<year>.pdf); not merged into the build")
+    pdfyears.add_argument("--out", type=Path)
     manuscript = ingest_sub.add_parser("manuscript", help="the editor's Word manuscripts (2018–2023) in <raw>/manuscripts; not merged into the build")
     manuscript.add_argument("--out", type=Path)
     vsmart = ingest_sub.add_parser("vsmart", help="State Archives exports, 2009–2017")
@@ -44,9 +46,11 @@ def main(argv: list[str] | None = None) -> None:
 
     merge = sub.add_parser("merge", help="combine the three JSON Lines files")
     merge.add_argument("--with-manuscripts", action="store_true", help="also merge build/manuscript.jsonl (the editor's unpublished Word manuscripts)")
+    merge.add_argument("--with-print-years", action="store_true", help="also merge build/pdfyears.jsonl (the printed volumes 2009–2017)")
     merge.add_argument("--out", type=Path)
     build_parser = sub.add_parser("build", help="ingest every source, merge, and categorise")
     build_parser.add_argument("--with-manuscripts", action="store_true", help="also ingest and merge the editor's unpublished Word manuscripts (2018–2023)")
+    build_parser.add_argument("--with-print-years", action="store_true", help="also ingest and merge the printed volumes 2009–2017 (linked to the catalogue's records by bhb journals apply)")
 
     categorise = sub.add_parser("categorise", help="assign period and theme")
     categorise_sub = categorise.add_subparsers(dest="categorise_command", required=True)
@@ -95,8 +99,10 @@ def main(argv: list[str] | None = None) -> None:
     topicmap = sub.add_parser("topicmap", help="the topic map: layout, named regions, positions in the records")
     topicmap_sub = topicmap.add_subparsers(dest="topicmap_command", required=True)
     topicmap_sub.add_parser("layout", help="place every entry (UMAP) and cut the map into regions: build/topicmap/layout.npz")
-    topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
-    topicmap_sub.add_parser("dedupe", help="rename the regions that share a name (data/curated/topic_regions.json)")
+    tnames = topicmap_sub.add_parser("names", help="name the regions with the local model: data/curated/topic_regions.json")
+    tnames.add_argument("--remote", action="store_true", help="through OpenRouter instead (Mistral Small, cached; minutes, about $0.10)")
+    tdedupe = topicmap_sub.add_parser("dedupe", help="rename the regions that share a name (data/curated/topic_regions.json)")
+    tdedupe.add_argument("--remote", action="store_true", help="through OpenRouter instead of the local model")
     topicmap_sub.add_parser("apply", help="write each entry's position and region into build/records.jsonl")
 
     language = sub.add_parser("language", help="language of publication from the title (needs the language extra)")
@@ -170,6 +176,7 @@ def main(argv: list[str] | None = None) -> None:
     crun.add_argument("--years", type=int, nargs="*", help="only these print years (a test run)")
     crun.add_argument("--workers", type=int, default=6)
     crun.add_argument("--no-translate", action="store_true")
+    crun.add_argument("--dry-run", action="store_true", help="send nothing: count what is in the cache and what would be asked (written to run-dry/)")
     capply = citations_sub.add_parser("apply", help="write the full pass's fields and title translations into build/records.jsonl (after bhb build)")
     capply.add_argument("--run", default="run", help="the run's folder under build/citations/")
     cocr = citations_sub.add_parser("ocr", help="compare STRAIVE with the Persée digitisation of 1960–69 and score the model's OCR fixes on it")
@@ -189,13 +196,24 @@ def main(argv: list[str] | None = None) -> None:
     ctrans.add_argument("--workers", type=int, default=8)
     ctrans.add_argument("--seed", type=int, default=4)
 
+    chain = sub.add_parser("chain", help="the README's release chain as one command (bhb/chain.py); stops before paying for more than allowed")
+    chain.add_argument("--list", action="store_true", help="print the numbered steps and stop")
+    chain.add_argument("--from", dest="start", help="first step, by number or label (default: build)")
+    chain.add_argument("--to", dest="stop", help="last step, by number or label (default: release)")
+    chain.add_argument("--map", action="store_true", help="also make the topic map's layout and region names again (about two hours)")
+    chain.add_argument("--remote-names", action="store_true", help="with --map: name the regions through OpenRouter (minutes, about $0.10)")
+    chain.add_argument("--with-manuscripts", action="store_true", help="passed to bhb build")
+    chain.add_argument("--with-print-years", action="store_true", help="passed to bhb build")
+    chain.add_argument("--max-parse", type=int, default=0, help="parse requests not in the cache the paid step may send (default 0)")
+    chain.add_argument("--max-translate", type=int, default=0, help="translation requests the paid step may send (default 0)")
+    chain.add_argument("--print", dest="print_only", action="store_true", help="show the commands that would run, run nothing")
     release = sub.add_parser("release", help="pack the derived dataset for a GitHub release")
     release.add_argument("--records", type=Path)
     release.add_argument("--out", type=Path)
 
     args = parser.parse_args(argv)
     if args.command == "build":
-        build(with_manuscripts=args.with_manuscripts)
+        build(with_manuscripts=args.with_manuscripts, with_print_years=args.with_print_years)
         return
     if args.command == "categorise" and args.categorise_command == "draft":
         _categorise_draft(args.tau_code, args.tau_theme, args.records)
@@ -330,7 +348,7 @@ def main(argv: list[str] | None = None) -> None:
         _citations_key(args.model, args.variant, args.batch_size, args.split, args.reasoning, args.workers, args.provider)
         return
     if args.command == "citations" and args.citations_command == "run":
-        _citations_run(args.model, args.years, args.workers, not args.no_translate)
+        _citations_run(args.model, args.years, args.workers, not args.no_translate, args.dry_run)
         return
     if args.command == "citations" and args.citations_command == "apply":
         from bhb.citations import apply_citations, load_answers, load_translations
@@ -364,7 +382,7 @@ def main(argv: list[str] | None = None) -> None:
         _citations_translate(args.model, args.per_language, args.seed, args.reasoning, args.workers, args.provider)
         return
     if args.command == "topicmap":
-        _topicmap(args.topicmap_command)
+        _topicmap(args.topicmap_command, getattr(args, "remote", False))
         return
     if args.command == "facets" and args.facets_command == "apply":
         from bhb.facet_suggest import apply_suggestions
@@ -400,6 +418,21 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "similar":
         _similar(args.model, args.k, args.batch_size, args.records)
         return
+    if args.command == "chain":
+        from bhb import chain as release_chain
+        if args.list:
+            print(release_chain.list_steps())
+            return
+        flags = [flag for flag, on in (("--with-manuscripts", args.with_manuscripts), ("--with-print-years", args.with_print_years)) if on]
+        steps = release_chain.plan(args.start, args.stop, args.map, flags, args.remote_names)
+        if args.print_only:
+            for number, step, step_args in steps:
+                print(f"{number:>2}. bhb {' '.join(step_args)}" + ("   (after a dry run as guard)" if step.label == "citations-run" else ""))
+            return
+        code = release_chain.run_chain(steps, build_dir() / "chain.log", args.max_parse, args.max_translate)
+        if code:
+            raise SystemExit(code)
+        return
     if args.command == "release":
         records = args.records or build_dir() / "records.jsonl"
         destination = args.out or build_dir() / "release"
@@ -420,6 +453,11 @@ def main(argv: list[str] | None = None) -> None:
         count = write_jsonl(args.out or build_dir() / "pdfvol.jsonl", records)
         print(f"pdfvol: {count} records")
         return
+    if args.command == "ingest" and args.source == "pdfyears":
+        records = ingest_pdf_years()
+        count = write_jsonl(args.out or build_dir() / "pdfyears.jsonl", records)
+        print(f"pdfyears: {count} records")
+        return
     if args.command == "ingest" and args.source == "manuscript":
         records = ingest_manuscripts()
         count = write_jsonl(args.out or build_dir() / "manuscript.jsonl", records)
@@ -432,7 +470,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"vsmart: {count} records, {len(labels)} classification codes")
         return
     if args.command == "merge":
-        merged, labels = _merge_from_disk(with_manuscripts=args.with_manuscripts)
+        merged, labels = _merge_from_disk(with_manuscripts=args.with_manuscripts, with_print_years=args.with_print_years)
         _emit(merged, labels, args.out)
         return
     if args.command == "gold" and args.gold_command == "sample":
@@ -444,7 +482,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.error(f"unknown command {args.command}")
 
 
-def build(with_manuscripts: bool = False) -> list[Record]:
+def build(with_manuscripts: bool = False, with_print_years: bool = False) -> list[Record]:
     straive = ingest_straive()
     write_jsonl(build_dir() / "straive.jsonl", straive)
     pdf = ingest_pdf(convert=True)
@@ -455,8 +493,11 @@ def build(with_manuscripts: bool = False) -> list[Record]:
     manuscript = ingest_manuscripts() if with_manuscripts else None
     if manuscript is not None:
         write_jsonl(build_dir() / "manuscript.jsonl", manuscript)
+    print_years = ingest_pdf_years() if with_print_years else None
+    if print_years is not None:
+        write_jsonl(build_dir() / "pdfyears.jsonl", print_years)
     merged, labels = merge_records(straive, pdf, vsmart, labels, manuscript=manuscript,
-                                   catalogue_hosts=_catalogue_hosts())
+                                   catalogue_hosts=_catalogue_hosts(), print_years=print_years)
     from bhb.ids import carry_former_ids, migrate_ids, previous_ids
 
     renumbered = carry_former_ids(merged, previous_ids(build_dir() / "records.jsonl"))
@@ -509,20 +550,65 @@ def ingest_pdf(convert: bool = True) -> list[Record]:
     return records
 
 
+def ingest_pdf_years(years: range = range(2009, 2018)) -> list[Record]:
+    """The printed yearly volumes 2009–2017, for the entries the V-Smart exports lack; converted under build/."""
+    records: list[Record] = []
+    for year in years:
+        pdf = raw_root() / "data" / "raw" / "pdf" / f"BGB_{year}.pdf"
+        if not pdf.is_file():
+            print(f"  missing {pdf.name}")
+            continue
+        generated = build_dir() / "print-pdf" / f"BGB_{year}.xml"
+        report = convert_pdf(pdf, generated, str(year))
+        year_records, front = without_front_matter(load_jats(generated, "print-pdf"))
+        from bhb.ingest.manuscript import code_sections
+
+        coded = code_sections(year_records)
+        print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
+              f"{coded} with the code of their heading, {front} paragraphs of front matter left out")
+        records.extend(year_records)
+    return records
+
+
 def ingest_vsmart_records() -> tuple[list[Record], dict]:
     directory = raw_root() / "exports Rijksarchief"
     return load_vsmart(directory)
 
 
 def ingest_manuscripts() -> list[Record]:
-    from bhb.ingest.manuscript import load_manuscript, manuscript_paths
+    """The editor's unpublished volumes: the Word manuscripts, and a volume received as the typeset PDF (the 2018 proof),
+    read like the printed yearly volumes but kept as a manuscript (``typeset-proof``; the citation pass parses it)."""
+    from bhb.ingest.manuscript import code_sections, load_manuscript, manuscript_paths, year_of
 
+    folder = raw_root() / "manuscripts"
     records: list[Record] = []
-    for path in manuscript_paths(raw_root() / "manuscripts"):
+    for path in manuscript_paths(folder):
         year_records, report = load_manuscript(path)
         print(f"  {path.name}: {json.dumps(report, ensure_ascii=False)}")
         records.extend(year_records)
+    for pdf in sorted(folder.glob("*.pdf")):
+        year = year_of(pdf)
+        if year is None:
+            print(f"  {pdf.name}: no BGB year in the name, left out")
+            continue
+        generated = build_dir() / "manuscript-pdf" / f"BGB_{year}.xml"
+        report = convert_pdf(pdf, generated, str(year))
+        year_records, front = without_front_matter(load_jats(generated, "manuscript"))
+        for record in year_records:
+            record.provenance.flags.extend(flag for flag in ("unpublished-manuscript", "typeset-proof") if flag not in record.provenance.flags)
+        coded = code_sections(year_records)
+        print(f"  {pdf.name}: {report['entries']} entries, {report['headings']} headings → {len(year_records)} records, "
+              f"{coded} with the code of their heading, {front} paragraphs of front matter left out")
+        records.extend(year_records)
     return records
+
+
+def without_front_matter(records: list[Record]) -> tuple[list[Record], int]:
+    """The entries of a volume read from its PDF, without the paragraphs before its first section heading: the
+    volumes of 2016 and 2017 and the 2018 proof open with the Commission's officers, its reading committee and a
+    user's guide, which the reader took for entries (40 paragraphs; spot check of 24 Nov 2026)."""
+    kept = [record for record in records if record.section_path]
+    return kept, len(records) - len(kept)
 
 
 def _catalogue_hosts() -> dict[int, dict]:
@@ -534,7 +620,7 @@ def _catalogue_hosts() -> dict[int, dict]:
         return {row["number"]: row for row in map(json.loads, lines) if row.get("number")}
 
 
-def _merge_from_disk(with_manuscripts: bool = False) -> tuple[list[Record], dict]:
+def _merge_from_disk(with_manuscripts: bool = False, with_print_years: bool = False) -> tuple[list[Record], dict]:
     folder = build_dir()
     labels: dict = {}
     label_path = folder / "bhb_codes.json"
@@ -546,6 +632,7 @@ def _merge_from_disk(with_manuscripts: bool = False) -> tuple[list[Record], dict
         read_jsonl(folder / "vsmart.jsonl"),
         labels,
         manuscript=read_jsonl(folder / "manuscript.jsonl") if with_manuscripts else None,
+        print_years=read_jsonl(folder / "pdfyears.jsonl") if with_print_years else None,
         catalogue_hosts=_catalogue_hosts(),
     )
 
@@ -618,7 +705,7 @@ def _load_built_records() -> list[Record]:
     return read_jsonl(path)
 
 
-def _topicmap(command: str) -> None:
+def _topicmap(command: str, remote: bool = False) -> None:
     import json
 
     import numpy as np
@@ -644,13 +731,15 @@ def _topicmap(command: str) -> None:
     if command == "names":
         records = read_jsonl(path)
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
-        namer = topicmap.Namer(folder / "names-cache.jsonl")
+        namer = _namer(remote, folder)
         names = topicmap.name_regions(ids, xy, member, regions, texts, namer)
         topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
         # Hand corrections last, so they also reach the names the dedupe step made.
         fixed = topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
-        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}")
+        document = topicmap.regions_document(regions, names, topicmap.named_by(namer))
+        curated.write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"topicmap: {len(names)} of {len(regions)} regions named, {fixed} names corrected by hand → {curated}"
+              + (f"; {namer.sent} requests sent, ${namer.cost:.2f}" if remote else ""))
         return
     if command == "dedupe":
         # The current names, with the regions that share a name renamed (also part of "names").
@@ -658,9 +747,14 @@ def _topicmap(command: str) -> None:
         texts = {record.id: text for record in records if (text := topicmap.layout_text(record))}
         document = json.loads(curated.read_text(encoding="utf-8"))
         names = {row["id"]: row["name"] for row in document["regions"] if row.get("name")}
-        topicmap.dedupe_names(ids, xy, member, regions, texts, names, topicmap.Namer(folder / "names-cache.jsonl"))
+        namer = _namer(remote, folder)
+        renamed = topicmap.dedupe_names(ids, xy, member, regions, texts, names, namer)
         topicmap.fix_names(names, curated.parent / "topic_name_fixes.csv")
-        curated.write_text(json.dumps(topicmap.regions_document(regions, names), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        # The model that named the regions stays named; one that renamed some of them is added.
+        by = document.get("named_by") or f"{topicmap.MODEL}@{topicmap.REVISION}"
+        if renamed and topicmap.named_by(namer) != by:
+            by = f"{by}; shared names renamed by {topicmap.named_by(namer)}"
+        curated.write_text(json.dumps(topicmap.regions_document(regions, names, by), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"topicmap: names → {curated}")
         return
     if command == "apply":
@@ -668,6 +762,13 @@ def _topicmap(command: str) -> None:
         count = topicmap.apply(records, ids, xy, member, max(region.level for region in regions))
         write_jsonl(path, records)
         print(f"topicmap: {count} entries placed → {path}")
+
+
+def _namer(remote: bool, folder: Path):
+    """The local model, or with ``--remote`` the same questions through OpenRouter (cached in build/topicmap/openrouter)."""
+    from bhb import topicmap
+
+    return topicmap.RemoteNamer(folder / "openrouter") if remote else topicmap.Namer(folder / "names-cache.jsonl")
 
 
 def _similar(model_name: str | None, k: int | None, batch_size: int, records_path: Path | None) -> None:
@@ -1225,34 +1326,46 @@ def _citations_key(models: list[str], variant: str, batch_size: int, split: str,
         handle.write("\n" + text)
 
 
-def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool) -> None:
+def _citations_run(model: str, years: list[int] | None, workers: int, translate: bool, dry_run: bool = False) -> None:
     """The full pass (§5c): the printed entries without a DOI or VABB match, and every collected volume, parsed by
     prompt v4 in batches of ten with the rules after it; then every title translated, the parsed ones from the
     model's title. Every answer is cached, so the run resumes where it stopped; it stops when the key runs out.
     Writes answers.jsonl, translations.jsonl, review.csv and report.md to build/citations/run/ (or run-<years>/);
-    nothing in the records changes yet."""
+    nothing in the records changes yet. A title translated in the previous run from the same text keeps that
+    translation, already checked; only the others are translated and checked. ``dry_run`` sends nothing: it counts
+    what the cache holds and what would be asked, and writes to run-dry/."""
     import csv
+    import shutil
     import threading
     import time
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, checked_ocr_fixes, copied_values, credit,
-                               is_collected_volume, make_batches, tidy)
+    from bhb import citations
+    from bhb.citations import (PARSE_VERSION, Batch, Item, ask_parse, ask_titles, born_digital, checked_ocr_fixes, copied_values, credit,
+                               behind_catalogue, is_collected_volume, make_batches, parsed_by_pass, previous_translations, tidy,
+                               title_request_cached)
+
+    citations.OFFLINE = dry_run
     from bhb.ocr_compare import vocabulary
 
     all_records = read_jsonl(build_dir() / "records.jsonl")
+    # The requests carry the local language step's reading as a hint, so the cached answers are found only with it.
+    if not any(record.language_suggested for record in all_records if parsed_by_pass(record)):
+        raise SystemExit("citations run: no entry has a suggested language; run `bhb language apply` first, or every "
+                         "request differs from the cached ones and is paid for again")
     records = {record.id: record for record in all_records}
-    wanted = lambda record: not years or record.bgb_year in years
-    to_parse = {record.id for record in all_records if record.source.startswith("print") and record.printed and wanted(record) and (
+    wanted = lambda record: (not years or record.bgb_year in years) and not behind_catalogue(record)
+    to_parse = {record.id for record in all_records if parsed_by_pass(record) and record.printed and wanted(record) and (
         not (record.doi or "vabb" in record.identifiers_from.values()) or is_collected_volume(record.printed))}
     journals = {row["id"]: row["title"] for row in csv.DictReader((repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8"))}
     batches = []
-    for batch in make_batches([record for record in all_records if record.source.startswith("print") and wanted(record)], journals):
+    for batch in make_batches([record for record in all_records if parsed_by_pass(record) and wanted(record)], journals):
         items = [item for item in batch.items if item.id in to_parse]
         if items:
             batches.append(Batch(batch.section, batch.before, items))
-    out = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    run_dir = build_dir() / "citations" / ("run" if not years else "run-" + "-".join(map(str, years)))
+    out = run_dir.with_name(run_dir.name + "-dry") if dry_run else run_dir
     out.mkdir(parents=True, exist_ok=True)
     cache = build_dir() / "cache" / "citations"
     left = credit()
@@ -1287,13 +1400,15 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
         return results
 
     parsed = run(batches, lambda batch: ask_parse(batch, model, cache), "parse")
+    if dry_run:
+        print(f"dry run: {spent['requests']:,} parse requests not in the cache (not sent)", flush=True)
     counts = vocabulary(record.printed for record in all_records)
     answers = {}
     for _, (found, _) in parsed:
         for record_id, answer in found.items():
             record = records[record_id]
             answer = tidy(answer, record.printed, record.bgb_year)
-            answer["ocr_fixes"] = checked_ocr_fixes(answer, record.printed, counts)
+            answer["ocr_fixes"] = [] if born_digital(record) else checked_ocr_fixes(answer, record.printed, counts)
             answers[record_id] = answer
     review = Counter()
     with (out / "answers.jsonl").open("w", encoding="utf-8") as handle, (out / "review.csv").open("w", encoding="utf-8", newline="") as sheet:
@@ -1330,26 +1445,47 @@ def _citations_run(model: str, years: list[int] | None, workers: int, translate:
             if title:
                 items.append(Item(record.id, ": ".join(part for part in (title, subtitle) if part) + (f" [{bracketed}]" if bracketed else ""),
                                   list(record.language_suggested)))
-        groups = [items[start:start + 25] for start in range(0, len(items), 25)]
-        print(f"{len(items):,} titles to translate in {len(groups):,} requests", flush=True)
+        # A title translated before from the same text keeps its translation (checked then; a language read otherwise
+        # now changes only which translation the rules drop, and the title is the same); only the
+        # others are asked. Requests go 25 titles at a time, so one title added early on would change every later
+        # request and miss the cache.
+        previous = previous_translations(run_dir / "translations.jsonl")
+        sources = {item.id: (item.printed, item.hints) for item in items}
+        for item in items:
+            row = previous.get(item.id)
+            if row is not None and row["source"] == item.printed:
+                translated[item.id] = {code: row.get(code) for code in ("nl", "fr", "en")}
+        new = [item for item in items if item.id not in translated]
+        groups = [new[start:start + 25] for start in range(0, len(new), 25)]
+        print(f"{len(items):,} titles: {len(translated):,} translated before from the same text, "
+              f"{len(new):,} to translate in {len(groups):,} requests", flush=True)
+        if dry_run:
+            print(f"dry run: nothing sent; {sum(1 for group in groups if title_request_cached(group, model, cache)):,} "
+                  f"of the {len(groups):,} requests are in the cache", flush=True)
+            return
         done = run(groups, lambda group: ask_titles(group, model, cache), "translate")
         for _, (found, _) in done:
             translated.update(found)
-        missing = [item for item in items if item.id not in translated or any(
+        missing = [item for item in new if item.id not in translated or any(
             code not in item.hints and not translated[item.id].get(code) for code in ("nl", "fr", "en"))]
         if missing and not stop.is_set():
             for _, (found, _) in run([[item] for item in missing], lambda group: ask_titles(group, model, cache), "translate again"):
                 for record_id, title in found.items():
                     translated[record_id] = {code: (translated.get(record_id) or {}).get(code) or title.get(code) for code in ("nl", "fr", "en")}
+        if (out / "translations.jsonl").exists():
+            shutil.copyfile(out / "translations.jsonl", out / "translations.previous.jsonl")
         with (out / "translations.jsonl").open("w", encoding="utf-8") as handle:
             for record_id, title in translated.items():
-                handle.write(json.dumps({"id": record_id, "model": model, **title}, ensure_ascii=False) + "\n")
-        # Every translation is judged, and a wrong one made again for its title alone (plan §4h): within a request
-        # of 25 the model sometimes gave a title its neighbour's translation.
-        if not stop.is_set():
+                text, languages = sources[record_id]
+                handle.write(json.dumps({"id": record_id, "model": model, **title, "source": text, "languages": languages},
+                                        ensure_ascii=False) + "\n")
+        # Every new translation is judged, and a wrong one made again for its title alone (plan §4h): within a
+        # request of 25 the model sometimes gave a title its neighbour's translation. The ones kept were judged before.
+        if not stop.is_set() and new:
             from bhb.translation_check import run as check_translations
 
-            check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers)
+            check_translations(out, build_dir() / "records.jsonl", build_dir() / "cache" / "translation-check", workers=workers,
+                               only={item.id for item in new})
     lines = [f"# Citation pass ({date.today()}, {model}, prompt v{PARSE_VERSION})", "",
              f"Parsed: {len(answers):,} of {len(to_parse):,} entries in {len(batches):,} batches, ${spent['parse']:.2f}.",
              f"Translated: {len(translated):,} titles, ${spent['translate'] + spent['translate again']:.2f}.",

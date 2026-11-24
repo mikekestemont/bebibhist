@@ -129,3 +129,121 @@ def test_a_journal_keeps_its_id_when_another_spelling_becomes_its_name():
     assert keep_ids(journals, mapping, count, previous) == 1
     assert mapping["l intermediaire"][0] == "t:l-intermediaire-des-genealogistes"
     assert [journal["id"] for journal in journals] == ["t:l-intermediaire-des-genealogistes"]
+
+
+def test_spellings_that_differ_only_in_small_words_are_one_journal_and_keep_its_abbreviations():
+    records = [_article(str(n), "Bulletin du Comité flamand de France") for n in range(12)]
+    records += [_article(str(20 + n), "Bulletin Comité flamand de France") for n in range(6)]
+    records += [_article(str(40 + n), "Bull. du comité flamand de France") for n in range(3)]
+    journals, mapping = build(records)
+    assert mapping["bulletin du comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "full")
+    assert mapping["bulletin comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "full")
+    assert mapping["bull du comite flamand de france"] == ("t:bulletin-du-comite-flamand-de-france", "abbreviation")
+    assert [journal["articles"] for journal in journals] == [21]
+
+
+def test_together_below_the_threshold_small_word_forms_are_no_journal():
+    records = [_article(str(n), "Archief- en bibliotheekwezen in België") for n in range(8)]
+    records += [_article(str(20 + n), "Archief- et bibliotheekwezen in België") for n in range(6)]
+    assert build(records)[1] == {}
+
+
+def test_an_abbreviation_fitting_two_journals_goes_to_the_one_it_covers_word_for_word():
+    records = [_article(str(n), "Bulletin de la Commission royale des monuments et des sites") for n in range(20)]
+    records += [_article(str(30 + n), "Bulletin de la Commission royale des monuments, sites et fouilles") for n in range(20)]
+    records += [_article(str(60 + n), "Bull. de la Comm. r. des monuments et des sites") for n in range(3)]
+    records += [_article(str(70 + n), "Bull. de la Comm. r. des monuments") for n in range(2)]
+    _, mapping = build(records)
+    assert mapping["bull de la comm r des monuments et des sites"][0] == "t:bulletin-de-la-commission-royale-des-monuments-et-des-sites"
+    assert "bull de la comm r des monuments" not in mapping  # fits both, covers neither
+
+
+def test_the_other_forms_of_a_variant_title_go_with_it():
+    records = [_article(str(n), "L’Intermédiaire") for n in range(20)]
+    records += [_article(str(100 + n), "L’Intermédiaire des généalogistes") for n in range(16)]
+    records += [_article(str(200 + n), "Intermédiaire des généalogistes") for n in range(2)]
+    journals, mapping = build(records)
+    assert mapping["intermediaire des genealogistes"][0] == mapping["l intermediaire des genealogistes"][0] == "t:l-intermediaire"
+    assert len(journals) == 1
+
+
+def test_a_renamed_journal_with_a_new_issn_stays_apart_from_its_predecessor(monkeypatch):
+    from bhb import journals
+
+    monkeypatch.setattr(journals, "load_successions", lambda path=None: [
+        {"successor": "issn:1572-1701", "renamed_in": "2004", "predecessor_id": "issn:0303-9935",
+         "predecessor_title": "Tijdschrift voor sociale geschiedenis", "note": ""}])
+    old = [_article(str(n), "Tijdschrift voor sociale geschiedenis (Amsterdam)", ["0303-9935"], 2000) for n in range(5)]
+    new = [_article(str(n), "Tijdschrift voor sociale en economische geschiedenis", ["2468-9068", "1572-1701"], 2010) for n in range(10, 18)]
+    # Crossref lists the old number too on two articles of the renamed journal, one of them with all three.
+    both = [_article("30", "Tijdschrift voor sociale en economische geschiedenis", ["2468-9068", "1572-1701", "0303-9935"], 2005),
+            _article("31", "Tijdschrift voor sociale geschiedenis (Amsterdam)", ["1572-1701", "0303-9935"], 2003)]
+    rows, mapping = build(old + new + both)
+    by_id = {row["id"]: row for row in rows}
+    assert by_id["issn:1572-1701"]["issn"] == "1572-1701|2468-9068"
+    assert by_id["issn:0303-9935"]["issn"] == "0303-9935"
+    assert by_id["issn:0303-9935"]["title"] == "Tijdschrift voor sociale geschiedenis"
+    assert mapping["tijdschrift voor sociale en economische geschiedenis"][0] == "issn:1572-1701"
+    assert mapping["tijdschrift voor sociale geschiedenis amsterdam"][0] == "issn:0303-9935"
+
+
+def test_the_successor_keeps_its_online_number_whatever_the_order_of_the_articles(monkeypatch):
+    from bhb import journals
+
+    monkeypatch.setattr(journals, "load_successions", lambda path=None: [
+        {"successor": "issn:1572-1701", "renamed_in": "2004", "predecessor_id": "issn:0303-9935",
+         "predecessor_title": "Tijdschrift voor sociale geschiedenis", "note": ""}])
+    tseg = "Tijdschrift voor sociale en economische geschiedenis"
+    first = [_article("1", tseg, ["2468-9068", "0303-9935"], 2005), _article("2", tseg, ["2468-9068", "0303-9935"], 2006),
+             _article("3", tseg, ["2468-9068", "1572-1701", "0303-9935"], 2007)]
+    rest = [_article(str(n), tseg, ["1572-1701", "2468-9068"], 2010) for n in range(10, 15)]
+    old = [_article(str(n), "Tijdschrift voor sociale geschiedenis", ["0303-9935"], 1990) for n in range(20, 25)]
+    rows, _ = build(first + rest + old)
+    assert {row["id"]: row["issn"] for row in rows} == {"issn:1572-1701": "1572-1701|2468-9068", "issn:0303-9935": "0303-9935"}
+
+
+def test_the_successions_file_keeps_tseg_apart():
+    from bhb.journals import load_successions
+
+    rows = {(row["predecessor_id"], row["successor"]) for row in load_successions()}
+    assert ("issn:0303-9935", "issn:1572-1701") in rows
+
+
+def test_a_title_set_with_a_full_stop_is_not_read_as_abbreviated():
+    from collections import Counter
+
+    from bhb.journals import _abbreviated
+
+    faro = Counter({"Faro / Tijdschrift over cultureel erfgoed": 209, "Faro. Tijdschrift over cultureel erfgoed": 36})
+    assert not _abbreviated("Faro. Tijdschrift over cultureel erfgoed", faro)
+    vieux = Counter({"Bull. Soc. R. Le Vieux-Liège": 40})
+    assert _abbreviated("Bull. Soc. R. Le Vieux-Liège", vieux)
+    assert not _abbreviated("Faro / Tijdschrift over cultureel erfgoed", faro)
+
+
+def _host_article(n, host):
+    from bhb.model import Host, Record
+
+    return Record(id=f"bhb:2000-{n}", source="print-straive", bgb_year=2000, type="article", title=f"Titel {n}",
+                  host=Host(title=host))
+
+
+def test_a_journal_title_plus_a_place_joins_the_journal_and_a_previous_spelling_keeps_its_journal(tmp_path):
+    import csv
+
+    from bhb.journals import apply_journals
+
+    records = [_host_article(n, "Molenecho’s") for n in range(20)] + [_host_article(100 + n, "Molenecho’s (Zulte)") for n in range(3)]
+    records += [_host_article(200 + n, "Curia Arduennae") for n in range(14)]
+    with (tmp_path / "journals.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "title", "issn", "spellings", "articles"])
+        writer.writerow(["t:curia-arduennae", "Curia Arduennae", "", "1", "15"])
+    with (tmp_path / "journal_spellings.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["spelling", "journal", "rule", "articles"])
+        writer.writerow(["curia arduennae", "t:curia-arduennae", "full", "15"])
+    apply_journals(records, tmp_path)
+    assert records[0].journal_id and records[20].journal_id == records[0].journal_id
+    assert records[-1].journal_id == "t:curia-arduennae"
+    assert "t:curia-arduennae" in (tmp_path / "journals.csv").read_text(encoding="utf-8")

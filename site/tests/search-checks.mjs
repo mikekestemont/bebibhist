@@ -18,15 +18,15 @@ const LIMIT_MS = 20000;
 const checks = [
   // A plain word, the search that hung on the live site when the worker looked for the index at the root.
   { name: "a plain word (bruaene)", hash: "#/search?q=bruaene", count: [60, 150], contains: /Van Bruaene/ },
-  { name: "a word between two index chunks (béguinages)", hash: "#/search?q=b%C3%A9guinages", count: [1900, 2400], first: /b[ée]guin|begijn/i },
-  { name: "another such word (abbaye, also through the title translations)", hash: "#/search?q=abbaye", count: [3800, 5200] },
+  { name: "a word between two index chunks (béguinages)", hash: "#/search?q=b%C3%A9guinages", count: [2700, 4200], first: /b[ée]guin|begijn/i },
+  { name: "another such word (abbaye, also through the title translations)", hash: "#/search?q=abbaye", count: [4800, 7500] },
   { name: "without the title translations (gewoonterecht)", hash: "#/search?q=gewoonterecht&tr=off", count: [5, 12] },
   { name: "optional function words (guibert de gembloux)", hash: "#/search?q=guibert%20de%20gembloux", count: [10, 30], contains: /Guibert of Gembloux/ },
   { name: "author search (Rider)", hash: "#/search?q=rider&field=author", count: [10, 30], contains: /Galbert of Bruges/ },
   { name: "author search (Tollebeek)", hash: "#/search?q=tollebeek&field=author", count: [100, 200] },
   // A name in all text lists what the name wrote or edited first (plan §4f, point 8): Bisschop's chapter in a volume
   // Vanthemsche edited (bhb:vs-1250412) was among his own work; now it follows the 145 of his own, at about 173.
-  { name: "a name in all text, its own work first (Vanthemsche)", hash: "#/search?q=vanthemsche&per=100", count: [250, 450], first: /Vanthemsche/, lacks: /Bisschop/ },
+  { name: "a name in all text, its own work first (Vanthemsche)", hash: "#/search?q=vanthemsche&per=100", count: [700, 1150], first: /Vanthemsche/, lacks: /Bisschop/ },
   // A name as an author link writes it is that person: not an entry whose Paul and whose Bertrand are two people.
   // Sébastien's feedback, 9 Nov 2026: an entry that prints no year shows the year of the data, marked as supplied;
   // and the year chart is as wide as the slider's track.
@@ -38,7 +38,7 @@ const checks = [
   { name: "no hits through a copied translation (Deploige)", hash: "#/search?q=deploige&per=100", count: [30, 80], lacks: /course à la guerre|nonciature Micara|question romaine/ },
   { name: "a person by name (Bertrand (Paul))", hash: "#/search?q=Bertrand%20(Paul)&field=author", count: [15, 30], lacks: /Bertrand \(Jean-Pierre\)/ },
   { name: "publication-year range (gent, 1990–1999)", hash: "#/search?q=gent&from=1990&to=1999", count: [500, 4000] },
-  { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [800, 3000] },
+  { name: "subject and period filters", hash: "#/search?theme=religious&period=medieval", count: [2800, 4500] },
   { name: "a record page (split chapter)", hash: "#/record/bhb%3A1996-13322-c5", selector: "main h1", contains: /Galbert/ },
   { name: "similar publications", hash: "#/similar/bhb%3Avs-1252259", selector: ".result", atLeast: 5 },
   // The classification's three parts (I., II., III.), with their names.
@@ -46,7 +46,7 @@ const checks = [
   // A subject of the classification, from the subject tree or a record's tag; a subject holds its sub-subjects.
   // Wider since 10 Nov 2026: old headings respelled from year to year, and the finance headings of 1993–2007, take this code.
   { name: "a subject of the classification (De financiën)", hash: "#/search?subject=III.D.2.b.5.", count: [450, 750] },
-  { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [7000, 11000] },
+  { name: "a subject with its sub-subjects (Het economische leven, 1789–)", hash: "#/search?subject=III.D.2.b.", count: [9500, 15000] },
   { name: "place filter (Gent, indexed and from titles)", hash: "#/search?place=nis%3A44021", count: [2400, 3400] },
   { name: "a place suggested from the title", hash: "#/record/bhb%3A1995-11621", selector: ".tag-link.tag-suggested", contains: /Gh?ent|Gand/ },
   { name: "map of places", hash: "#/map", selector: ".map .place", atLeast: 1000 },
@@ -56,7 +56,7 @@ const checks = [
   { name: "did you mean (vanthemse)", hash: "#/search?q=vanthemse&field=author", selector: ".did-you-mean", contains: /Vanthemsche/, limitMs: 5000 },
   // The reviewer's report of 9 Nov 2026. A word is matched whole: Brugge does not find a Wespelaar bridge article.
   // Whole words come first (Mike, 10 Nov 2026): the entries found only through a longer word follow them.
-  { name: "whole words first (Brugge, the bridges after)", hash: "#/search?q=Brugge", count: [4500, 6500], lacks: /Wespelaarse bruggen/ },
+  { name: "whole words first (Brugge, the bridges after)", hash: "#/search?q=Brugge", count: [5200, 8200], lacks: /Wespelaarse bruggen/ },
   { name: "whole words only, when asked (abbaye)", hash: "#/search?q=abbaye&match=whole", count: [2000, 3200] },
   { name: "longer words below a line when no word is whole (brugg)", hash: "#/search?q=brugg", selector: ".tier-divider", contains: /brugge/ },
   { name: "the words a whole-word search left out are named", hash: "#/search?q=Brugge", selector: ".match-notes", contains: /bruggen/ },
@@ -65,7 +65,7 @@ const checks = [
   { name: "a name with particles (van der Weyden, author)", hash: "#/search?q=van%20der%20Weyden&field=author", count: [3, 40], contains: /Weyden/ },
   { name: "particles alone begin a name (van der, author)", hash: "#/search?q=van%20der&field=author&per=100", count: [1500, 4000], lacks: /Derom \(|Dereere \(/ },
   // The map's count of a place is its search's (Bruges counted 36 entries twice).
-  { name: "a place's count is the map's (Bruges)", hash: "#/search?place=nis%3A31005", count: [2500, 3000], samePlace: "nis:31005" },
+  { name: "a place's count is the map's (Bruges)", hash: "#/search?place=nis%3A31005", count: [2500, 4000], samePlace: "nis:31005" },
   // A search begun while another runs shows its own list and counts, not the first one's.
   { name: "a second search replaces the first (Les partis, then World Wars)", hash: "#/search?subject=III.D.2.a.2.b.1.", then: "#/search?topic=r1.15", count: [7000, 8500], lacks: /N-VA|Lahaut/ },
   { name: "a missing journal is not shown as a title", hash: "#/record/bhb%3Avs-1191434", selector: ".fields", lacks: /not in the export\]|niet in de export\]|absent de l’export\]/ },

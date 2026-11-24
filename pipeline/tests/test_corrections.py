@@ -51,3 +51,28 @@ def test_a_type_row_changes_the_kind_of_publication_only():
     # Another type than the one the row expects, or no known type, leaves it.
     assert apply_corrections([record], [{"id": record.id, "wrong": "article", "right": "chapter", "kind": "type"}]) == 0
     assert apply_corrections([record], [{"id": record.id, "wrong": "chapter", "right": "poem", "kind": "type"}]) == 0
+
+
+def test_an_order_row_moves_the_people_only():
+    record = Record(id="bhb:2020-m5a23a08764", source="manuscript", bgb_year=2020,
+                    printed="Kestemont (Mike), Haverals (Wouter). Silent voices.", title="Silent voices",
+                    persons=[Person("Kestemont", "Mike"), Person("Haverals", "Wouter"), Person("Peeters", "A.", "editor")],
+                    provenance=Provenance())
+    row = {"id": record.id, "wrong": "Kestemont; Haverals", "right": "Haverals; Kestemont", "kind": "order"}
+    assert apply_corrections([record], [row]) == 1
+    assert [person.family for person in record.persons] == ["Haverals", "Kestemont", "Peeters"]
+    assert record.persons[0].given == "Wouter" and record.printed.startswith("Kestemont (Mike)")
+    assert "corrected-order" in record.provenance.flags
+    assert apply_corrections([record], [row], again=True) == 0
+
+
+def test_the_citation_pass_fixes_are_loaded_and_well_formed():
+    from bhb.corrections import citation_pass_corrections_path, load_corrections
+
+    rows = load_corrections(citation_pass_corrections_path())
+    assert len(rows) > 1000
+    # Not checked against the scans: the printed citation stays as printed (kind print), only the fields are corrected.
+    assert {row["kind"] for row in rows} == {"print"}
+    assert all(row["checked_by"].startswith("machine") and row["right"] == row["right"].strip() for row in rows)
+    assert len({(row["id"], row["wrong"]) for row in rows}) == len(rows)
+    assert all(row in load_corrections() for row in rows[:5])

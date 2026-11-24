@@ -218,6 +218,7 @@ STOP_AGREEMENT = 0.6
 # van Namen"), or after a word that introduces a place ("à Alle sur Semois", "te Namen"). Elsewhere it is the word:
 # "Alle kerken van West-Vlaanderen", "Alle 25", a catalogue subtitle run on ("… 1852 Alle onbetaemelijkheid").
 WORD_MIN_LOWERCASE = 5
+WORD_CAPITALISED_RATIO = 20
 _NAME_ALONE = re.compile(r"\s*(?:[,:;.()\[\]]|\d{4}\b|$)")
 _PLACE_BEFORE = re.compile(
     r"(?:^|\s)(?:à|a|au|aux|de|du|d[’']|lez|sur|te|ter|in|van|uit|bij|op|naar|nabij|bei|zu|nach|im|at|near)\s*$",
@@ -310,15 +311,18 @@ def _agrees(record, key: str, code: str, labels_of: dict[str, set[str]]) -> bool
 
 
 def common_words(records, codes: dict[str, str]) -> frozenset[str]:
-    """Single-word place names that titles also use as a lowercase word, at least ``WORD_MIN_LOWERCASE`` times."""
+    """Single-word place names that titles also use as a lowercase word, at least ``WORD_MIN_LOWERCASE`` times and
+    at least once for every ``WORD_CAPITALISED_RATIO`` capitalised uses: "geel" (yellow) five times against Geel 184
+    times stays a place, as do Halle and Luik (24 Nov 2026, with the titles of 2009–2021 added)."""
     from bhb.textutil import fold
 
     lowercase: Counter[str] = Counter()
+    capitalised: Counter[str] = Counter()
     for record in records:
         for token in _TOKEN.findall(_title(record)):
-            if token[:1].islower():
-                lowercase[fold(token)] += 1
-    return frozenset(key for key in codes if " " not in key and lowercase[key] >= WORD_MIN_LOWERCASE)
+            (lowercase if token[:1].islower() else capitalised)[fold(token)] += 1
+    return frozenset(key for key in codes if " " not in key and lowercase[key] >= WORD_MIN_LOWERCASE
+                     and lowercase[key] * WORD_CAPITALISED_RATIO >= capitalised[key])
 
 
 def title_places(records, rows: dict[str, dict[str, str]], labels: dict[str, list[str]]) -> dict[str, int]:

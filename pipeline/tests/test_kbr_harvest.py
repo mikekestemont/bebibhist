@@ -102,3 +102,52 @@ def test_only_books_and_periodicals_are_kept(tmp_path):
     harvest(tmp_path, server, interval=0, now=clock("2026-01-01T00:00:00"), log=lambda *a, **k: None)
     text = "".join(gzip.decompress(p.read_bytes()).decode() for p in tmp_path.glob("page-*.xml.gz"))
     assert "KBR1<" in text and "KBR3<" in text and "KBR2<" not in text
+
+
+def test_a_request_that_hangs_is_given_up_on_the_wall_clock(monkeypatch):
+    import threading
+    import time
+
+    from bhb import kbr_harvest
+
+    release = threading.Event()
+
+    def hang(request, timeout):
+        release.wait(5)
+        raise OSError("released")
+
+    monkeypatch.setattr(kbr_harvest.urllib.request, "urlopen", hang)
+    started = time.time()
+    try:
+        kbr_harvest.get("https://example.org/", "test", timeout=120, deadline=0.2)
+    except TimeoutError:
+        pass
+    else:
+        raise AssertionError("no TimeoutError")
+    assert time.time() - started < 2
+    release.set()
+
+
+def test_a_dropped_connection_is_asked_again(monkeypatch):
+    import http.client
+    import io
+
+    from bhb import kbr_harvest
+
+    answers = [http.client.RemoteDisconnected("gone"), ConnectionResetError("reset")]
+
+    class Reply(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def flaky(request, timeout):
+        if answers:
+            raise answers.pop(0)
+        return Reply(b"<OAI-PMH/>")
+
+    monkeypatch.setattr(kbr_harvest.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(kbr_harvest.time, "sleep", lambda seconds: None)
+    assert kbr_harvest.fetcher("test")({"verb": "Identify"}) == "<OAI-PMH/>"
