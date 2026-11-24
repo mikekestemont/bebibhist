@@ -2,7 +2,8 @@
 // the words it matched (``search_term`` in pagefind_web/src/search.rs): hits times entries, 14 s for "histoire", which
 // 161,805 records hold. Here each entry is read once, with the same score to the last bit; records of equal score
 // follow the order of the index (Pagefind leaves them as its unstable sort does). Only a search that Pagefind would
-// take long over is ranked here (``SLOW``), so every other search keeps its order.
+// take long over is ranked here (``SLOW``), or one with a word in a file it cannot load (``loadable``), so every other
+// search keeps its order.
 import { Reader } from "./cbor.ts";
 
 export interface Ranking {
@@ -33,56 +34,46 @@ export interface Postings {
  */
 export const SLOW = 500_000_000;
 
-/** A search's chunks of fewer bytes than this (gzip) hold too few entries to be slow: they are not read here. */
-export const SLOW_BYTES = 65536;
-
 /**
- * The words whose chunks are loaded before a search's own.
- *
- * Pagefind 1.4 stores the last word of each index chunk shortened ("beguinag"), so a longer word such as
- * "beguinages" sorts between two chunks. Pagefind then loads neither, falls back to a short prefix ("b") and
- * returns tens of thousands of hits; once the right chunk is in memory, the word is found. 788 words were
- * affected (abbaye, travaux, Tollebeek …). Preloading the chunks of each word's shorter prefixes puts that
- * chunk in memory first. A word also matches the longer words it begins with, and Pagefind loads only the chunk of
- * the word itself: "abbaye" ends one chunk and "abbayes" begins the next, which halved the hits (2,477 of 4,515). The
- * word with "zz" after it sorts after those longer words, so its chunk is loaded too. Pagefind 1.5 fixes this, but
- * also makes every metadata field searchable.
+ * The words of a query when they are all words of the index's own kind ("aw_histoire", "sc_0123456789", closed with "_"
+ * or not), which Pagefind reads as they stand, else null (an entry's id).
  */
-export function preloads(query: string): string[] {
-  const words: string[] = [];
-  for (const word of query.toLowerCase().split(/\s+/)) {
-    // A field word ("au_vanthemse") stops at its tag and two letters: "au" or "au_" would load the chunks of every
-    // author name, about ten in a row before an author search.
-    const shortest = /^[a-z]{2}_/.test(word) ? 5 : 2;
-    if (word.length >= shortest) words.push(`${word}zz`);
-    for (let size = word.length - 1; size >= shortest; size -= 1) words.push(word.slice(0, size));
-  }
-  return words;
-}
-
-/** The chunks Pagefind loads for a query (``request_indexes``). */
-export function chunksFor(query: string, chunks: Chunk[]): Chunk[] {
-  const find = (holds: (word: string, chunk: Chunk) => boolean) =>
-    query.split(" ").flatMap((word) => chunks.find((chunk) => holds(word, chunk)) || []);
-  const strict = find((word, { from, to }) => word >= from && word <= to);
-  return strict.length ? strict : find((word, { from, to }) =>
-    word.slice(0, from.length) >= from.slice(0, word.length) && word.slice(0, to.length) <= to.slice(0, word.length));
-}
-
-/**
- * The words of a query that can be ranked here, or null: only words of the index's own kind ("aw_histoire",
- * "sc_0123456789", closed with "_" or not) are read as they stand, and no word may begin another, since a word matched
- * twice counts in a way of its own.
- */
-export function rankable(query: string): string[] | null {
+export function taggedWords(query: string): string[] | null {
   const terms = query.split(" ");
-  if (!terms.every((term) => /^[a-z]{2}_[a-z0-9]+_?$/.test(term))) return null;
-  return terms.some((term, at) => terms.some((other, index) => index !== at && other.startsWith(term))) ? null : terms;
+  return terms.every((term) => /^[a-z]{2}_[\p{L}\p{N}]+_?$/u.test(term) && term === term.toLowerCase()) ? terms : null;
 }
 
 /** Whether a chunk can hold a word that begins with ``term``. */
 export function mayHold(chunk: Chunk, term: string): boolean {
   return chunk.until > term && (chunk.from <= term || chunk.from.startsWith(term));
+}
+
+/**
+ * Whether Pagefind can load a chunk. It loads the chunk that has a word between its two ends, which it stores
+ * shortened, and where the last word was shortened to less than the first ("aw_bibliothekenp" to "aw_biblioth", with
+ * bibliothèque among its words) no word is: 61 chunks on 24 Nov 2026. A search for one of their words matched every
+ * record and failed.
+ */
+export function loadable(chunk: Chunk): boolean {
+  return chunk.from <= chunk.to;
+}
+
+/**
+ * The words whose chunks are loaded before an entry's id is searched: its shorter beginnings, and the id with "zz",
+ * which sorts after the longer ones. The last word of a chunk is stored shortened, so an id may sort between two
+ * chunks, and Pagefind would load neither.
+ */
+export function preloads(query: string): string[] {
+  const words: string[] = [];
+  for (const word of query.toLowerCase().split(/\s+/)) {
+    if (word.length >= 2) words.push(`${word}zz`);
+    for (let size = word.length - 1; size >= 2; size -= 1) words.push(word.slice(0, size));
+  }
+  return words;
+}
+
+function bytesOf(text: string): number {
+  return new TextEncoder().encode(text).length;
 }
 
 /** index/*.pf_index: [[[word, [[page, [location …]]]]]], a negative number giving the weight of the next locations. */
@@ -112,7 +103,7 @@ export function readChunk(bytes: Uint8Array, wanted: (word: string) => boolean):
         weights[at] = sum;
       }
     }
-    if (keep) found.push({ word, size: new TextEncoder().encode(word).length, pages, weights });
+    if (keep) found.push({ word, size: bytesOf(word), pages, weights });
   }
   return found;
 }
@@ -185,9 +176,9 @@ export interface Matches {
   cost: number;
 }
 
-/** The matches of ``terms`` among the words of a search's chunks, or null when a term begins no word: Pagefind then
- * takes the longest word that begins the term. */
-export function matchTerms(terms: string[], words: Postings[], total: number): Matches | null {
+/** The matches of ``terms`` among the words of a search's chunks. A term that begins no word leaves no hits, where
+ * Pagefind takes the longest word that begins the term. */
+export function matchTerms(terms: string[], words: Postings[], total: number): Matches {
   const held = new Uint8Array(total);
   let entries = 0;
   const matched = terms.map((term, at) => {
@@ -198,7 +189,6 @@ export function matchTerms(terms: string[], words: Postings[], total: number): M
     }
     return { term, entries: own };
   });
-  if (matched.some((match) => !match.entries.length)) return null;
   let hits = 0;
   for (const count of held) hits += count === terms.length ? 1 : 0;
   return { terms: matched, held, hits, cost: hits * entries };
@@ -211,16 +201,24 @@ export function rankPages({ terms, held, hits }: Matches, wordCounts: Uint32Arra
   const similarity = f(ranking.termSimilarity ?? 1);
   const total = wordCounts.length;
   const scores = new Float32Array(total);
-  const words = terms.flatMap(({ term, entries }) => entries.map((entry) => ({ entry, term })));
+  // A word that several terms begin counts once, for the first of them, and double when they are two or four, as
+  // Pagefind joins them.
+  const words = new Map<string, { entry: Postings; term: string; times: number }>();
+  for (const { term, entries } of terms) {
+    for (const entry of entries) {
+      const known = words.get(entry.word);
+      words.set(entry.word, { entry, term: known?.term ?? term, times: (known?.times ?? 0) + 1 });
+    }
+  }
   // A page's word scores are added up in the order of the words.
-  words.sort((left, right) => (left.entry.word < right.entry.word ? -1 : 1));
-  for (const { entry: { size, pages, weights }, term } of words) {
-    const bonus = lengthBonus(Math.min(size - term.length + 1, 255), similarity);
+  const inOrder = [...words.values()].sort((left, right) => (left.entry.word < right.entry.word ? -1 : 1));
+  for (const { entry: { size, pages, weights }, term, times } of inOrder) {
+    const bonus = lengthBonus(Math.min(size - bytesOf(term) + 1, 255), similarity);
     const idf = logf(f(f(f(f(total - pages.length) + 0.5) / f(pages.length + 0.5)) + 1));
     for (let at = 0; at < pages.length; at += 1) {
       const page = pages[at];
       if (held[page] !== terms.length || !weights[at]) continue;
-      const weighted = f(f(weights[at] / 24) * bonus);
+      const weighted = f(f(weights[at] * (times % 2 ? 1 : 2) / 24) * bonus);
       const length = f(f(1 - b) + f(b * f(wordCounts[page] / average)));
       const frequency = f(f(f(k1 + 1) * weighted) / f(f(k1 * length) + weighted));
       scores[page] = f(scores[page] + f(idf * frequency));

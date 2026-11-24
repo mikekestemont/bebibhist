@@ -63,6 +63,12 @@ const checks = [
   { name: "longer words below a line when no word is whole (brugg)", hash: "#/search?q=brugg", selector: ".tier-divider", contains: /brugge/ },
   { name: "the words a whole-word search left out are named", hash: "#/search?q=Brugge", selector: ".match-notes", contains: /bruggen/ },
   { name: "a word with * finds the words it begins (brugg*)", hash: "#/search?q=brugg*", count: [5000, 7000] },
+  // A word finds every longer word it begins, in however many index files they are: at least what the most common of them
+  // finds (4,763 for nation, where national alone had 9,493; 24 Nov 2026).
+  { name: "a word finds what its longer words find (nation, national)", hash: "#/search?q=nation", count: [10500, 16000], atLeastAs: "#/search?q=national&match=whole" },
+  // It opened with every record that has a subject (213,181).
+  { name: "a subject in an index file Pagefind cannot load (Diplomatieke geschiedenis)", hash: "#/search?subject=III.D.2.a.4.i.", count: [3200, 5200] },
+  { name: "a word in an index file Pagefind cannot load (bibliothèque)", hash: "#/search?q=biblioth%C3%A8que&match=whole", count: [1700, 2600], contains: /biblioth/i },
   // A name with its particles is one name: van der Weyden finds Vander Weyden.
   { name: "a name with particles (van der Weyden, author)", hash: "#/search?q=van%20der%20Weyden&field=author", count: [3, 40], contains: /Weyden/ },
   { name: "particles alone begin a name (van der, author)", hash: "#/search?q=van%20der&field=author&per=100", count: [1500, 4000], lacks: /Derom \(|Dereere \(/ },
@@ -112,6 +118,14 @@ for (const check of checks) {
       if (!problem && check.lacks) {
         const all = (await page.locator(".result .citation").allTextContents()).join(" ");
         if (check.lacks.test(all)) problem = `a hit matches ${check.lacks}`;
+      }
+      if (!problem && check.atLeastAs) {
+        const other = await browser.newPage();
+        await other.goto(base + check.atLeastAs);
+        await other.waitForSelector(".count", { timeout: LIMIT_MS });
+        const least = Number(((await other.textContent(".count")) || "").replace(/[^\d]/g, ""));
+        await other.close();
+        if (count < least) problem = `count ${count}, fewer than the ${least} of ${check.atLeastAs}`;
       }
       if (!problem && check.samePlace) {
         const places = await (await fetch(new URL("places.json", base))).json();

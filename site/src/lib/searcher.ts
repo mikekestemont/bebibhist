@@ -3,7 +3,7 @@
 // the page's thread where a browser has no module workers (search.ts). Pagefind must not load a filter file, or it
 // counts that filter on every later search: no search it gets names a filter, and ``filters()`` is never called.
 import { countPages, filterPages, readFilter, readMeta, sortPages, type FilterCounts, type Filters, type FilterValues, type IndexMeta, type Sort } from "./facets.ts";
-import { averageWords, chunksFor, matchTerms, mayHold, preloads, rankable, rankPages, readChunk, SLOW, SLOW_BYTES, type Chunk, type Ranking } from "./ranking.ts";
+import { averageWords, loadable, matchTerms, mayHold, preloads, rankPages, readChunk, SLOW, taggedWords, type Ranking } from "./ranking.ts";
 
 export interface SearchOptions {
   filters?: Filters;
@@ -44,7 +44,7 @@ const KEPT = 32;
 /** The rankings kept, the latest used: a search of all text asks for up to three. */
 const RANKINGS = 8;
 
-export function createSearcher(pagefind: PagefindModule, basePath: string, { slow = SLOW, slowBytes = SLOW_BYTES } = {}): Searcher {
+export function createSearcher(pagefind: PagefindModule, basePath: string, { slow = SLOW } = {}): Searcher {
   let weights: Ranking = {};
   let entry: Promise<string> | null = null;
   let table: Promise<Uint8Array> | null = null;
@@ -58,7 +58,8 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
 
   function rank(query: string): Promise<string[]> {
     const known = rankings.get(query);
-    const ranking = known || rankHere(query).catch(() => null).then((ids) => ids || rankByPagefind(query));
+    const terms = taggedWords(query);
+    const ranking = known || (terms ? rankWords(query, terms) : rankByPagefind(query, preloads(query)));
     if (!known) ranking.catch(() => rankings.delete(query));
     rankings.delete(query);
     rankings.set(query, ranking);
@@ -77,47 +78,35 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
   const preloaded = new Set<string>();
   let preloading: Promise<void> = Promise.resolve();
 
-  async function rankByPagefind(query: string): Promise<string[]> {
-    const words = preloads(query).filter((word) => !preloaded.has(word));
-    for (const word of words) preloaded.add(word);
-    // Pagefind asks for a search's files one after the other: they are asked together here, so that it finds them in
-    // the browser's cache. (Words of another kind it looks up in a form of its own.)
-    if (rankable(query)) loadMeta().then(({ chunks }) => Promise.all(chunkUrls(query, chunks).filter((url) => !cached.has(url)).map(loadChunk))).catch(() => {});
+  /** The ids as Pagefind ranks them, once it has the chunks of ``words``. */
+  async function rankByPagefind(query: string, words: string[]): Promise<string[]> {
+    const fresh = words.filter((word) => !preloaded.has(word));
+    for (const word of fresh) preloaded.add(word);
     await start();
     // One preload at a time: two searches run side by side for optional function words.
     preloading = preloading.then(async () => {
-      for (const word of words) await pagefind.preload(word);
+      for (const word of fresh) await pagefind.preload(word);
     });
     await preloading;
     return (await pagefind.search(query)).results.map(({ id }) => id);
   }
 
-  /** The files Pagefind loads for a query on a page just opened, or those of them that ``wanted`` chooses. */
-  function chunkUrls(query: string, chunks: Chunk[], wanted: (chunk: Chunk) => boolean = () => true): string[] {
-    const used = new Set([...preloads(query), query].flatMap((words) => chunksFor(words, chunks)));
-    return [...used].filter(wanted).map(({ file }) => `${basePath}index/${file}.pf_index`);
-  }
-
-  // The index files the browser's cache has.
-  const cached = new Set<string>();
-
-  function loadChunk(url: string): Promise<Uint8Array> {
-    cached.add(url);
-    return load(url);
-  }
-
   let average = 0;
 
-  /** The ranked ids of a query Pagefind would take long over, from the chunks Pagefind would use; else null. */
-  async function rankHere(query: string): Promise<string[] | null> {
-    const terms = rankable(query);
-    if (!terms) return null;
+  /**
+   * The ranked ids of a search's words, each with every longer word it begins. Pagefind loads one chunk of a word,
+   * where its longer words may fill eight: "belg" found 10,928 of 40,160 entries, "nation" none of those with
+   * "national" (24 Nov 2026). Here the chunks that can hold them are all read, together, and Pagefind is given them
+   * one by one; it finds them in the browser's cache.
+   */
+  async function rankWords(query: string, terms: string[]): Promise<string[]> {
     const { chunks, wordCounts, ids } = await loadMeta();
-    const files = await Promise.all(chunkUrls(query, chunks, (chunk) => terms.some((term) => mayHold(chunk, term))).map(loadChunk));
-    if (files.reduce((sum, { length }) => sum + length, 0) < slowBytes) return null;
-    const words = (await Promise.all(files.map(unpack))).flatMap((bytes) => readChunk(bytes, (word) => terms.some((term) => word.startsWith(term))));
+    const used = chunks.filter((chunk) => terms.some((term) => mayHold(chunk, term)));
+    const files = await Promise.all(used.map(({ file }) => read(`${basePath}index/${file}.pf_index`)));
+    const words = files.flatMap((bytes) => readChunk(bytes, (word) => terms.some((term) => word.startsWith(term))));
     const matches = matchTerms(terms, words, wordCounts.length);
-    if (!matches || matches.cost < slow) return null;
+    if (!matches.hits) return [];
+    if (matches.cost < slow && used.every(loadable)) return rankByPagefind(query, used.map(({ from }) => from));
     average ||= averageWords(wordCounts);
     const all = ids();
     return Array.from(rankPages(matches, wordCounts, average, weights).pages, (page) => all[page]);
