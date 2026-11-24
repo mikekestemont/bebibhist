@@ -1247,7 +1247,7 @@
         {/if}
       {/if}
       {#if searchField(fieldChoice) === "author" && query.trim() && !personName(query)}
-        <p>{text.particlesJoined} <a href={allTextHref()}>{text.searchAllText.replace("{q}", query.trim())}</a></p>
+        <p><a href={allTextHref()}>{text.searchAllText.replace("{q}", query.trim())}</a></p>
       {/if}
       {#if notices.variants.length}
         <p>{text.nameVariants} {notices.variants.join("; ")}</p>
