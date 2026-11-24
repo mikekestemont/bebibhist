@@ -247,3 +247,19 @@ def test_a_journal_title_plus_a_place_joins_the_journal_and_a_previous_spelling_
     assert records[0].journal_id and records[20].journal_id == records[0].journal_id
     assert records[-1].journal_id == "t:curia-arduennae"
     assert "t:curia-arduennae" in (tmp_path / "journals.csv").read_text(encoding="utf-8")
+
+
+def test_the_previous_list_is_the_committed_one_not_one_a_step_of_the_chain_wrote(tmp_path):
+    import subprocess
+
+    from bhb.journals import previous_ids
+
+    path = tmp_path / "journal_spellings.csv"
+    path.write_text("spelling,journal,rule,articles\nrevue x,t:revue-x,full,20\n", encoding="utf-8")
+    assert previous_ids(tmp_path) == {"revue x": "t:revue-x"}  # outside a repository: the file
+    git = ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "commit.gpgsign=false"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run([*git, "commit", "-qm", "list"], check=True)
+    path.write_text("spelling,journal,rule,articles\nrevue x,t:made-up,previous,20\n", encoding="utf-8")
+    assert previous_ids(tmp_path) == {"revue x": "t:revue-x"}

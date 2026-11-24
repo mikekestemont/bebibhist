@@ -1,7 +1,7 @@
 """The release chain of pipeline/README.md as one command, so a run is never typed by hand.
 
     bhb chain --list                       the steps, numbered
-    bhb chain --from 6 --map               from `citations apply` on, with a new topic map
+    bhb chain --from citations-apply --map --remote-names    from `citations apply` on, with a new topic map
     bhb chain --max-parse 100 --max-translate 20
 
 Each step runs as its own `bhb …` process; the chain stops at the first step that fails, and every step's output is
@@ -42,12 +42,16 @@ STEPS: tuple[Step, ...] = (
     Step("facets", ("facets", "apply")),
     Step("places", ("places", "apply")),
     Step("journals-again", ("journals", "apply"), "once before the identifiers: the DOI of a printed article is found by its journal's ISSN"),
+    Step("match-crossref", ("identifiers", "match", "--source", "all", "--new", "--patient", "16"), "new entries only; one question a second, hours after a delivery"),
+    Step("match-vabb", ("identifiers", "vabb")),
+    Step("match-kbr", ("identifiers", "kbr"), "on the citation pass's fields: on the parser's, 440 links were lost (23 Nov 2026)"),
     Step("identifiers-again", ("identifiers", "apply")),
     Step("journals-last", ("journals", "apply"), "Ibid., journal ids, duplicates"),
     Step("language-again", ("language", "apply")),
     Step("topicmap-layout", ("topicmap", "layout"), "about 5 minutes", map_only=True),
     Step("topicmap-names", ("topicmap", "names"), "the local model, about two hours; --remote-names: OpenRouter, minutes", map_only=True),
     Step("topicmap-apply", ("topicmap", "apply")),
+    Step("compare", ("compare",), "with the data on the site; stops the chain when something went missing"),
     Step("release", ("release",), "packs the dataset; publishes nothing"),
 )
 
@@ -72,7 +76,8 @@ def _index(name: str | int | None, default: int) -> int:
 
 
 def plan(start: str | int | None = None, stop: str | int | None = None, with_map: bool = False,
-         build_flags: Iterable[str] = (), remote_names: bool = False) -> list[tuple[int, Step, list[str]]]:
+         build_flags: Iterable[str] = (), remote_names: bool = False,
+         backlog: bool = False) -> list[tuple[int, Step, list[str]]]:
     """The steps to run, as (number, step, bhb arguments), from ``start`` to ``stop`` included."""
     first, last = _index(start, 0), _index(stop, len(STEPS) - 1)
     if first > last:
@@ -85,6 +90,8 @@ def plan(start: str | int | None = None, stop: str | int | None = None, with_map
         args = list(step.args) + (list(build_flags) if step.label == "build" else [])
         if step.label == "topicmap-names" and remote_names:
             args.append("--remote")
+        if step.label == "match-crossref" and backlog:
+            args.append("--backlog")
         chosen.append((position + 1, step, args))
     return chosen
 

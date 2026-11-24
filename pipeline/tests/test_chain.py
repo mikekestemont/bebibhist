@@ -34,6 +34,8 @@ def test_plan_chooses_steps_and_flags():
     assert ["topicmap", "layout"] in [args for _, _, args in with_map]
     assert chain.plan(1, 1, build_flags=["--with-manuscripts"])[0][2] == ["build", "--with-manuscripts"]
     assert [args for _, _, args in chain.plan("5", "5")] == [["citations", "run"]]
+    asked = [args for _, step, args in chain.plan(backlog=True) if step.label == "match-crossref"]
+    assert asked[0][-1] == "--backlog" and "--backlog" not in [args for _, step, args in chain.plan() if step.label == "match-crossref"][0]
     with pytest.raises(SystemExit):
         chain.plan("release", "build")
     with pytest.raises(SystemExit):

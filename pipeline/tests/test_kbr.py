@@ -129,3 +129,35 @@ def test_no_name_after_its_bearer_died():
 def test_name_class_dates():
     assert Name("Duquet", "Frans", 1922, 2013).dates == "1922-2013"
     assert Name("Duquet", "Frans").dates is None
+
+
+def test_a_title_kept_apart_from_its_subtitle_matches_on_the_title():
+    from bhb.kbr import Book, match
+
+    record = _book(title="Nachten op zee", family="Serie", given="E.", year=1994)
+    record.subtitle = "Een boeiende schets van de kustvisserij"
+    book = Book(number="1", title="Nachten op zee : een stukje Vlaamse kustvisserij", creators=["Serie, Eddy"], publishers=[], isbn=[], shelf_year=1994)
+    matches, _ = match([record], [book])
+    assert [found.number for found in matches] == ["1"]
+
+
+def test_an_isbn_that_came_from_kbr_does_not_confirm_itself():
+    from bhb.kbr import Book, match
+
+    record = _book(isbn=("9789012345678",))
+    record.identifiers_from["isbn"] = "kbr"
+    book = Book(number="2", title="Een heel ander boek", creators=["Anders, Jan"], publishers=[], isbn=["9789012345678"], shelf_year=1995)
+    assert match([record], [book])[0] == []
+    record.identifiers_from["isbn"] = "crossref"
+    assert [found.number for found in match([record], [book])[0]] == ["2"]
+
+
+def test_a_match_on_the_site_is_kept_while_its_title_fits():
+    from bhb.kbr import keep_previous
+
+    row = {"id": "bhb:1990-1", "chapters": "", "kbr": "7", "isbn": "", "basis": "publisher", "shelf_year": "1995", "year": "1995",
+           "ours": "Vilvoorde in de Tweede Wereldoorlog", "theirs": "x", "creators": ""}
+    kept = keep_previous([], [row], [_book()])
+    assert [found.number for found in kept] == ["7"]
+    assert keep_previous([], [row], [_book(title="Een andere titel over een ander onderwerp")]) == []
+    assert keep_previous(kept, [row], [_book()]) == []  # the new matching has one
