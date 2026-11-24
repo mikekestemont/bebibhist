@@ -364,7 +364,7 @@
     if (stay) {
       history.pushState(null, "", `#${hash}`);
       readRoute();
-      void refresh();
+      void show();
       window.scrollTo(0, y);
       return;
     }
@@ -380,6 +380,21 @@
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
     return Object.keys(filters).length ? filters : undefined;
+  }
+
+  /** Shows the address; a search that could not be loaded says so (it was the hourglass for good, or a list with parts
+   * missing). */
+  async function show() {
+    const run = refreshTicket + 1;
+    missing = false;
+    try {
+      await refresh();
+    } catch (error) {
+      console.error("Search not loaded", error);
+      if (run !== refreshTicket) return;
+      missing = true;
+      loading = false;
+    }
   }
 
   // Counts up with every refresh: a search that is no longer the address's (another began meanwhile) is dropped, so
@@ -1209,7 +1224,7 @@
     const onHash = () => {
       menuOpen = false;
       readRoute();
-      void refresh();
+      void show();
     };
     window.addEventListener("hashchange", onHash);
     window.addEventListener("popstate", onHash);
