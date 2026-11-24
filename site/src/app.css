@@ -907,6 +907,10 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .did-you-mean { font-size: 16px; margin: 0.2rem 0 0.8rem; }
 
 /* Map prototype */
+/* As wide as the search page, so the map is broader than the text pages; on a low window no wider than lets the whole
+   map (800 by 669) be seen without scrolling much, and never narrower than it was. */
+.wrap.map-page { width: 100%; max-width: min(84rem, max(68rem, 122vh)); }
+.map-page .similar-note { max-width: 62rem; }
 .map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1.5rem; align-items: start; }
 .map-frame { position: relative; }
 .map { width: 100%; height: auto; display: block; background: #eef3f6; border: 1px solid #e3e4e6; cursor: grab; touch-action: none; }
@@ -946,7 +950,21 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .padlock { vertical-align: -1px; }
 .padlock path, .padlock circle { fill: none; stroke: #d9690b; stroke-width: 10; }
 .padlock .keyhole { fill: #d9690b; stroke: none; }
-.open-access { margin-left: 0.4rem; cursor: help; white-space: nowrap; }
+/* The padding makes the 9-pixel padlock easier to point at without moving the line. */
+.open-access { margin-left: 0.15rem; padding: 0.3rem 0.25rem; white-space: nowrap; }
+.tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 19rem;
+  padding: 0.4rem 0.6rem;
+  background: #2f4430;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  pointer-events: none;
+}
 .tag-free .padlock { margin-right: 0.3rem; }
 /* A hit found only through its title's machine translation (search only). */
 .via-translation { display: block; margin-top: 0.15rem; font-size: 13px; font-style: italic; color: #5c6166; }
@@ -957,7 +975,6 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   font-size: 13px;
   padding: 0 0.4rem;
   vertical-align: 1px;
-  cursor: help;
 }
 
 /* Map of subjects (TopicMap.svelte): the map fills the width of the window and most of its height. */
