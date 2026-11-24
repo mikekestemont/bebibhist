@@ -219,3 +219,31 @@ def test_a_title_set_with_a_full_stop_is_not_read_as_abbreviated():
     vieux = Counter({"Bull. Soc. R. Le Vieux-Liège": 40})
     assert _abbreviated("Bull. Soc. R. Le Vieux-Liège", vieux)
     assert not _abbreviated("Faro / Tijdschrift over cultureel erfgoed", faro)
+
+
+def _host_article(n, host):
+    from bhb.model import Host, Record
+
+    return Record(id=f"bhb:2000-{n}", source="print-straive", bgb_year=2000, type="article", title=f"Titel {n}",
+                  host=Host(title=host))
+
+
+def test_a_journal_title_plus_a_place_joins_the_journal_and_a_previous_spelling_keeps_its_journal(tmp_path):
+    import csv
+
+    from bhb.journals import apply_journals
+
+    records = [_host_article(n, "Molenecho’s") for n in range(20)] + [_host_article(100 + n, "Molenecho’s (Zulte)") for n in range(3)]
+    records += [_host_article(200 + n, "Curia Arduennae") for n in range(14)]
+    with (tmp_path / "journals.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["id", "title", "issn", "spellings", "articles"])
+        writer.writerow(["t:curia-arduennae", "Curia Arduennae", "", "1", "15"])
+    with (tmp_path / "journal_spellings.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["spelling", "journal", "rule", "articles"])
+        writer.writerow(["curia arduennae", "t:curia-arduennae", "full", "15"])
+    apply_journals(records, tmp_path)
+    assert records[0].journal_id and records[20].journal_id == records[0].journal_id
+    assert records[-1].journal_id == "t:curia-arduennae"
+    assert "t:curia-arduennae" in (tmp_path / "journals.csv").read_text(encoding="utf-8")

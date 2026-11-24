@@ -235,3 +235,16 @@ def test_titles_that_agree_as_well_are_decided_by_the_pages():
     second = record("bhb:vs-1209109", "vsmart", "De Kajotters van Kwaadmechelen, dl. 2", "38-40")
     link_print_to_catalogue([printed, first, second])
     assert printed.duplicate_of == "bhb:vs-1209109"
+
+
+def test_two_listings_whose_subtitle_was_read_once_into_the_title_are_one_publication():
+    from bhb.model import Person, Record
+
+    def book(id, year, title, subtitle=None):
+        return Record(id=id, source="print-pdf", bgb_year=year, type="book", title=title, subtitle=subtitle, year=2008,
+                      persons=[Person("Jappens", "Jan", "author")])
+
+    a = book("bhb:2008-63504", 2008, "Spraakmakende stomme films uit Machelen", "de Belga Films van Hippoliet De Kempeneer")
+    b = book("bhb:2008-63518", 2008, "Spraakmakende stomme films uit Machelen de Belga Films van Hippoliet De Kempeneer")
+    link_duplicates([a, b])
+    assert {a.duplicate_of, b.duplicate_of} - {None} in ({"bhb:2008-63504"}, {"bhb:2008-63518"})

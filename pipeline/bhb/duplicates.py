@@ -30,11 +30,15 @@ from bhb.textutil import fold
 _DIGITS = re.compile(r"\d+")
 
 
-def _key(record) -> tuple | None:
+def _key(record, with_subtitle: bool = False) -> tuple | None:
+    """The publication's key; ``with_subtitle`` folds the subtitle into the title, so that two listings whose
+    subtitle the citation pass read once as part of the title still meet ("Spraakmakende stomme films uit
+    Machelen" with and without "de Belga Films" as its subtitle)."""
     if record.role != "entry" or record.is_cross_listing or not record.year or not record.title:
         return None
     authors = [person.family for person in record.persons if person.role == "author" and person.family]
-    title = " ".join(re.findall(r"[a-z0-9]+", fold(record.title)))
+    text = f"{record.title} {record.subtitle or ''}" if with_subtitle else record.title
+    title = " ".join(re.findall(r"[a-z0-9]+", fold(text)))
     if not authors or len(title) < 15:
         return None
     kind = "book" if record.type in ("book", "journal-issue") else record.type
@@ -60,16 +64,40 @@ def _richness(record) -> tuple:
 
 def link_duplicates(records) -> dict[str, int]:
     """Set ``duplicate_of`` on every listing but one of the same publication, in one volume or in several."""
-    groups: dict[tuple, list] = defaultdict(list)
+    # Listings that share the title key or the key of title and subtitle together are one publication.
+    parent: dict[str, str] = {}
+
+    def root(rid: str) -> str:
+        parent.setdefault(rid, rid)
+        while parent[rid] != rid:
+            parent[rid] = parent[parent[rid]]
+            rid = parent[rid]
+        return rid
+
+    first: dict[tuple, str] = {}
+    keys: dict[str, tuple] = {}
+    by_id = {}
     for record in records:
         record.duplicate_of = None
-        key = _key(record)
-        if key is not None:
-            groups[key].append(record)
+        for with_subtitle in (False, True):
+            key = _key(record, with_subtitle)
+            if key is None:
+                continue
+            by_id[record.id] = record
+            keys.setdefault(record.id, key)
+            if key in first:
+                parent[root(record.id)] = root(first[key])
+            else:
+                first[key] = record.id
+                root(record.id)
+    groups: dict[str, list] = defaultdict(list)
+    for rid in by_id:
+        groups[root(rid)].append(by_id[rid])
     counts: Counter[str] = Counter()
-    for key, group in groups.items():
+    for group in groups.values():
         if len(group) < 2:
             continue
+        key = keys[group[0].id]
         # A printed entry of 2009–2017 and the catalogue's record of it: the catalogue's is kept, as in
         # ``link_print_to_catalogue``.
         paired = any(_printed_catalogue_year(record) for record in group)
