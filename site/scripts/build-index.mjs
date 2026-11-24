@@ -6,6 +6,7 @@ import readline from "node:readline";
 import { createIndex, close } from "pagefind";
 
 import { keyWord, nameWords, personWord } from "../src/lib/words.js";
+import { writeSortFiles } from "./sort-files.mjs";
 
 const CROSS_REF =
   /\s*\[?\s*(?:cfr|voir|zie)\.?\s+n(?:°|º|o|r)\.?\s*(?:\d{2,6}(?:\s*(?:bis|ter|quater))?(?:\s*[,;]\s*|\s+(?:et|en|and)\s+)?)+\]?/gi;
@@ -233,6 +234,7 @@ const written = await index.writeFiles({ outputPath: stagingPath });
 if (written.errors?.length) console.error(written.errors.join("\n"));
 await close();
 await writeRecordFiles(stagingPath, indexed);
+console.log(await writeSortFiles(stagingPath));
 await rm(previousPath, { recursive: true, force: true });
 try {
   await rename(outputPath, previousPath);

@@ -2,7 +2,7 @@
 // and the filters, the sort order and the filter counts are computed from the same index files (facets.ts). Used by the worker (pagefind-worker.ts), and on
 // the page's thread where a browser has no module workers (search.ts). Pagefind must not load a filter file, or it
 // counts that filter on every later search: no search it gets names a filter, and ``filters()`` is never called.
-import { countPages, filterPages, readFilter, readMeta, sortPages, type FilterCounts, type Filters, type FilterValues, type IndexMeta, type Sort } from "./facets.ts";
+import { countPages, filterPages, readFilter, readMeta, readRank, sortPages, type FilterCounts, type Filters, type FilterValues, type IndexMeta, type Sort } from "./facets.ts";
 import { averageWords, loadable, matchTerms, mayHold, preloads, rankPages, readChunk, SLOW, taggedWords, type Ranking } from "./ranking.ts";
 
 export interface SearchOptions {
@@ -35,7 +35,7 @@ export interface Searcher {
    * other boxes would add.
    */
   counts: (search: number) => Promise<FilterCounts | null>;
-  /** Reads the filters in advance: the first counts, and the first search that narrows or sorts, wait for them. */
+  /** Reads the filters in advance: the first counts, and the first search that narrows, wait for them. */
   warm: () => Promise<void>;
 }
 
@@ -50,6 +50,7 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
   let table: Promise<Uint8Array> | null = null;
   let meta: Promise<IndexMeta> | null = null;
   const filterValues = new Map<string, Promise<FilterValues>>();
+  const ranks = new Map<string, Promise<Uint32Array>>();
   // A search's ranked ids (null: every record), before its filters.
   const kept = new Map<number, { ranked: string[] | null; filters: Filters }>();
   let last = 0;
@@ -69,7 +70,7 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
 
   let started: Promise<void> | null = null;
 
-  /** Pagefind reads the index's table (4 MB) too: it starts when that is in the browser's cache. */
+  /** Pagefind reads the index's table (1.6 MB) too: it starts when that is in the browser's cache. */
   function start(): Promise<void> {
     started ??= loadTable().then(() => {}, () => {}).then(() => pagefind.init());
     return started;
@@ -150,6 +151,19 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
     return new Map(wanted.map((name, index) => [name, loaded[index]]));
   }
 
+  /** The place of each page in the order of a sort key. */
+  function loadRank(key: string): Promise<Uint32Array> {
+    if (!ranks.has(key)) {
+      // After the table, which everything waits for and which it would slow down; the words are ranked meanwhile.
+      const loading = loadMeta().then(async ({ wordCounts }) =>
+        readRank(await gunzip(await load(`${basePath}sort/${await indexName()}.${key}.bin`)), wordCounts.length));
+      // A file that could not be read is asked for again next time.
+      loading.catch(() => ranks.delete(key));
+      ranks.set(key, loading);
+    }
+    return ranks.get(key)!;
+  }
+
   /** The page numbers of ranked ids, or of every record. */
   async function pagesOf(ranked: string[] | null): Promise<Uint32Array> {
     const { wordCounts, numbers } = await loadMeta();
@@ -178,9 +192,11 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
     },
     async search(query, options = {}) {
       const filters = options.filters || {};
+      const [key, direction] = Object.entries(options.sort || {})[0] || [];
       // Read while Pagefind ranks.
-      const narrows = Object.keys(filters).length > 0 || Boolean(options.sort);
+      const narrows = Object.keys(filters).length > 0 || Boolean(key);
       if (narrows) loadFilters(Object.keys(filters)).catch(() => {});
+      if (key) loadRank(key).catch(() => {});
       const ranked = query === null ? null : await rank(query);
       const search = (last += 1);
       kept.set(search, { ranked, filters });
@@ -188,9 +204,8 @@ export function createSearcher(pagefind: PagefindModule, basePath: string, { slo
       // The ranked list needs nothing more: a first search does not wait for the filters.
       if (ranked && !narrows) return { ids: ranked, search };
       const pages = await narrowed(await pagesOf(ranked), filters);
-      const { ids, ranks } = await loadMeta();
-      const ordered = options.sort ? sortPages(pages, options.sort, ranks()) : pages;
-      const all = ids();
+      const ordered = key ? sortPages(pages, direction, await loadRank(key)) : pages;
+      const all = (await loadMeta()).ids();
       return { ids: Array.from(ordered, (page) => all[page]), search };
     },
     async counts(search) {

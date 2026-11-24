@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterEach, test } from "node:test";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
-import { countPages, filterPages, readFilter, readMeta, sortPages } from "../src/lib/facets.ts";
+import { splitTable, writeSortFiles } from "../scripts/sort-files.mjs";
+import { countPages, filterPages, readFilter, readMeta, readRank, sortPages } from "../src/lib/facets.ts";
 import { createSearcher, type PagefindModule } from "../src/lib/searcher.ts";
 
 /** The CBOR of Pagefind's files: lists, texts and whole numbers. */
@@ -21,12 +25,15 @@ function cbor(value: unknown): number[] {
   return [...head(4, list.length), ...list.flatMap(cbor)];
 }
 
-// Five records: 0 and 3 are medieval, 1 is both; 4 has no language; "order" lacks record 2.
+// Five records: 0 and 3 are medieval, 1 is both; 4 has no language; "order" lacks record 2. META is the table as Pagefind
+// writes it, before its sort orders are taken out.
 const IDS = ["und_aaaaaaa", "und_bbbbbbb", "und_ccccccc", "und_ddddddd", "und_eeeeeeee"];
 const META = ["1.4.0", IDS.map((id, index) => [id, 100000 + index]), [["aw_abbaye", "aw_béguin", "und_1"], ["aw_bibliothekenp", "aw_biblioth", "und_2"], ["aw_bibliotu", "zz", "und_3"]],
   [["period", "und_p"], ["language", "und_l"], ["pubyear", "und_y"]], [["order", [3, 1, 4, 0]]]];
+const { table: TABLE, orders: ORDERS } = splitTable(Uint8Array.from(cbor(META)));
 const FILES: Record<string, unknown> = {
-  "pagefind.und_x.pf_meta": META,
+  "pagefind.und_x.pf_meta": TABLE,
+  "sort/und_x.order.bin": ORDERS.get("order"),
   "index/und_1.pf_index": [[["aw_abbaye_", [[0, [1]], [1, [1]], [4, [1]]]], ["aw_abbayes_", [[2, [1]]]]]],
   "index/und_2.pf_index": [[["aw_bibliotheque_", [[1, [1]], [3, [1]]]]]],
   "index/und_3.pf_index": [[["aw_bibliotheques_", [[0, [1]]]]]],
@@ -34,11 +41,11 @@ const FILES: Record<string, unknown> = {
   "filter/und_l.pf_filter": ["language", [["nl", [0, 1]], ["fr", [2, 3]]]],
   "filter/und_y.pf_filter": ["pubyear", [["1990", [0, 2]], ["1991", [1]], ["2021", [3, 4]]]],
 };
-const bytes = (name: string) => Uint8Array.from(cbor(FILES[name]));
+const bytes = (name: string) => (FILES[name] instanceof Uint8Array ? FILES[name] : Uint8Array.from(cbor(FILES[name])));
 const VALUES = new Map([["period", "und_p"], ["language", "und_l"], ["pubyear", "und_y"]].map(([name, file]) => [name, readFilter(bytes(`filter/${file}.pf_filter`))] as const));
 const pages = (...list: number[]) => Uint32Array.from(list);
 
-test("the index files are read: ids, filter files, sort orders, values", () => {
+test("the index files are read: ids, filter files, values", () => {
   const meta = readMeta(bytes("pagefind.und_x.pf_meta"));
   assert.deepEqual(meta.ids(), IDS);
   assert.equal(meta.numbers().get(IDS[3]), 3);
@@ -49,7 +56,6 @@ test("the index files are read: ids, filter files, sort orders, values", () => {
     { from: "aw_bibliotu", to: "zz", until: "~", file: "und_3" },
   ]);
   assert.deepEqual([...meta.filterFiles], [["period", "und_p"], ["language", "und_l"], ["pubyear", "und_y"]]);
-  assert.deepEqual([...meta.ranks().get("order")!].map((rank) => (rank > 10 ? null : rank)), [3, 1, null, 0, 2]);
   assert.deepEqual([...VALUES.get("period")!.get("medieval")!], [0, 1, 3]);
   const far = readFilter(Uint8Array.from(cbor(["f", [["v", [23, 24, 255, 256, 65535, 65536, 241716]]]])));
   assert.deepEqual([...far.get("v")!], [23, 24, 255, 256, 65535, 65536, 241716]);
@@ -69,11 +75,49 @@ test("filters: a list asks for every value, any for one of them, an unknown one 
   assert.deepEqual(keep({}), [4, 3, 2, 1, 0]);
 });
 
+test("the sort orders are taken out of the table, with their keys", () => {
+  assert.deepEqual([...TABLE], cbor([...META.slice(0, 4), []]));
+  assert.deepEqual([...readRank(ORDERS.get("order")!, 5)].map((rank) => (rank > 10 ? null : rank)), [3, 1, null, 0, 2]);
+  assert.throws(() => splitTable(TABLE), /no sort orders/);
+  const far = [241716, 0, 65536, 255, 65535, 256];
+  const { orders } = splitTable(Uint8Array.from(cbor(["1.4.0", [], [], [], [["year", [1, 0]], ["title", far]]])));
+  assert.deepEqual([...orders.keys()], ["year", "title"]);
+  const rank = readRank(orders.get("title")!, 241717);
+  assert.deepEqual(far.map((page) => rank[page]), [0, 1, 2, 3, 4, 5]);
+  assert.equal(rank.filter((place) => place < far.length).length, far.length);
+});
+
+test("the files of the sort orders are named after the table, and a change in either renames both", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "bhb-sort-"));
+  const stored = (value: unknown) => gzipSync(Buffer.concat([Buffer.from("pagefind_dcd"), Uint8Array.from(cbor(value))]));
+  const named = async (value: unknown, entry: string) => {
+    for (const name of await readdir(dir)) await rm(path.join(dir, name), { recursive: true });
+    await writeFile(path.join(dir, "pagefind.und_old.pf_meta"), stored(value));
+    await writeFile(path.join(dir, "pagefind-entry.json"), entry);
+    await writeSortFiles(dir);
+    const [table, ...others] = (await readdir(dir)).filter((name) => name.endsWith(".pf_meta"));
+    assert.deepEqual(others, []);
+    return table.slice("pagefind.".length, -".pf_meta".length);
+  };
+  const entry = JSON.stringify({ version: "1.4.0", languages: { und: { hash: "und_old", wasm: null, page_count: 5 } } });
+  const name = await named(META, entry);
+  assert.match(name, /^und_[0-9a-f]{11}$/);
+  assert.equal(await readFile(path.join(dir, "pagefind-entry.json"), "utf8"), entry.replace("und_old", name));
+  assert.deepEqual(gunzipSync(await readFile(path.join(dir, `pagefind.${name}.pf_meta`))), Buffer.concat([Buffer.from("pagefind_dcd"), TABLE]));
+  assert.deepEqual(await readdir(path.join(dir, "sort")), [`${name}.order.bin`]);
+  assert.deepEqual(gunzipSync(await readFile(path.join(dir, "sort", `${name}.order.bin`))), ORDERS.get("order"));
+  // Pagefind's empty entry is left for the build to write.
+  assert.equal(await named(META, ""), name);
+  assert.equal(await readFile(path.join(dir, "pagefind-entry.json"), "utf8"), "");
+  assert.notEqual(await named([...META.slice(0, 4), [["order", [1, 3, 4, 0]]]], entry), name);
+  await assert.rejects(named(META, entry.replace("und_old", "und_other")), /does not name und_old/);
+  await rm(dir, { recursive: true });
+});
+
 test("sort orders run both ways and leave out records without the key", () => {
-  const ranks = readMeta(bytes("pagefind.und_x.pf_meta")).ranks();
-  assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), { order: "asc" }, ranks)], [3, 1, 4, 0]);
-  assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), { order: "desc" }, ranks)], [0, 4, 1, 3]);
-  assert.deepEqual([...sortPages(pages(2, 0), { other: "asc" }, ranks)], [2, 0]);
+  const rank = readRank(ORDERS.get("order")!, 5);
+  assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), "asc", rank)], [3, 1, 4, 0]);
+  assert.deepEqual([...sortPages(pages(0, 1, 2, 3, 4), "desc", rank)], [0, 4, 1, 3]);
 });
 
 test("counts hold every value, those of no hit as zero", () => {
@@ -94,7 +138,7 @@ function searcherOver(ranked: string[]) {
     const name = String(url).replace("/base/", "").replace(/\?.*/, "");
     asked.push(name);
     if (name === "pagefind-entry.json") return new Response(JSON.stringify({ languages: { und: { hash: "und_x" } } }));
-    const signed = [...new TextEncoder().encode("pagefind_dcd"), ...bytes(name)];
+    const signed = [...(name.startsWith("sort/") ? [] : new TextEncoder().encode("pagefind_dcd")), ...bytes(name)];
     // One file as a server sends it that unpacked it already.
     return new Response(name.includes("und_l") ? Uint8Array.from(signed) : gzipSync(Uint8Array.from(signed)));
   }) as typeof fetch;
@@ -125,6 +169,30 @@ test("a ranked list waits for no filter, and Pagefind is never asked to filter o
   assert.ok(calls.every((args) => args.length === 1));
   // Each file of the index is read once.
   assert.equal(new Set(asked).size, asked.length);
+});
+
+test("only a sorted list reads its sort order, once", async () => {
+  const { searcher, asked } = searcherOver([IDS[4], IDS[2], IDS[1], IDS[0]]);
+  await searcher.init({});
+  const orders = () => asked.filter((name) => name.startsWith("sort/"));
+  await searcher.search("aw_abbaye", { filters: { period: ["contemporary"] } });
+  await searcher.search(null);
+  await searcher.warm();
+  assert.deepEqual(orders(), []);
+  assert.deepEqual((await searcher.search("aw_abbaye", { sort: { order: "asc" } })).ids, [IDS[1], IDS[4], IDS[0]]);
+  assert.deepEqual((await searcher.search(null, { sort: { order: "desc" } })).ids, [IDS[0], IDS[4], IDS[1], IDS[3]]);
+  assert.deepEqual(orders(), ["sort/und_x.order.bin"]);
+});
+
+test("a sort order that could not be read is asked again next time, and the list waits for it", async () => {
+  const { searcher, asked } = searcherOver([IDS[0], IDS[1]]);
+  const answering = globalThis.fetch;
+  globalThis.fetch = (async (url: string) => (String(url).includes("/sort/") ? new Response("", { status: 503 }) : answering(url))) as typeof fetch;
+  await searcher.init({});
+  await assert.rejects(searcher.search("aw_abbaye", { sort: { order: "asc" } }), /503/);
+  globalThis.fetch = answering;
+  assert.deepEqual((await searcher.search("aw_abbaye", { sort: { order: "asc" } })).ids, [IDS[1], IDS[0]]);
+  assert.equal(asked.filter((name) => name.startsWith("sort/")).length, 1);
 });
 
 test("every longer word is found, through a file Pagefind cannot load too", async () => {

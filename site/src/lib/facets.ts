@@ -18,7 +18,7 @@ export type FilterCounts = Record<string, Record<string, number>>;
 /** Filter value → the numbers of its pages (records), as a filter file lists them. */
 export type FilterValues = Map<string, Uint32Array>;
 
-/** What is not needed by every search (ids, numbers, ranks) is read when it is first asked. */
+/** What is not needed by every search (ids, numbers) is read when it is first asked. */
 export interface IndexMeta {
   /** The number of words of each page (record), by its number: the order in which the records were indexed. */
   wordCounts: Uint32Array;
@@ -29,8 +29,8 @@ export interface IndexMeta {
   ids: () => string[];
   /** Id → page number. */
   numbers: () => Map<string, number>;
-  /** Sort key → the place of each page in that order (by page number); ``UNSORTED`` for a page without the key. */
-  ranks: () => Map<string, Uint32Array>;
+  /** Where the list of sort orders begins, for the script that makes them files of their own (scripts/sort-files.mjs). */
+  sortsAt: number;
 }
 
 const UNSORTED = 0xffffffff;
@@ -42,7 +42,8 @@ function once<T>(make: () => T): () => T {
   return () => (made ??= make());
 }
 
-/** pagefind.*.pf_meta: [version, [[id, words]], [[from, to, file]], [[filter, file]], [[sort key, [page]]]]. */
+/** pagefind.*.pf_meta: [version, [[id, words]], [[from, to, file]], [[filter, file]], [[sort key, [page]]]], the last of
+ * them an empty list, since the orders are files of their own (``readRank``). */
 export function readMeta(bytes: Uint8Array): IndexMeta {
   const reader = new Reader(bytes);
   reader.list();
@@ -65,7 +66,7 @@ export function readMeta(bytes: Uint8Array): IndexMeta {
     const name = reader.text();
     filterFiles.set(name, reader.text());
   }
-  const ranksAt = reader.at;
+  const sortsAt = reader.at;
   const ids = once(() => {
     const again = new Reader(bytes, idsAt);
     return Array.from({ length: again.list() }, () => {
@@ -81,18 +82,7 @@ export function readMeta(bytes: Uint8Array): IndexMeta {
     filterFiles,
     ids,
     numbers: once(() => new Map(ids().map((id, number) => [id, number]))),
-    ranks: once(() => {
-      const again = new Reader(bytes, ranksAt);
-      const ranks = new Map<string, Uint32Array>();
-      for (let left = again.list(); left > 0; left -= 1) {
-        again.list();
-        const key = again.text();
-        const rank = new Uint32Array(wordCounts.length).fill(UNSORTED);
-        again.numbers().forEach((page, place) => { rank[page] = place; });
-        ranks.set(key, rank);
-      }
-      return ranks;
-    }),
+    sortsAt,
   };
 }
 
@@ -108,6 +98,17 @@ export function readFilter(bytes: Uint8Array): FilterValues {
     values.set(value, reader.numbers());
   }
   return values;
+}
+
+/** sort/*.bin: the pages in the order of a sort key, three bytes each, the highest byte of all of them first. Gives the
+ * place of each page in that order (by page number); ``UNSORTED`` for a page without the key. */
+export function readRank(bytes: Uint8Array, total: number): Uint32Array {
+  const rank = new Uint32Array(total).fill(UNSORTED);
+  const count = bytes.length / 3;
+  for (let place = 0; place < count; place += 1) {
+    rank[(bytes[place] << 16) | (bytes[count + place] << 8) | bytes[2 * count + place]] = place;
+  }
+  return rank;
 }
 
 /** ``pages`` that pass ``filters``, in their order. A filter or a value the index does not have keeps no page. */
@@ -127,11 +128,8 @@ export function filterPages(pages: Uint32Array, filters: Filters, values: Map<st
   return pages.filter((page) => met[page] === conditions);
 }
 
-/** ``pages`` in the order of a sort key; pages without the key are left out, and an unknown key changes nothing. */
-export function sortPages(pages: Uint32Array, sort: Sort, ranks: Map<string, Uint32Array>): Uint32Array {
-  const [key, direction] = Object.entries(sort)[0] || [];
-  const rank = key ? ranks.get(key) : undefined;
-  if (!rank) return pages;
+/** ``pages`` in the order of a sort key (``readRank``); pages without the key are left out. */
+export function sortPages(pages: Uint32Array, direction: "asc" | "desc", rank: Uint32Array): Uint32Array {
   const sign = direction === "asc" ? 1 : -1;
   return pages.filter((page) => rank[page] !== UNSORTED).sort((a, b) => sign * (rank[a] - rank[b]));
 }
