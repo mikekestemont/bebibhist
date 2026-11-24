@@ -195,7 +195,7 @@ main .search { margin: 1.6rem 0; }
 }
 
 .within { margin: 0 0 0.95rem; }
-.translations-switch { display: flex; align-items: center; gap: 0.4rem; margin: -0.5rem 0 0.95rem; font-size: 14px; color: #5c6166; }
+.translations-switch, .whole-words-switch { display: inline-flex; align-items: center; gap: 0.4rem; margin: -0.5rem 1.4rem 0.95rem 0; font-size: 14px; color: #5c6166; }
 
 .within input {
   width: min(24rem, 100%);
@@ -1088,7 +1088,7 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
   .waiting .hourglass { animation: none; }
 }
 
-/* How a search matched: whole words or prefixes, a place's index, a name's particles and spellings. */
+/* How a search matched: a place's index, a name's particles and spellings. */
 .match-notes { color: #4a4d52; font-size: 15px; margin: 0.1rem 0 1rem; }
 .match-notes p { margin: 0 0 0.35rem; }
 .match-notes .note { color: #6b6e73; font-size: 14px; }
@@ -1099,5 +1099,3 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 .also-listed p { font-size: 15px; margin: 0 0 0.4rem; color: #4a4d52; }
 .also-where { color: #6b6e73; font-variant-numeric: tabular-nums; margin-right: 0.3rem; }
 .also-listed .also-note { color: #6b6e73; font-size: 14px; }
-/* Where the entries found only through longer words begin. */
-.tier-divider { margin: 1.2rem 0 0.6rem; padding-top: 0.6rem; border-top: 1px solid #e3e4e6; color: #6b6e73; font-size: 14px; }

@@ -328,14 +328,9 @@
   "fromOpenLibrary": "Trouvé automatiquement dans Open Library, d’après le titre, l’auteur et l’année ; seule une œuvre n’ayant qu’une édition est retenue. Non vérifié à la main.",
   "placeIndexLink": "{place} dans l’index des lieux : {n} publications",
   "placeIndexWhy": "L’index des lieux donne les publications qui portent sur le lieu. Cette recherche dans le texte trouve toute notice qui contient le mot, aussi comme lieu d’édition ou dans le nom d’une revue.",
-  "andMore": "et {n} autres",
-  "wholeWords": "Mots entiers seulement. Non compris : {words}.",
-  "alsoLonger": "Inclure les mots plus longs",
   "wholeWordsOnly": "Mots entiers seulement",
   "searchAllText": "Chercher « {q} » dans tout le texte",
   "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
   "alsoListed": "Aussi ailleurs dans la Bibliographie",
-  "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie ou sous une autre rubrique du même volume, est réunie ici en une seule notice.",
-  "tierDivider": "Trouvés par des mots plus longs : {words}",
-  "longerNote": "Les mots qui commencent par ceux de la recherche sont trouvés aussi, après les notices qui ont le mot entier : {words}."
+  "alsoListedNote": "La même publication, imprimée à nouveau dans un autre volume de la Bibliographie ou sous une autre rubrique du même volume, est réunie ici en une seule notice."
 }

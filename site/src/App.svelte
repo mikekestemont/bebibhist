@@ -7,7 +7,7 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField, type SearchResponse } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, beginsLongerWords, queryWords, unknownWords, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField, type SearchResponse } from "./lib/search";
   import { tip } from "./lib/tip";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
@@ -484,7 +484,7 @@
       total = 0;
       counts = {};
       counted = null;
-      notices = { longer: [], variants: [], place: null };
+      notices = { variants: [], place: null };
       scope = "";
     }
     // Another page, order or page size of the same search: its counts stay (they are the same), but the list goes,
@@ -555,26 +555,25 @@
     }
     total = results.length;
     listed = results;
-    // The longer words of the index that the query's words begin, from the small word lists (no search), for the note.
+    // Whether the query's words begin longer words of the index, from the small word lists (no search).
     const words = askedText && !personName(askedText) ? contentQueryWords(askedText, field) : [];
     const tag = fieldTag(field, translations);
-    const longer = words.length ? await longerWords(words, tag) : [];
+    const longer = words.length > 0 && await beginsLongerWords(words, tag);
     if (!current()) return;
     scope = nextScope;
     const slice = results.slice((page - 1) * pageSize, page * pageSize);
     const loaded = await Promise.all(slice.map((item) => item.data()));
     if (!current()) return;
     hits = loaded;
-    // The hits shown that lack a word whole were found through a longer word: the line before them says so. The
-    // author hits come first, matched by the whole name, so the line never falls among them.
-    partialIds = new Set(longer.length ? loaded.filter((hit) => !authorIds.has(hit.meta.id) && !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
+    // The hits shown that lack a word whole were found through a longer word (no message says so: Mike, 24 Nov 2026).
+    partialIds = new Set(longer ? loaded.filter((hit) => !authorIds.has(hit.meta.id) && !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
     // Checked after the results are shown, so it never delays them.
     const spellingFor = askedText;
     spelling = [];
     if (askedText) spellingSuggestions(askedText, !wholeOnly).then((found) => {
       if (current() && spellingFor === [query, ...params.getAll("more")].map((part) => part.trim()).filter(Boolean).join(" ")) spelling = found;
     });
-    void searchNotices(askedText, field, hits, longer, current);
+    void searchNotices(askedText, field, hits, current);
     remember(hits);
     loading = false;
     void afterList(response, nextScope, results.slice(page * pageSize, page * pageSize + Math.min(pageSize, 50)), current);
@@ -624,15 +623,14 @@
   }
 
   /**
-   * What the result should say about how it matched (reviewer, 9 Nov 2026): the longer words a whole-word search
-   * left out ("bruggen" for Brugge) or a prefix search took in; an author's other spellings on the page; and, for
-   * a town's name, its publications in the place index, which the text search does not equal.
+   * What the result should say about how it matched (reviewer, 9 Nov 2026): an author's other spellings on the page;
+   * and, for a town's name, its publications in the place index, which the text search does not equal.
    */
-  type Notices = { longer: { word: string; longer: string[]; more: number }[]; variants: string[]; place: { key: string; name: string; n: number } | null };
-  let notices = $state<Notices>({ longer: [], variants: [], place: null });
+  type Notices = { variants: string[]; place: { key: string; name: string; n: number } | null };
+  let notices = $state<Notices>({ variants: [], place: null });
 
-  async function searchNotices(askedText: string, field: SearchField, shown: Hit[], longer: Notices["longer"], current: () => boolean) {
-    const next: Notices = { longer, variants: [], place: null };
+  async function searchNotices(askedText: string, field: SearchField, shown: Hit[], current: () => boolean) {
+    const next: Notices = { variants: [], place: null };
     if (field === "author" && askedText) next.variants = nameVariants(askedText, shown);
     if (field === "all" && askedText && !params.getAll("place").length) {
       await loadPlaces();
@@ -682,22 +680,6 @@
     return best;
   }
 
-  /** The same address with whole words only, or with the longer words after them (the default). */
-  function matchHref(wholeOnly: boolean): string {
-    const next = new URLSearchParams(params);
-    if (wholeOnly) next.set("match", "whole");
-    else next.delete("match");
-    next.delete("page");
-    return `#/search?${next.toString()}`;
-  }
-
-  /** The longer words per query word: “brugge” → bruggen, brugges … and 17 more. */
-  function longerList(): string {
-    return notices.longer
-      .map((item) => `“${item.word}” → ${item.longer.join(", ")}${item.more ? ` ${text.andMore.replace("{n}", item.more.toLocaleString(lang))}` : ""}`)
-      .join("; ");
-  }
-
   function allTextHref(): string {
     const next = new URLSearchParams(params);
     next.delete("field");
@@ -718,6 +700,15 @@
     const next = new URLSearchParams(params);
     if (on) next.delete("tr");
     else next.set("tr", "off");
+    next.delete("page");
+    if (!next.get("q") && query) next.set("q", query);
+    go("/search", next);
+  }
+
+  function setWholeOnly(on: boolean) {
+    const next = new URLSearchParams(params);
+    if (on) next.set("match", "whole");
+    else next.delete("match");
     next.delete("page");
     if (!next.get("q") && query) next.set("q", query);
     go("/search", next);
@@ -1254,18 +1245,10 @@
 </script>
 
 {#snippet matchNotes()}
-  {@const wholeOnly = params.get("match") === "whole"}
-  {#if notices.place || notices.longer.length || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
+  {#if notices.place || notices.variants.length || (searchField(fieldChoice) === "author" && query.trim() && !personName(query))}
     <div class="match-notes">
       {#if notices.place}
         <p><a href={placeHref(notices.place.key)}>{text.placeIndexLink.replace("{place}", placeLabel(notices.place.key, notices.place.name)).replace("{n}", notices.place.n.toLocaleString(lang))}</a> <span class="note">{text.placeIndexWhy}</span></p>
-      {/if}
-      {#if notices.longer.length}
-        {#if wholeOnly}
-          <p>{text.wholeWords.replace("{words}", longerList())} <a href={matchHref(false)}>{text.alsoLonger}</a></p>
-        {:else}
-          <p>{text.longerNote.replace("{words}", longerList())} <a href={matchHref(true)}>{text.wholeWordsOnly}</a></p>
-        {/if}
       {/if}
       {#if searchField(fieldChoice) === "author" && query.trim() && !personName(query)}
         <p><a href={allTextHref()}>{text.searchAllText.replace("{q}", query.trim())}</a></p>
@@ -1712,6 +1695,12 @@
           {text.searchTranslations}
         </label>
       {/if}
+      {#if query.trim()}
+        <label class="whole-words-switch">
+          <input type="checkbox" checked={params.get("match") === "whole"} onchange={(event) => setWholeOnly(event.currentTarget.checked)} />
+          {text.wholeWordsOnly}
+        </label>
+      {/if}
       {#if params.getAll("place").length}
         <ul class="chips refine">
           {#each params.getAll("place") as key (key)}
@@ -1762,12 +1751,7 @@
           {@render tools()}
         </div>
         {@render matchNotes()}
-        {@const firstPartial = hits.findIndex((hit) => partialIds.has(hit.meta.id))}
-        {#each hits as hit, index}
-          <!-- The entries found only through longer words follow those with every word whole. -->
-          {#if index === firstPartial}
-            <p class="tier-divider">{text.tierDivider.replace("{words}", longerList())}</p>
-          {/if}
+        {#each hits as hit}
           {@render resultRow(hit)}
         {/each}
         <div class="results-foot">{@render tools()}</div>
