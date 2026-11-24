@@ -987,17 +987,27 @@ def _letters(text: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", fold(text or ""))
 
 
-def _without_running_head(value):
+# The running head as the volumes print it in title case (2008–2017, the 2018 proof): an answer made before the reader
+# took it out of an entry still carries it, mostly as a note (232 answers, rebuild of 24 Nov 2026).
+_TITLE_HEAD = re.compile(r"\s*(?:Bibliographie de l['’]Histoire de Belgique|Bibliografie van de Geschiedenis van België)\s*")
+
+
+def _without_running_head(value, printed: str | None = None):
     """An answer with the volume's running head taken out of its texts: the model copied it from entries that cross a
-    page in the PDF volumes of 2010–2017 and the 2018 proof (``strip_running_head``)."""
+    page in the PDF volumes of 2010–2017 and the 2018 proof (``strip_running_head``). Given the entry's printed text,
+    the head in title case goes too when that text no longer prints it; the yearly bibliographies of that title print
+    it, and keep it."""
     from bhb.ingest.pdf_volume import strip_running_head
 
     if isinstance(value, str):
-        return strip_running_head(value)
+        value = strip_running_head(value)
+        if value and printed is not None and _TITLE_HEAD.search(value) and not _TITLE_HEAD.search(printed):
+            value = _TITLE_HEAD.sub(" ", value).strip() or None
+        return value
     if isinstance(value, list):
-        return [_without_running_head(item) for item in value]
+        return [_without_running_head(item, printed) for item in value]
     if isinstance(value, dict):
-        return {key: _without_running_head(item) for key, item in value.items()}
+        return {key: _without_running_head(item, printed) for key, item in value.items()}
     return value
 
 
@@ -1132,7 +1142,7 @@ def apply_answer(record, item: dict, contributors: frozenset[str] = frozenset(),
     the language stay; the model's OCR fixes are not applied to the text (``apply_citations`` keeps them for search)."""
     from bhb.model import Host, Person, Series
 
-    answer = _without_running_head(item["answer"])
+    answer = _without_running_head(item["answer"], record.printed or "")
     flags = record.provenance.flags
     if record.printed and not answer_fits(answer, record.printed):
         if "llm-answer-refused" not in flags:

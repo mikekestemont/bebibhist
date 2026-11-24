@@ -64,3 +64,15 @@ def test_an_order_row_moves_the_people_only():
     assert record.persons[0].given == "Wouter" and record.printed.startswith("Kestemont (Mike)")
     assert "corrected-order" in record.provenance.flags
     assert apply_corrections([record], [row], again=True) == 0
+
+
+def test_the_citation_pass_fixes_are_loaded_and_well_formed():
+    from bhb.corrections import citation_pass_corrections_path, load_corrections
+
+    rows = load_corrections(citation_pass_corrections_path())
+    assert len(rows) > 1000
+    # Not checked against the scans: the printed citation stays as printed (kind print), only the fields are corrected.
+    assert {row["kind"] for row in rows} == {"print"}
+    assert all(row["checked_by"].startswith("machine") and row["right"] == row["right"].strip() for row in rows)
+    assert len({(row["id"], row["wrong"]) for row in rows}) == len(rows)
+    assert all(row in load_corrections() for row in rows[:5])

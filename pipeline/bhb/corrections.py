@@ -51,11 +51,19 @@ def name_corrections_path() -> Path:
     return repo_root() / "data" / "curated" / "ocr_names.csv"
 
 
+def citation_pass_corrections_path() -> Path:
+    """The citation pass's OCR fixes (``ocr_fixes``), kept by the word-count rule (``checked_ocr_fixes``) and read in
+    their printed context by Claude on 24 Nov 2026 (1,267 of 1,485 kept), not checked against the scans: kind ``print``,
+    so the parsed fields are corrected and the printed citation stays as printed (a misspelling may be the volume's
+    own: "Rottterdam", "Massachusets")."""
+    return repo_root() / "data" / "curated" / "ocr_citation_pass.csv"
+
+
 def load_corrections(path: Path | None = None) -> list[dict[str, str]]:
     """The hand corrections, then the machine-found ones; or the rows of one file."""
     if path is None:
         return (load_corrections(corrections_path()) + load_corrections(machine_corrections_path())
-                + load_corrections(name_corrections_path()))
+                + load_corrections(name_corrections_path()) + load_corrections(citation_pass_corrections_path()))
     if not path.is_file():
         return []
     with path.open(encoding="utf-8", newline="") as handle:

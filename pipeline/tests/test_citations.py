@@ -355,3 +355,14 @@ def test_a_word_the_model_changed_silently_is_put_back_unless_it_corrects_a_misr
     assert restore_printed_words("Prestige de l’armurerie portugaise", printed, words) == ("Prestige de l’armurerie portugaise", 0)
     assert restore_printed_words("Tourtnai et Mons", printed, words) == ("Tournai et Mons", 1)
     assert restore_printed_words("Tourtnai", printed, words) == ("Tourtnai", 0)  # no neighbour to place it by
+
+
+def test_a_title_case_running_head_the_entry_no_longer_prints_is_taken_out_of_its_answer():
+    from bhb.citations import _without_running_head
+
+    answer = {"title": "Les Struye", "note": "Bibliographie de l’Histoire de Belgique", "series": {"title": "Guides"}}
+    printed = "Struye (Pierre-Paul). Les Struye. Courcelles, chez l’auteur, 2008, 292 p."
+    assert _without_running_head(answer, printed) == {"title": "Les Struye", "note": None, "series": {"title": "Guides"}}
+    # A yearly bibliography of that title prints it: kept.
+    yearly = {"title": "Bibliographie de l’histoire de Belgique 1951"}
+    assert _without_running_head(yearly, "Dhondt (J.). Bibliographie de l’histoire de Belgique 1951. R. du Nord, 1952.") == yearly

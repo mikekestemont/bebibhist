@@ -202,8 +202,12 @@ def link_print_to_catalogue(records) -> int:
     had its chance there, the next or previous one (the catalogue files some publications a year apart). A
     second pass takes a first author spelled slightly otherwise ("Boutrue" and "Boutroue", "Dekoninck" and
     "Deconinck": name ratio 80 or more, the same initial of the given name) when the titles agree closely (ratio 92
-    or more). Titles that name years must name the same ones, and a short title pairs within its volume year only
-    (``_may_pair``). Each catalogue record takes one printed entry, the closest."""
+    or more). A third pass leaves the first author aside: an article or chapter with the same pages and a title that
+    agrees (ratio 90 or more, ``_prefix_ratio``), a book with an author in common, the same year of publication and the
+    same title (ratio 95 or more) (a hand check of the 329 pairs it made, 24 Nov 2026: the catalogue names an editor
+    or the subject, or the authors in another order). Titles that name years must name the same ones, and a short
+    title pairs within its volume year only (``_may_pair``); an article or chapter with a short title also needs the
+    same journal or volume. Each catalogue record takes one printed entry, the closest."""
     catalogue: dict[str, list] = defaultdict(list)
     for record in records:
         if (record.source == "vsmart" and record.role == "entry" and record.title
@@ -239,8 +243,10 @@ def link_print_to_catalogue(records) -> int:
                 if (other.id in used or abs(other.bgb_year - record.bgb_year) != leeway or not _may_pair(record, other, title)
                         or (not family and _names_nobody(other) and not _anonymous_fit(record, other))):
                     continue
-                score = fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}"))
-                if score >= TITLE_AGREE and score > best_score:
+                # Titles that agree as well ("De Kajotters van Kwaadmechelen" and "…, dl. 2"): the same pages decide.
+                score = (fuzz.token_set_ratio(title, _words(f"{other.title} {other.subtitle or ''}")),
+                         bool(_pages(record)) and _pages(record) == _pages(other))
+                if score[0] >= TITLE_AGREE and (best is None or score > best_score):
                     best, best_score = other, score
             if best is not None:
                 link(record, best)
@@ -268,4 +274,66 @@ def link_print_to_catalogue(records) -> int:
                 best, best_score = other, score
         if best is not None:
             link(record, best)
+    # Third pass: the first author disagrees (the catalogue names the editor, the subject or the authors in another
+    # order; the parser read the name otherwise), but an article or chapter has the same pages and a title that agrees
+    # closely, or a book shares an author and has the same title and year of publication.
+    by_year: dict[int, list] = defaultdict(list)
+    for others in catalogue.values():
+        for other in others:
+            by_year[other.bgb_year].append(other)
+    for leeway in (0, YEAR_LEEWAY):
+        for record in printed:
+            if record.duplicate_of:
+                continue
+            title = _words(_NOBODY_FIRST.sub("", record.title))
+            pages = _pages(record)
+            best, best_score = None, 0.0
+            years = {record.bgb_year - leeway, record.bgb_year + leeway}
+            for other in (other for year in years for other in by_year.get(year, ())):
+                if other.id in used or other.type != record.type or not _may_pair(record, other, title):
+                    continue
+                full = _words(f"{other.title} {other.subtitle or ''}")
+                if record.type in ("article", "chapter"):
+                    if not pages or _pages(other) != pages or (len(title.split()) < 3 and not _same_host(record, other)):
+                        continue
+                    score, needed = _prefix_ratio(title, full), PAGES_TITLE
+                else:
+                    if not record.year or record.year != other.year or not _shares_author(record, other):
+                        continue
+                    score, needed = max(fuzz.ratio(title, full), fuzz.ratio(title, _words(other.title))), SHARED_TITLE
+                if score >= needed and score > best_score:
+                    best, best_score = other, score
+            if best is not None:
+                link(record, best)
     return linked
+
+
+# The third pass: an article or chapter with the same pages and a title that agrees (the printed title may go on with
+# the journal's name: compared up to the length of the catalogue's title and subtitle); a book with an author in common.
+PAGES_TITLE = 90
+SHARED_TITLE = 95
+
+
+def _pages(record) -> str:
+    return "-".join(_DIGITS.findall(record.host.pages or "")) if record.host else ""
+
+
+def _prefix_ratio(title: str, full: str) -> float:
+    """How closely the printed title agrees with the catalogue's title and subtitle, as a whole or in its first part
+    (a printed title run on into the journal's name: "Herinneringen. Marieke Frensen. Eisden")."""
+    return max(fuzz.ratio(title, full), fuzz.ratio(title[:len(full)], full))
+
+
+def _same_host(record, other) -> bool:
+    ours = _words(record.host.title) if record.host and record.host.title else ""
+    theirs = _words(other.host.title) if other.host and other.host.title else ""
+    return bool(ours and theirs) and fuzz.token_set_ratio(ours, theirs) >= TITLE_AGREE
+
+
+def _families(record) -> set[str]:
+    return {family for family in (_words(person.family) for person in record.persons) if family and family not in _NOBODY}
+
+
+def _shares_author(record, other) -> bool:
+    """A person of one is a person of the other, in any order or role, a compound name written in full in one only."""
+    return any(ours == theirs or _contains_name(ours, theirs) for ours in _families(record) for theirs in _families(other))

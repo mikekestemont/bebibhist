@@ -182,3 +182,56 @@ def test_anonymous_entries_and_compound_names_pair_with_the_catalogue():
     assert eisden.duplicate_of == "bhb:vs-1" and redactie.duplicate_of == "bhb:vs-2"
     assert elsewhere.duplicate_of is None and years.duplicate_of is None
     assert compound.duplicate_of == "bhb:vs-5"
+
+
+def test_the_third_pass_pairs_on_pages_or_a_shared_author():
+    from bhb.duplicates import link_print_to_catalogue
+    from bhb.model import Host, Person, Provenance, Record
+
+    def record(id, source, kind, title, families, host=None, pages=None, subtitle=None, year=2016):
+        return Record(id=id, source=source, bgb_year=2016, type=kind, title=title, subtitle=subtitle, year=year,
+                      persons=[Person(family=f, role="author") for f in families],
+                      host=Host(title=host, pages=pages) if host or pages else None, provenance=Provenance())
+
+    # The catalogue names another person first (the subject, Rosseels); the pages agree.
+    rosseels = record("bhb:2016-p1", "print-pdf", "chapter", "Schrijven tussen geloof en twijfel. Maria Rosseels (1916-2005)",
+                      ["Swinnen"], "Een kleine literatuurgeschiedenis", "143-146")
+    # No author printed, the journal's name run on into the title; the catalogue names "s.n." and the journal elsewhere.
+    eisden = record("bhb:2016-p2", "print-pdf", "article", "Kroniek van een oorlog : Grand-Halleux en zijn Rue Eysden Mines. Eisden",
+                    [], "Driemaandelijks tijdschrift van de VZW", "50-53")
+    # A book: the authors in another order, one only in the catalogue.
+    book = record("bhb:2016-p3", "print-pdf", "book", "Hemel en aarde : Religie in Vlaanderen sinds 1750", ["Hermans", "Vints"])
+    # Not paired: another "Introduction" (short title, another volume), a run-on entry whose pages agree by chance,
+    # a book with no author in common.
+    intro = record("bhb:2016-p4", "print-pdf", "chapter", "Introduction", ["Vandervellen"], "The Golden Age", "1-4")
+    run_on = record("bhb:2016-p5", "print-pdf", "article", "Portretten van een schrijverschap. Jaarboek, 2009. Dicht bij Elsschot",
+                    ["Surdiacourt"], "Berichten", "39-46")
+    other_book = record("bhb:2016-p6", "print-pdf", "book", "Monasterium Herkenrode 1", ["Hartmann", "Indekeu"])
+    records = [rosseels, eisden, book, intro, run_on, other_book,
+               record("bhb:vs-1", "vsmart", "chapter", "Schrijven tussen geloof en twijfel", ["Rosseels"], "Schrijvende vrouwen",
+                      "143-146", subtitle="Maria Rosseels (1916-2005)"),
+               record("bhb:vs-2", "vsmart", "article", "Kroniek van een oorlog", ["s.n."], "Eisden", "50-53",
+                      subtitle="Grand-Halleux en zijn Rue Eysden Mines"),
+               record("bhb:vs-3", "vsmart", "book", "Hemel en aarde", ["Vints", "Hermans"], subtitle="Religie in Vlaanderen sinds 1750"),
+               record("bhb:vs-4", "vsmart", "chapter", "Introduction", ["Jones"], "Euthanasia and assisted suicide", "1-4"),
+               record("bhb:vs-5", "vsmart", "article", "Dicht bij Elsschot", ["'t Hoen"], "Zuurvrij", "39-46"),
+               record("bhb:vs-6", "vsmart", "book", "Monasterium Herkenrode 1", ["De Dijn", "Caluwaerts"])]
+    link_print_to_catalogue(records)
+    assert [r.duplicate_of for r in (rosseels, eisden, book)] == ["bhb:vs-1", "bhb:vs-2", "bhb:vs-3"]
+    assert [r.duplicate_of for r in (intro, run_on, other_book)] == [None, None, None]
+
+
+def test_titles_that_agree_as_well_are_decided_by_the_pages():
+    from bhb.duplicates import link_print_to_catalogue
+    from bhb.model import Host, Person, Provenance, Record
+
+    def record(id, source, title, pages):
+        return Record(id=id, source=source, bgb_year=2012, type="article", title=title,
+                      persons=[Person(family="Keersmaekers", role="author")], host=Host(title="Het Land van Ham", pages=pages),
+                      provenance=Provenance())
+
+    printed = record("bhb:2012-88700", "print-pdf", "De Kajotters van Kwaadmechelen, dl. 2", "38-40")
+    first = record("bhb:vs-1209100", "vsmart", "De Kajotters van Kwaadmechelen", "28-31")
+    second = record("bhb:vs-1209109", "vsmart", "De Kajotters van Kwaadmechelen, dl. 2", "38-40")
+    link_print_to_catalogue([printed, first, second])
+    assert printed.duplicate_of == "bhb:vs-1209109"
