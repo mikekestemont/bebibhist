@@ -12,8 +12,8 @@ earlier year goes the same way). The commands run in `pipeline/` unless said oth
 - `bhb ingest manuscript --check` reads everything and writes nothing. Look at:
   - the entries: 8,900–9,150 in each of 2018–2021;
   - "without a code": 0 so far; a heading listed there is spelled otherwise than in `data/curated/scheme.csv`;
-  - "tracked changes" in a file's report: insertions are read as if accepted, deletions as if rejected from the text, moved
-    text at its new place. Ask for an accepted copy when there are many;
+  - "tracked changes" in a file's report: the text is read as if every change were accepted (inserted
+    text counts, deleted text does not, moved text stands at its new place). Ask for an accepted copy when there are many;
   - "gone" for a year that was there before: a corrected text gives its entry a new id. Its rows in
     `data/curated/corrections.csv` and `identifiers_by_hand.csv` then have to move to the new id, and links to the old
     id stop working.
