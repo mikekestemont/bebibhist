@@ -17,7 +17,8 @@ earlier year goes the same way). The commands run in `pipeline/` unless said oth
   - "gone" for a year that was there before: a corrected text gives its entry a new id. Its rows in
     `data/curated/corrections.csv` and `identifiers_by_hand.csv` then have to move to the new id, and links to the old
     id stop working.
-- **Whether the volume goes on the site is decided each time**; the chain reads every file in the folder.
+- **A new volume goes on the site only after Mike's go** (24 Nov 2026: 2022 and 2023 too). The chain reads every file in the folder,
+  so process and compare, and publish nothing before that. Ask for final files with the tracked changes accepted.
 
 ## 2. Run
 
