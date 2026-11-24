@@ -734,8 +734,10 @@ a.container-link { text-decoration: underline; text-underline-offset: 0.12em; }
 
 .legal a:hover, .legal a[aria-current="true"] { color: #fff; }
 
+/* Wider than a page of a book, since a wide screen has the room, but still a line the eye can follow back. */
 .about {
-  max-width: 40rem;
+  width: 100%;
+  max-width: 56rem;
   margin-inline: auto;
   text-align: justify;
   hyphens: auto;
