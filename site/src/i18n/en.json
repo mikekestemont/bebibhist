@@ -327,7 +327,6 @@
   "wholeWords": "Whole words only. Not included: {words}.",
   "alsoLonger": "Include longer words",
   "wholeWordsOnly": "Whole words only",
-  "particlesJoined": "A name's particles are joined to it: van der Weyden, Van der Weyden and Vander Weyden are one name. A search by author finds the people who wrote or edited, not the people written about.",
   "searchAllText": "Search all text for “{q}”",
   "nameVariants": "This name is written in more than one way here:",
   "alsoListed": "Also listed elsewhere in the Bibliography",

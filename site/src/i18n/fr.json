@@ -327,7 +327,6 @@
   "wholeWords": "Mots entiers seulement. Non compris : {words}.",
   "alsoLonger": "Inclure les mots plus longs",
   "wholeWordsOnly": "Mots entiers seulement",
-  "particlesJoined": "Les particules sont jointes au nom : van der Weyden, Van der Weyden et Vander Weyden sont un même nom. La recherche par auteur trouve les personnes qui ont écrit ou édité, pas celles dont on parle.",
   "searchAllText": "Chercher « {q} » dans tout le texte",
   "nameVariants": "Ce nom s’écrit ici de plusieurs façons :",
   "alsoListed": "Aussi ailleurs dans la Bibliographie",
