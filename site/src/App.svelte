@@ -7,7 +7,7 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField, type SearchResponse } from "./lib/search";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -35,15 +35,15 @@
   let counts = $state<Record<string, Record<string, number>>>({});
   let engine: Awaited<ReturnType<typeof loadEngine>> | null = null;
   let scope = "";
-  let countedScope = "";
   let exportOpen = $state("");
   let similarSource = $state<Hit | null>(null);
   let similarHits = $state<{ hit: Hit; score: number }[]>([]);
   let exporting = $state(false);
   let listed: { data: () => Promise<Hit> }[] = [];
   let yearCounts = $state<Record<string, number>>({});
-  // Counts up with every search, so that a late year histogram from an earlier search is not shown.
-  let yearTicket = 0;
+  // The search whose filter counts and year chart are shown (null: none yet): they follow its list. A search for
+  // everything (#/search) is the empty text.
+  let counted: string | null = null;
   let fieldChoice = $state("all");
   let dragFrom = $state<number | null>(null);
   let dragTo = $state<number | null>(null);
@@ -455,6 +455,7 @@
       listed = [];
       total = 0;
       counts = {};
+      counted = null;
       notices = { longer: [], variants: [], place: null };
       scope = "";
     }
@@ -499,7 +500,7 @@
     const unknown = await unknownWords(loose || asked || "");
     if (!current()) return;
     const response = unknown.length
-      ? await nothingFound(engine)
+      ? engine.nothing()
       : await searchBoth(engine, asked, loose, {
           ...(filters ? { filters } : {}),
           ...(sort ? { sort } : {}),
@@ -531,14 +532,7 @@
     const tag = fieldTag(field, translations);
     const longer = words.length ? await longerWords(words, tag) : [];
     if (!current()) return;
-    if (nextScope !== scope) {
-      counts = Object.fromEntries(
-        Object.entries(response.filters || {}).map(([key, values]) => [key, { ...values }]),
-      );
-      scope = nextScope;
-    }
-    const ticket = ++yearTicket;
-    if (!filters?.pubyear || unknown.length) yearCounts = { ...(response.filters?.pubyear || {}) };
+    scope = nextScope;
     const slice = results.slice((page - 1) * pageSize, page * pageSize);
     const loaded = await Promise.all(slice.map((item) => item.data()));
     if (!current()) return;
@@ -546,32 +540,6 @@
     // The hits shown that lack a word whole were found through a longer word: the line before them says so. The
     // author hits come first, matched by the whole name, so the line never falls among them.
     partialIds = new Set(longer.length ? loaded.filter((hit) => !authorIds.has(hit.meta.id) && !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
-    // With a year range, the year filter shows the counts of every year, and a group with a ticked box what ticking
-    // another of its boxes would add: each needs the same search without that one filter. It takes as long as the
-    // search itself ("gent" 5 s), so it waits until the results have been painted (a frame, then a task), or it would
-    // hold them back, and a group is counted once per search, not again for another page of it.
-    const recount = !filters || unknown.length ? [] : Object.keys(filters).filter((key) => key === "pubyear" || countedScope !== nextScope);
-    if (filters && recount.length) {
-      const search = engine;
-      requestAnimationFrame(() => setTimeout(async () => {
-        for (const key of recount) {
-          if (ticket !== yearTicket || !current()) return;
-          const rest = { ...filters };
-          delete rest[key];
-          const term = loose || asked;
-          const broad = term || Object.keys(rest).length
-            ? (await search.search(term, {
-                ...(Object.keys(rest).length ? { filters: rest } : {}),
-                ...(sort ? { sort } : {}),
-              }).catch(() => null))?.filters
-            : await search.filters().catch(() => null);
-          if (!broad || ticket !== yearTicket || !current()) return;
-          if (key === "pubyear") yearCounts = { ...(broad.pubyear || {}) };
-          else counts = { ...counts, [key]: { ...(broad[key] || {}) } };
-        }
-        countedScope = nextScope;
-      }, 0));
-    }
     // Checked after the results are shown, so it never delays them.
     const spellingFor = askedText;
     spelling = [];
@@ -581,6 +549,30 @@
     void searchNotices(askedText, field, hits, longer, current);
     remember(hits);
     loading = false;
+    void afterList(response, nextScope, results.slice(page * pageSize, (page + 1) * pageSize), current);
+  }
+
+  /**
+   * What a list does not wait for: its filter counts and year chart, for which a first search still has to read the
+   * filters, and then, in the background, the records of the next page, so that turning the page shows it at once
+   * (Mike, 24 Nov 2026). A reader who asked for less data turns the page as before.
+   */
+  async function afterList(response: SearchResponse, ofScope: string, next: SearchResponse["results"], current: () => boolean) {
+    try {
+      if (counted !== ofScope) {
+        const found = await response.counts();
+        if (!current()) return;
+        if (found) {
+          counts = found;
+          yearCounts = found.pubyear || {};
+          counted = ofScope;
+        }
+      }
+      if ((navigator as { connection?: { saveData?: boolean } }).connection?.saveData) return;
+      for (let at = 0; at < next.length && current(); at += 10) await Promise.all(next.slice(at, at + 10).map((item) => item.data()));
+    } catch {
+      /* The list stands without them; they are asked for again with the next list. */
+    }
   }
 
   // The hits shown that were found only through a longer word (they follow the whole-word hits).
@@ -1215,9 +1207,10 @@
     if (params.getAll("place").length) void loadPlaces();
     painted()
       .then(loadEngine)
-      .then((loaded) => {
+      .then(async (loaded) => {
         engine = loaded;
-        return refresh();
+        await refresh();
+        loaded.warm();
       })
       .catch((error) => {
         // For developers: a local site without its index needs `npm run index` (and a build) in site/.
