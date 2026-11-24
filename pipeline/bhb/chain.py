@@ -76,7 +76,8 @@ def _index(name: str | int | None, default: int) -> int:
 
 
 def plan(start: str | int | None = None, stop: str | int | None = None, with_map: bool = False,
-         build_flags: Iterable[str] = (), remote_names: bool = False) -> list[tuple[int, Step, list[str]]]:
+         build_flags: Iterable[str] = (), remote_names: bool = False,
+         backlog: bool = False) -> list[tuple[int, Step, list[str]]]:
     """The steps to run, as (number, step, bhb arguments), from ``start`` to ``stop`` included."""
     first, last = _index(start, 0), _index(stop, len(STEPS) - 1)
     if first > last:
@@ -89,6 +90,8 @@ def plan(start: str | int | None = None, stop: str | int | None = None, with_map
         args = list(step.args) + (list(build_flags) if step.label == "build" else [])
         if step.label == "topicmap-names" and remote_names:
             args.append("--remote")
+        if step.label == "match-crossref" and backlog:
+            args.append("--backlog")
         chosen.append((position + 1, step, args))
     return chosen
 

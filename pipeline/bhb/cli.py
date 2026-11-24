@@ -210,6 +210,7 @@ def main(argv: list[str] | None = None) -> None:
     chain.add_argument("--remote-names", action="store_true", help="with --map: name the regions through OpenRouter (minutes, about $0.10)")
     chain.add_argument("--without-manuscripts", action="store_true", help="build without the editor's manuscripts (they are on the site since 24 Nov 2026)")
     chain.add_argument("--without-print-years", action="store_true", help="build without the printed volumes 2009–2017 (on the site since 24 Nov 2026)")
+    chain.add_argument("--backlog", action="store_true", help="also ask Crossref for the entries on the site that were never asked (8,667 on 24 Nov 2026; hours)")
     chain.add_argument("--max-parse", type=int, default=0, help="parse requests not in the cache the paid step may send (default 0)")
     chain.add_argument("--max-translate", type=int, default=0, help="translation requests the paid step may send (default 0)")
     chain.add_argument("--print", dest="print_only", action="store_true", help="show the commands that would run, run nothing")
@@ -434,7 +435,7 @@ def main(argv: list[str] | None = None) -> None:
             print(release_chain.list_steps())
             return
         flags = [flag for flag, off in (("--with-manuscripts", args.without_manuscripts), ("--with-print-years", args.without_print_years)) if not off]
-        steps = release_chain.plan(args.start, args.stop, args.map, flags, args.remote_names)
+        steps = release_chain.plan(args.start, args.stop, args.map, flags, args.remote_names, args.backlog)
         if args.print_only:
             for number, step, step_args in steps:
                 print(f"{number:>2}. bhb {' '.join(step_args)}" + ("   (after a dry run as guard)" if step.label == "citations-run" else ""))

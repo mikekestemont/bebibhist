@@ -27,7 +27,9 @@ earlier year goes the same way). The commands run in `pipeline/` unless said oth
 3. `bhb citations run --dry-run`: the price. The pass keeps every answer whose printed text is unchanged and asks only for
    the others; a Word manuscript is read from its formatting and not parsed, so a delivery costs its titles' translations
    (25 a request). A count of parse requests far above the changed entries means something else changed: stop there.
-4. `bhb chain --from citations-run --max-parse N --max-translate N --map --remote-names` with the numbers agreed on. The map is
+4. `bhb chain --from citations-run --max-parse N --max-translate N --map --remote-names` with the numbers agreed on. **The first
+   delivery after 24 Nov 2026 also gets `--backlog`** (Mike): Crossref is then also asked for the 8,667 entries on the site that
+   never were (6,442 of 1952–2007 that the citation pass made articles or chapters), four to five hours more. The map is
    made again because a saved layout has no place for new entries; its names are new too, so read them, and add rows to
    `topic_name_fixes.csv`.
    Crossref is asked for the new entries only, one question a second: a volume takes two to three hours, more when it
