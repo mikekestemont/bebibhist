@@ -1,6 +1,11 @@
 {
   "name": "Bibliographie de l'Histoire de Belgique",
   "tagline": "Toute la bibliographie, de 1952 aux dernières années versées, en une seule recherche.",
+  "homeCount": "Cherchez parmi {n} publications, de 1952 aux dernières années versées.",
+  "homeOther": "Ou partez de",
+  "homeBrowse": "les rubriques de la Bibliographie elle-même",
+  "homeTopics": "les publications sur des sujets proches sont voisines",
+  "homeMap": "les publications par lieu, sur une carte",
   "search": "Rechercher",
   "placeholder": "p.e. Leopold III",
   "filters": "Affiner",
