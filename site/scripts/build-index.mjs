@@ -252,6 +252,15 @@ await writeFile(subjectsPath, JSON.stringify(subjectsDocument(scheme, subjectCou
 await writePlaces(placesPath, placeCounts, placePeriods);
 await writeWords(wordsPath, words);
 console.log(`indexed ${indexed} entries, skipped ${skipped} non-entries → ${outputPath}`);
+// Which records the index was built from, for the pack of a prebuilt site (scripts/pack-site.mjs): vite copies it into
+// dist/, and the Pages workflow compares it with the release's records before it deploys a site built elsewhere.
+{
+  const { createHash } = await import("node:crypto");
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(recordsPath)) hash.update(chunk);
+  await writeFile(new URL("../public/index-source.json", import.meta.url).pathname,
+    JSON.stringify({ records_sha256: hash.digest("hex"), entries: indexed }) + "\n");
+}
 
 /**
  * The records the page shows, in 4,096 files instead of Pagefind's one fragment per record (180,000 files): GitHub

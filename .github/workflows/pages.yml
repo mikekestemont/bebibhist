@@ -38,6 +38,12 @@ jobs:
           fi
           mkdir -p build
           gh release download "$tag" --pattern records.jsonl.gz --dir build
+          # A release may carry the site as built and checked locally (npm run verify && npm run pack): it is then
+          # published as it is, after the checks below, instead of being built again here (over an hour for 290,000
+          # records on this runner, 24 Nov 2026).
+          if gh release download "$tag" --pattern site-dist.tar.gz --dir build; then
+            echo "prebuilt site from $tag" >> "$GITHUB_STEP_SUMMARY"
+          fi
           gzip -dc build/records.jsonl.gz > build/records.jsonl
           echo "records from $tag" >> "$GITHUB_STEP_SUMMARY"
 
@@ -53,8 +59,23 @@ jobs:
         run: |
           start=$(date +%s)
           npm ci
-          npm run index
-          npm run build
+          if [ -f ../build/site-dist.tar.gz ]; then
+            mkdir -p dist
+            tar -xzf ../build/site-dist.tar.gz -C dist
+            # Published only when it was built from this commit's site and curated data and from the release's records.
+            want_site=$(git rev-parse HEAD:site); want_data=$(git rev-parse HEAD:data/curated)
+            want_records=$(sha256sum ../build/records.jsonl | cut -d' ' -f1)
+            have_site=$(jq -r .site_tree dist/build-info.json); have_data=$(jq -r .curated_tree dist/build-info.json)
+            have_records=$(jq -r .records_sha256 dist/build-info.json)
+            echo "prebuilt site: site $have_site, data $have_data, records $have_records (commit $(jq -r .commit dist/build-info.json))" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$have_site" != "$want_site" ] || [ "$have_data" != "$want_data" ] || [ "$have_records" != "$want_records" ]; then
+              echo "The prebuilt site does not match: site $have_site vs $want_site, data $have_data vs $want_data, records $have_records vs $want_records"
+              exit 1
+            fi
+          else
+            npm run index
+            npm run build
+          fi
           echo "site index and build: $(( $(date +%s) - start ))s" >> "$GITHUB_STEP_SUMMARY"
 
       # GitHub Pages copies every file of a deployment. With about 200,000 files (one Pagefind fragment per record)

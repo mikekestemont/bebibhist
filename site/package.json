@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/search.test.ts tests/topics.test.ts",
     "check": "node tests/search-checks.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "pack": "node scripts/pack-site.mjs"
   },
   "dependencies": {
     "d3-scale": "4.0.2",
