@@ -297,6 +297,12 @@ export interface SearchResponse {
 /** A list of values means "all of them" in Pagefind; `{ any: [...] }` means "one of them", as for a range of years. */
 export type Filters = Record<string, string[] | { any: string[] }>;
 
+/** The ticked values of one filter group, any of which a record may have: "Chapter" and "Book" together find both. A
+ * plain list asks for all of them at once, which no record has. The groups themselves narrow each other. */
+export function anyOf(values: string[]): string[] | { any: string[] } {
+  return values.length > 1 ? { any: values } : values;
+}
+
 /** The publication years from ``from`` to ``to`` (either may be missing), as a filter that matches any of them. */
 export function yearFilter(from: number, to: number, now = new Date().getFullYear()): { any: string[] } | null {
   if (!from && !to) return null;

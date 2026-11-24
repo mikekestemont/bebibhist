@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { AUTHOR_SHARE, authorQuery, authorsFirst, citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
+import { AUTHOR_SHARE, anyOf, authorQuery, authorsFirst, citationHtml, contentWords, editDistance, foundThroughTranslation, indexWords, presentCitation, relaxedQuery, searchQuery, yearFilter } from "../src/lib/search.ts";
 import { nameWords } from "../src/lib/words.js";
 
 test("a year range matches any of its years, not all of them at once", () => {
@@ -176,4 +176,9 @@ test("author hits come first only when they are a fair share of the hits (plan Â
   // Nothing to move: every hit an author hit, or one alone.
   assert.equal(authorsFirst(hits(["a", "b"]), new Set(["a", "b"])), null);
   assert.equal(authorsFirst(hits(["a", "b", "c"]), new Set(["b"])), null);
+});
+
+test("several ticked values of one filter group ask for any of them", () => {
+  assert.deepEqual(anyOf(["chapter", "book"]), { any: ["chapter", "book"] });
+  assert.deepEqual(anyOf(["book"]), ["book"]);
 });

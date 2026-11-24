@@ -7,7 +7,7 @@
   import { regionWord } from "./lib/topics";
   import { keyWord } from "./lib/words.js";
   import Waiting from "./Waiting.svelte";
-  import { HOST_MISSING, FUNCTION_WORD_SET, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
+  import { HOST_MISSING, FUNCTION_WORD_SET, anyOf, authorQuery, authorsFirst, escapeHtml, fieldTag, foundThroughTranslation, indexWords, longerWords, queryWords, unknownWords, nothingFound, citationHtml, editorsBeforeHost, findRecord, loadEngine, relatedByMeaning, spellingSuggestions, yearFilter, relaxedQuery, searchBoth, searchQuery, similarOf, type Filters, type Hit, type IndexWords, type SearchField } from "./lib/search";
   import { foldKey, nameWords, personName } from "./lib/words.js";
 
   const asset = (file: string) => `${import.meta.env.BASE_URL}${file}`;
@@ -35,6 +35,7 @@
   let counts = $state<Record<string, Record<string, number>>>({});
   let engine: Awaited<ReturnType<typeof loadEngine>> | null = null;
   let scope = "";
+  let countedScope = "";
   let exportOpen = $state("");
   let similarSource = $state<Hit | null>(null);
   let similarHits = $state<{ hit: Hit; score: number }[]>([]);
@@ -361,7 +362,7 @@
     const filters: Filters = {};
     for (const group of Object.keys(groups)) {
       const values = params.getAll(group);
-      if (values.length) filters[group] = values;
+      if (values.length) filters[group] = anyOf(values);
     }
     const years = yearFilter(Number(params.get("from")), Number(params.get("to")));
     if (years) filters.pubyear = years;
@@ -545,21 +546,30 @@
     // The hits shown that lack a word whole were found through a longer word: the line before them says so. The
     // author hits come first, matched by the whole name, so the line never falls among them.
     partialIds = new Set(longer.length ? loaded.filter((hit) => !authorIds.has(hit.meta.id) && !hasWholeWords(hit.words, words, tag)).map((hit) => hit.meta.id) : []);
-    // With a year range, the year filter shows the counts of every year, so it needs the same search without the
-    // range. It takes as long as the search itself ("gent" 5 s) and Pagefind computes on the page's own thread, so
-    // it waits until the results have been painted (a frame, then a task), or it would hold them back.
-    if (filters?.pubyear && !unknown.length) {
-      const rest = { ...filters };
-      delete rest.pubyear;
+    // With a year range, the year filter shows the counts of every year, and a group with a ticked box what ticking
+    // another of its boxes would add: each needs the same search without that one filter. It takes as long as the
+    // search itself ("gent" 5 s), so it waits until the results have been painted (a frame, then a task), or it would
+    // hold them back, and a group is counted once per search, not again for another page of it.
+    const recount = !filters || unknown.length ? [] : Object.keys(filters).filter((key) => key === "pubyear" || countedScope !== nextScope);
+    if (filters && recount.length) {
       const search = engine;
-      requestAnimationFrame(() => setTimeout(() => {
-        if (ticket !== yearTicket) return;
-        void search.search(loose || asked, {
-          ...(Object.keys(rest).length ? { filters: rest } : {}),
-          ...(sort ? { sort } : {}),
-        }).then((broad) => {
-          if (ticket === yearTicket && current()) yearCounts = { ...(broad.filters?.pubyear || {}) };
-        }).catch(() => {});
+      requestAnimationFrame(() => setTimeout(async () => {
+        for (const key of recount) {
+          if (ticket !== yearTicket || !current()) return;
+          const rest = { ...filters };
+          delete rest[key];
+          const term = loose || asked;
+          const broad = term || Object.keys(rest).length
+            ? (await search.search(term, {
+                ...(Object.keys(rest).length ? { filters: rest } : {}),
+                ...(sort ? { sort } : {}),
+              }).catch(() => null))?.filters
+            : await search.filters().catch(() => null);
+          if (!broad || ticket !== yearTicket || !current()) return;
+          if (key === "pubyear") yearCounts = { ...(broad.pubyear || {}) };
+          else counts = { ...counts, [key]: { ...(broad[key] || {}) } };
+        }
+        countedScope = nextScope;
       }, 0));
     }
     // Checked after the results are shown, so it never delays them.
