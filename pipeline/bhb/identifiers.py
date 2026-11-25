@@ -185,7 +185,7 @@ def fetch(params: dict[str, str], cache: Path) -> dict:
             if error.code == 400:
                 # A question Crossref does not understand: no candidates, kept in the cache, and the run goes on (the
                 # rehearsal of 24 Nov 2026 stopped at one of 15,000).
-                print(f"  crossref: 400, not understood: {params['query.bibliographic'][:80]} ({params['filter']})", flush=True)
+                print(f"  crossref: 400, not understood: {params.get('query.bibliographic', '')[:80]} ({params['filter'][:200]})", flush=True)
                 data = {"message": {"items": []}, "refused": 400}
                 break
             if error.code not in (429, 500, 502, 503, 504) or attempt == ATTEMPTS - 1:

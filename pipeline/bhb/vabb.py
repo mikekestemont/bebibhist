@@ -2,7 +2,8 @@
 
 The open data of ECOOM (Zenodo, CC BY 4.0) lists publications by researchers at Flemish universities with their
 DOI, ISBN and ISSN. Editions VIII (2000–2017), IX (2008–2017) and 15 (2014–2023) are read from
-``build/external/vabb-08``, ``vabb-09`` and ``vabb-15``; a publication in several editions is merged by its id.
+``build/external/vabb-08``, ``vabb-09`` and ``vabb-15``, and edition 16 (2015–2024) from ``vabb-16`` once ECOOM has
+published it (an edition that is not there is skipped); a publication in several editions is merged by its id.
 
 A VABB publication is turned into the shape of a Crossref item, so candidates are scored and accepted by exactly the
 rules of ``bhb.identifiers``: title, author, year, journal or book, and first page.
@@ -22,7 +23,7 @@ from rapidfuzz import fuzz
 from bhb.identifiers import Match, _full_title, accept, score
 from bhb.textutil import fold
 
-EDITIONS = ("vabb-15", "vabb-09", "vabb-08")  # newest first: its values win when editions differ
+EDITIONS = ("vabb-16", "vabb-15", "vabb-09", "vabb-08")  # newest first: its values win when editions differ
 TYPES = {"1": "article", "2": "book", "3": "book", "4": "chapter", "5": "chapter"}
 # Title words in more publications than this do not pick candidates.
 COMMON = 1500
@@ -55,6 +56,8 @@ class Publication:
     names: list[str] = field(default_factory=list)
     editor_names: list[str] = field(default_factory=list)
     url: str = ""
+    volume: str = ""  # VABB has neither; Crossref does
+    issue: str = ""
 
     def as_item(self) -> dict:
         """The publication as a Crossref item, for ``bhb.identifiers.score``."""

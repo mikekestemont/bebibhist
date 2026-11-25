@@ -143,8 +143,13 @@ def main(argv: list[str] | None = None) -> None:
 
     cands = sub.add_parser("candidates", help="publications the bibliography may lack, from other sources")
     cands_sub = cands.add_subparsers(dest="candidates_command", required=True)
-    cvabb = cands_sub.add_parser("vabb", help="VABB-SHW candidates for 2018–2023, for review (internal): build/candidates/vabb.csv, vabb.jsonl and vabb-pilot.md")
+    cvabb = cands_sub.add_parser("vabb", help="VABB-SHW candidates for the years still to be collected, for review (internal): build/candidates/vabb-<year>.csv, .jsonl and .ris, and vabb-report.md")
+    cvabb.add_argument("--year", type=int, action="append", help="the year, or several (default: vabb_candidates.CANDIDATE_YEARS)")
     cvabb.add_argument("--threshold", type=float, default=None, help="score from which a publication is proposed (default: vabb_candidates.THRESHOLD)")
+
+    ccross = cands_sub.add_parser("crossref", help="candidates from Crossref for one year, by the journals of earlier volumes, for review (internal): build/candidates/crossref-<year>.csv, .jsonl and .ris, and crossref-report.md")
+    ccross.add_argument("--year", type=int, default=2024)
+    ccross.add_argument("--threshold", type=float, default=None, help="score from which an article is proposed (default: crossref_candidates.THRESHOLD)")
 
     journals = sub.add_parser("journals", help="one name per journal (docs/JOURNAL_PROPOSAL.md)")
     journals_sub = journals.add_subparsers(dest="journals_command", required=True)
@@ -291,7 +296,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "candidates" and args.candidates_command == "vabb":
         from bhb.vabb_candidates import THRESHOLD
 
-        _candidates_vabb(THRESHOLD if args.threshold is None else args.threshold)
+        _candidates_vabb(THRESHOLD if args.threshold is None else args.threshold, args.year)
+        return
+    if args.command == "candidates" and args.candidates_command == "crossref":
+        from bhb.crossref_candidates import THRESHOLD
+
+        _candidates_crossref(args.year, THRESHOLD if args.threshold is None else args.threshold)
         return
     if args.command == "identifiers" and args.identifiers_command == "kbr-harvest":
         from bhb.identifiers import USER_AGENT
@@ -930,48 +940,136 @@ def _identifiers_vabb(limit: int | None) -> None:
     print(f"vabb → {out}")
 
 
-def _candidates_vabb(threshold: float) -> None:
+def _write_candidates(out: Path, name: str, rows: list[dict]) -> None:
+    """One list of candidates as JSON Lines, as CSV for a spreadsheet and as RIS for Zotero's import."""
     import csv
     import json
+
+    from bhb.vabb_candidates import ris
+
+    (out / f"{name}.jsonl").write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+    (out / f"{name}.ris").write_text("".join(ris(row) for row in rows), encoding="utf-8")
+    with (out / f"{name}.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["group", "score", "type", "authors", "editors", "title", "container", "series", "volume", "issue", "pages", "language",
+                         "language_suggested", "doi", "isbn", "issn", "reasons", "url"])
+        for row in rows:
+            writer.writerow([row["group"], row["score"], row["type"], *("; ".join(row.get(key, [])) for key in ("authors", "editors")),
+                             *(row.get(key, "") for key in ("title", "container", "series", "volume", "issue", "pages", "language", "language_suggested", "doi")),
+                             *("; ".join(row.get(key, [])) for key in ("isbn", "issn", "reasons")), row["url"]])
+
+
+def _language_table(counts: dict[int, dict[str, int]]) -> list[str]:
+    return ["| Year | A | B | Together | Dutch | English | French | German | Other |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+            *[f"| {year} | {n['A']} | {n['B']} | {n['A'] + n['B']} | {n['Dutch']} | {n['English']} | {n['French']} | {n['German']} | {n['other']} |"
+              for year, n in counts.items()]]
+
+
+def _measure_table(rows) -> list[str]:
+    return ["| Score from | Proposed a year | In the volume | Precision | Recall |", "|---|---:|---:|---:|---:|",
+            *[f"| {t:.2f} | {n:.0f} | {hits:.0f} | {p:.2f} | {r:.2f} |" for t, p, r, n, hits in rows]]
+
+
+def _candidates_crossref(year: int, threshold: float) -> None:
+    import csv
+
+    from bhb.crossref_candidates import GROUP_A, LARGEST, TEST_YEARS, TRAIN_YEARS, SOURCE, ask_crossref, distinct, eligible, harvest, is_front, is_review, journals, listed, publication, sizes, tokens
+    from bhb.language import Identifier
+    from bhb.vabb_candidates import by_language, candidate_row, candidates, known_from, measure, train
+
+    with (repo_root() / "data" / "curated" / "journals.csv").open(encoding="utf-8") as handle:
+        issns = {row["id"]: row["issn"].split("|") for row in csv.DictReader(handle) if row["issn"]}
+    by_issn = {issn: journal for journal, numbers in issns.items() for issn in numbers}
+    seen = journals(read_jsonl(build_dir() / "records.jsonl"), issns)
+    ask = ask_crossref(build_dir() / "cache" / "crossref-journals")
+    size = sizes(year, {journal: issns[journal] for journal in sorted(seen)}, ask)
+    kept = [journal for journal in sorted(seen) if size[journal] <= LARGEST]
+    covered = [*TRAIN_YEARS, *TEST_YEARS]
+    pubs, reviews = {}, {}
+    for each in [*covered, year]:
+        found = [publication(item) for item in harvest(each, [issns[journal] for journal in kept], ask)]
+        for pub in found:
+            if eligible(pub, by_issn, seen) and not is_front(pub):
+                (reviews if is_review(pub) else pubs)[pub.id] = pub
+        print(f"{each}: {len(found)} articles", flush=True)
+    volumes = range(min(covered), max(covered) + 1)
+    taken = listed(read_jsonl(build_dir() / "records.jsonl"), pubs, volumes)
+    known = known_from(read_jsonl(build_dir() / "records.jsonl"), repo_root() / "data" / "curated" / "journals.csv")
+    evaluation, scored = measure(pubs, set(taken), known, TRAIN_YEARS, TEST_YEARS, tokens, (0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95))
+    model = train(pubs, set(taken), known, frozenset(covered), tokens)
+    found = distinct(candidates(pubs, model, threshold, known, frozenset(taken), {year}, tokens))
+    found_reviews = distinct(candidates(reviews, model, threshold, known, frozenset(taken), {year}, tokens))
+    both = found + found_reviews
+    all_rows = [candidate_row(pub, score, known, GROUP_A, SOURCE) for pub, score in both]
+    # Crossref gives no language: Lingua's reading of the title is a suggestion, for the counts only.
+    for row, reading in zip(all_rows, Identifier().read([pub.title for pub, _ in both])):
+        row["language_suggested"] = reading.language or ""
+    rows = all_rows[:len(found)]
+    review_rows = [{**row, "kind": "review"} for row in all_rows[len(found):]]
+    out = build_dir() / "candidates"
+    out.mkdir(parents=True, exist_ok=True)
+    # Internal, for review in the same inbox as VABB's: not on the site, not in a release.
+    _write_candidates(out, f"crossref-{year}", rows)
+    _write_candidates(out, f"crossref-{year}-reviews", review_rows)
+    in_volume = [answer for _, _, answer in sorted(scored, key=lambda each: -each[1])]
+    counts = {year: {"A": sum(row["group"] == "A" for row in rows), "B": sum(row["group"] == "B" for row in rows), **by_language(rows)}}
+    lines = [
+        "# Crossref candidates", "",
+        f"{len(kept)} journals of the volumes since 2015 with an ISSN and at most {LARGEST} articles a year. Measured on "
+        f"{', '.join(map(str, TEST_YEARS))} ({evaluation.test} articles, {evaluation.test_positive} in the bibliography), trained on "
+        f"{TRAIN_YEARS.start}–{TRAIN_YEARS.stop - 1} ({evaluation.train}, {evaluation.train_positive}); a journal counts from the volume after its first article.",
+        f"Average precision {evaluation.average_precision:.2f}. Precision is a lower bound, as for VABB.", "",
+        *_measure_table(evaluation.rows), "",
+        *_language_table(counts), "",
+        # The list's model has seen a year more and scores otherwise, so the two years are compared by rank.
+        f"Of {TEST_YEARS.start}, the best {counts[year]['A']} held {in_volume[:counts[year]['A']].count(1)} of the volume, the next {counts[year]['B']} "
+        f"{in_volume[counts[year]['A']:len(rows)].count(1)}.", "",
+        f"Candidates from a score of {threshold:.2f}, in `crossref-{year}.csv`, `.jsonl` and `.ris` (for review, internal). Book reviews, which the "
+        f"volumes do not list, are apart in `crossref-{year}-reviews.*`: {len(review_rows)}, by the same score.",
+    ]
+    (out / "crossref-report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
+
+
+def _candidates_vabb(threshold: float, years: list[int] | None = None) -> None:
     from collections import Counter
 
     from bhb.vabb import load
-    from bhb.vabb_candidates import CANDIDATE_YEARS, TEST_YEARS, TRAIN_YEARS, candidates, known_from, labels, candidate_row, train_and_measure
+    from bhb.vabb_candidates import CANDIDATE_YEARS, TEST_YEARS, TRAIN_YEARS, by_language, candidate_row, candidates, known_from, labels, measure, train
 
     pubs = load(build_dir() / "external")
+    missing = [year for year in years or CANDIDATE_YEARS if not any(pub.year == year for pub in pubs.values())]
+    years = [year for year in years or CANDIDATE_YEARS if year not in missing]
+    for year in missing:
+        print(f"VABB of {year}: in none of the editions in build/external (edition 16 covers 2015–2024)")
+    if not years:
+        raise SystemExit("no VABB publications of the years asked for; nothing written")
     listed = labels(build_dir() / "identifiers" / "vabb.csv")
     # What the bibliography already knows (authors, journals, series of earlier volumes) is a feature (1 Nov 2026).
     known = known_from(read_jsonl(build_dir() / "records.jsonl"), repo_root() / "data" / "curated" / "journals.csv")
-    evaluation, model, _ = train_and_measure(pubs, listed, known)
-    found = candidates(pubs, model, threshold, known, frozenset(listed))
+    evaluation, _ = measure(pubs, listed, known)
+    model = train(pubs, listed, known)
     out = build_dir() / "candidates"
     out.mkdir(parents=True, exist_ok=True)
-    # One candidate a line, for review in a Zotero inbox once the Commission's Zotero library is set up (Mike, 11 Nov
-    # 2026). Internal: neither the site nor the data release carries the candidates.
-    with (out / "vabb.jsonl").open("w", encoding="utf-8") as handle:
-        for pub, score in found:
-            handle.write(json.dumps(candidate_row(pub, score), ensure_ascii=False) + "\n")
-    with (out / "vabb.csv").open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["vabb_id", "score", "year", "type", "authors", "title", "container", "disciplines", "language", "doi", "isbn", "issn"])
-        for pub, score in found:
-            writer.writerow([pub.id, f"{score:.3f}", pub.year, pub.type, "; ".join(pub.families or pub.editors), pub.title, pub.container,
-                             "; ".join(pub.disciplines), pub.language, pub.doi or "", ";".join(pub.isbn), ";".join(pub.issn)])
-    per_year = Counter(pub.year for pub, _ in found)
+    counts = {}
+    # One file a year, for review in a Zotero inbox once the Commission's Zotero library is set up (Mike, 11 Nov 2026).
+    # Internal: neither the site nor the data release carries the candidates.
+    for year in years:
+        rows = [candidate_row(pub, score, known) for pub, score in candidates(pubs, model, threshold, known, frozenset(listed), {year})]
+        counts[year] = {"A": 0, "B": 0, **Counter(row["group"] for row in rows), **by_language(rows)}
+        _write_candidates(out, f"vabb-{year}", rows)
     lines = [
         "# VABB-SHW candidates", "",
-        f"Trained on {min(TRAIN_YEARS)}–{max(TRAIN_YEARS)} without the measured years ({evaluation.train} VABB publications, {evaluation.train_positive} in the "
-        f"bibliography), measured on {TEST_YEARS.start}–{TEST_YEARS.stop - 1}, years the printed volumes cover completely ({evaluation.test}, "
-        f"{evaluation.test_positive} in the bibliography).",
+        f"Measured on {TEST_YEARS.start}–{TEST_YEARS.stop - 1}, the editor's four most recent complete volumes ({evaluation.test} VABB publications, "
+        f"{evaluation.test_positive} in the bibliography), trained on {TRAIN_YEARS.start}–{TRAIN_YEARS.stop - 1} ({evaluation.train}, {evaluation.train_positive}).",
         f"Average precision {evaluation.average_precision:.2f}. Precision is a lower bound: a publication the matcher missed, or one the",
         "bibliography should have taken, counts as a false positive.", "",
-        "| Threshold | Precision | Recall | Proposed |", "|---|---:|---:|---:|",
-        *[f"| {t:.2f} | {p:.2f} | {r:.2f} | {n} |" for t, p, r, n in evaluation.rows], "",
-        f"Candidates for {CANDIDATE_YEARS.start}–{CANDIDATE_YEARS.stop - 1} at {threshold:.2f}: {len(found)} "
-        f"({', '.join(f'{year}: {per_year[year]}' for year in sorted(per_year))}), in `vabb.csv` and `vabb.jsonl` (for review, internal); "
-        f"{len(listed)} VABB publications already matched to an entry are left out.",
+        *_measure_table(evaluation.rows), "",
+        *_language_table(counts), "",
+        f"Candidates from a score of {threshold:.2f}, in `vabb-<year>.csv`, `.jsonl` and `.ris` (for review, internal); the publications already "
+        "matched to an entry are left out." + (f" Not in VABB's open data yet: {', '.join(map(str, missing))}." if missing else ""),
     ]
-    (out / "vabb-pilot.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (out / "vabb-report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 
 

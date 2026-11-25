@@ -576,33 +576,95 @@ Found in a round of searches (9 Nov 2026), for the next release: 1,263 entries w
 volume editors' ORCIDs (Vanderputten) and ORCIDs before 2000 within 30 years of a person's first iD; all three reach
 the data with the next release.
 
-## 4i. Candidates for 2018–2023 from VABB-SHW, for review in Zotero (decided 9 Nov 2026, model improved 11 Nov 2026)
+## 4i. Candidates from VABB-SHW for the years still to be collected (decided 9 Nov 2026, aimed at 2024 on 25 Nov 2026)
 
-The bibliography stops at 2017 until the State Archives' next export. Meanwhile, `bhb candidates vabb` proposes the
-publications of the Flemish Academic Bibliography (VABB-SHW, CC BY 4.0) of 2018–2023 that the bibliography would
-include. The list is internal: it goes to an inbox in the Commission's Zotero library once that is set up, where an
-editor reviews it (Mike, 11 Nov 2026). It is not shown on the site and not put in a data release.
+The volumes 2018–2021 are in the data since 24 Nov 2026, and 2022 and 2023 are expected as manuscripts, so the first
+year still to be collected is 2024. `bhb candidates vabb` proposes the publications of the Flemish Academic
+Bibliography (VABB-SHW, CC BY 4.0) that the bibliography would include. The list is internal: it goes to an inbox in
+the Commission's Zotero library once that is set up, where an editor reviews it (Mike, 11 Nov 2026). It is not shown on
+the site and not put in a data release.
 
-- **Model** (`bhb/vabb_candidates.py`): the pilot's logistic regression (1 Nov), now with what the bibliography already
-  knows (an author, journal or series of earlier volumes; decided 1 Nov but never passed to the command). Measured
-  on 2006–2008, years the printed volumes cover completely (about half of VABB's History publications of those years
-  are in the bibliography, against 15–36 % in the incomplete V-Smart years, which made the pilot's measure on
-  2013–2014 a poor one), trained on the other years of 2000–2017: average precision 0.61 (the pilot's features,
-  measured the same way, 0.60; the pilot reported 0.56 on 2013–2014); at 0.8, precision 0.61 and recall 0.62 by the
-  matches alone. Belgian places from the gazetteer as a feature added nothing (0.604) and are left out.
-- **Precision read by hand.** Of 40 "false positives" of 2006–2008 at 0.8, about 9 were in the bibliography under a
-  title the matcher missed, 16 clearly belonged, 9 were borderline and 5 out of scope. Of 40 candidates of
-  2018–2023, 30 clearly belong, 8 are borderline and 2 are out of scope (Chinese expositions, the "common city").
-- **Output.** At 0.8: 1,497 candidates (2018: 329 … 2023: 156); the 3,125 VABB publications already matched to an
-  entry are left out. `build/candidates/vabb.jsonl` (and `vabb.csv`) hold what VABB gives, in fields that map onto a
-  Zotero item: people as the bibliography writes them ("Verelst (Karin)"), title, journal or book, year, pages, DOI,
-  ISBN, ISSN, the VABB record at anet.be, and the model's score. `build/` is not in git.
+- **Data.** Edition 15 (2014–2023) has no publication of 2024. Edition 16 covers 2015–2024 (ECOOM's FAQ); on 25 Nov 2026
+  it was not on Zenodo, but ECOOM's public portal (anet.be/opac/opacvabbg) already had 2024 ("belg*": 459 titles of 2024,
+  520 of 2023, none of 2025). The last five editions came between 26 Nov and 23 Dec. Put its CSVs in
+  `build/external/vabb-16`, run `bhb identifiers vabb`, then `bhb candidates vabb --year 2024`.
+- **Model** (`bhb/vabb_candidates.py`): the logistic regression of 1 and 11 Nov, unchanged. It is measured on 2018–2021,
+  the four most recent complete volumes, trained on 2000–2017 (before: on 2006–2008), then trained on 2000–2021.
+- **Measured** (42,593 VABB publications of 2018–2021, 2,018 matched to an entry): average precision 0.50. From 0.5 it
+  proposes 720 a year, 338 of them matched to an entry (precision 0.47, recall 0.67); from 0.8, 437 and 248 (0.57, 0.49).
+  A looser comparison (the same DOI, or a title at 85 with an author in common) finds another 42 a year in the volumes.
+  By year, 505, 372, 335 and 304 of the proposals are in the volume: 5.5 % to 3.4 % of it.
+- **Read by Claude** (not by an editor), on title, author and journal against the editor's published criteria: of 50
+  proposals from 0.8 that are in no volume, 18 are in scope, 8 doubtful, 24 out of scope; of 50 from 0.5 to 0.8, 5, 12
+  and 33. The 23 in scope were searched for by author and title words in every volume from 2016 on: none is there. So of
+  what is proposed about 77 % is right in group A (from 0.8) and 42 % in group B (0.5 to 0.8); on 2021 alone 73 % and
+  34 %. The 85–90 % of 11 Nov, from 40 candidates, was too high.
+- **Later additions** explain little of the fall: of the matched publications of 2018, 2019 and 2020, 6, 2 and 2 % stand
+  in the volume after their year. The measure knows the volumes up to the year before; for 2024 the newest in hand is
+  2021 until 2022 and 2023 arrive.
+- **Languages.** No language is left out; Dutch, English, French and German are favoured (Mike, 25 Nov 2026): they decide
+  which source is added next, and do not change a score. They are 98 % of the entries of 2019–2021 whose language is known.
+- **Coverage** of the entries of 2019–2021, by our matches (lower bounds of what the sources hold):
 
-Next, when the Zotero library exists (`ZOTERO_PLAN.md` in the internal notes): write the candidates into its inbox
-collection (through the Zotero web API, or as an RIS file to import), each tagged with its source and score.
-Open: (a) VABB is Flemish and academic only; the francophone repositories (ORBi, DIAL, DI-fusion, through OAI-PMH)
-could feed the same inbox. (b) V-Smart already holds more than 8,000 references a year for 2019–2023: when the
-State Archives' export comes, the candidates are matched against it first.
+  | | All | Dutch | French | English | German |
+  |---|---:|---:|---:|---:|---:|
+  | Share of the entries | 100 % | 45.9 % | 29.6 % | 14.5 % | 2.3 % |
+  | VABB | 5.5 % | 3.4 % | 1.5 % | 22.1 % | 1.3 % |
+  | Crossref, articles in journals of our list with an ISSN | 6.8 % | 3.7 % | 7.8 % | 16.6 % | 1.4 % |
+  | KBR (books only: a chapter's KBR link is its volume's) | 7.2 % | 7.6 % | 8.4 % | 3.6 % | 1.4 % |
+  | Any of these | 17.5 % | 13.6 % | 17.4 % | 33.1 % | 3.9 % |
+  | Chapters with a Crossref DOI, no ready way to list them | 6.2 % | 0.7 % | 4.8 % | 26.0 % | 14.5 % |
+
+- **Other sources, tried on 25 Nov.** K10plus (SRU, no key) asked for 2021 and twenty Belgian subjects (`pica.sw`, `pica.jah`) lists
+  835 records, 208 of which match entries of the 2021 volume; 70 of the 140 entries found are in none of the three (22 French, 19
+  English, 18 German, 11 Dutch, nearly all books: 17 of the volume's 56 German books, 37 of 254 English ones). Looked up by
+  title, 30 a language from what the three lack: K10plus 13 of 30 German, 8 of 27 English, 1 of 30 French, 1 of 30 Dutch; Sudoc
+  6 of 26, 5 of 30, 0 and 0; OpenAlex (15 a language) 4, 5, 1 and 0. Of 60 French entries at random DIAL has 1 (95 % interval to 9 %)
+  and ORBi none (its lookup missed 2 of 5 controls). Isidore failed all 32 controls, so its result says nothing; UniCat's
+  SRU refuses (403); DNB was not tested properly. OpenAlex needs a key beyond a small daily allowance.
+- **Recurring journals.** 60 % of the Dutch articles of 2018–2021 are in 144 journals found in at least three of the four
+  volumes, 93 % of them without a DOI; 48 % of the French ones in 95 journals, 77 % without.
+- **A newest year is incomplete.** Of the publications of 2017 the bibliography lists, edition IX, whose newest year was 2017,
+  had 445 of the 544 in edition 15 (82 %). The 2023 list (499 from 0.5) is the guide for the size of 2024's.
+- **Output.** `build/candidates/vabb-<year>.csv`, `.jsonl` and `.ris`, and `vabb-report.md`: 626 for 2022 and 499 for 2023.
+  The report counts them by language. Each row has its group, the reasons known to the bibliography (an author's family name, the journal, the series), and
+  what VABB gives; the RIS file imports into Zotero with the source and group as tags. VABB has no volume or issue
+  number and no place. The lists of 11 Nov (2018–2023) are in `build/candidates/superseded-2026-11-11`.
+
+Next: (a) when edition 16 is there, the run for 2024; (b) when the manuscripts of 2022 and 2023 arrive, `bhb identifiers
+vabb` leaves out what they contain, and the rest goes to the editor as possible additions; (c) reading accepted titles
+back from Zotero (`MAINTENANCE_PLAN.md` §5); (d) the same inbox for, by readiness, Crossref articles by the ISSN of our journals (§4j, done
+for 2024), KBR (17,194 records other than periodicals with a 2024 shelf mark in the harvest of 3 Nov), a checklist of the
+recurring journals for Dutch and French, K10plus, and the francophone repositories for balance (OAI-PMH: ORBi
+`orbi.uliege.be/oai/request`, DIAL `research.dial.uclouvain.be/server/oai/request`; DI-fusion's is not found yet); (e) a shortlist of subject codes: a linear model trained on 2009–2020 has the right
+code first for 40 % and among its first five for 67 % of the 470 entries of 2021 that are in VABB.
+
+## 4j. Candidates from Crossref for 2024 (25 Nov 2026)
+
+`bhb candidates crossref --year 2024` (`bhb/crossref_candidates.py`): the articles of a year in the journals from which the
+volumes since 2015 took articles, scored by the model of §4i trained on the same journals' articles of 2018–2021. Internal,
+like VABB's list: for review in the same inbox, not on the site, not in a release.
+
+- **Harvest.** 1,159 journals with an ISSN; 13 with more than 500 articles a year are left out (23,000 articles of 2024, nine
+  of the bibliography's in four years). 53,740 articles of 2024 and 55,000–57,000 a year for 2018–2021, in some 790 requests,
+  one at a time, about 45 minutes; each request stands on its own (an answer that does not hold every article is asked again
+  in halves) and is cached in `build/cache/crossref-journals`. An article's year is the printed one: of the 2020–2021 volumes'
+  articles it is the entry's year for 95 %, Crossref's first date for 91 %, so those online earlier are asked for too.
+- **Measured** on two held-out years, a journal counting from the volume after its first article. The harvest of 2021 reaches
+  445 of the volume's 8,982 entries (5.0 %; matched by DOI, or on title, author and year). Average precision 0.47 on 2021.
+  Tried and not better: word beginnings, a journal's share taken, other class weights.
+- **The list for 2024**: 660 from a score of 0.7 (395 in group A from 0.9, 265 in B), an article with two DOIs once: 267 French, 183
+  English, 182 Dutch, 3 German, 25 other or unclear (Lingua on the title: `language_suggested`, for the counts only). By rank,
+  the best 395 and the next 265 of 2020 (trained on 2018–2019) held 248 and 94 of the volume, of 2021 (on 2018–2020) 215 and 84.
+- **Read by Claude** (81 of the list): in A 38 % clearly in scope, 40 % doubtful, 22 % not; in B 22, 24 and 54 %. The doubtful
+  ones are mostly present-day politics and society in La Revue Nouvelle (the volumes took 56 of 126 articles in 2020, 19 of 119
+  in 2021) and the Courrier hebdomadaire du CRISP (39 of 50 in 2020–2021).
+- **With VABB.** The lists hardly overlap: for 2021 VABB's 273 and Crossref's 281 entries make 509 (5.7 % of the volume), 45 in
+  both: 222 Dutch, 149 English, 122 French. To do when edition 16 is in: drop by DOI from its list what is in this one.
+- **Book reviews** are in a list of their own, `crossref-2024-reviews.*` (72 by the same score; WT 20, BMGN 18, TSEG 11). The
+  volumes list none: of 17,495 reviews of 2018–2021 in these journals one is in them (a survey of periodicals), and of 242,000
+  entries since 1952 fifteen begin like a review; now and then the older ones note a review with the book (bhb:1960-1792).
+  Whether to list them is a question for the editor and the Commission (Mike, 25 Nov 2026).
 
 ## 5. Order, effort and stop points
 
