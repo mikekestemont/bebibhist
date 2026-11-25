@@ -80,7 +80,7 @@ jobs:
 
       # GitHub Pages copies every file of a deployment. With about 200,000 files (one Pagefind fragment per record)
       # and 560 MB, that copy stalled past its 10 minutes on three of eight deployments of 10 Nov 2026; the records
-      # now come in 4,096 files (scripts/build-index.mjs, ``writeRecordFiles``). A build that grows back towards
+      # now come in some 7,500 files (site/scripts/index-files.mjs). A build that grows back towards
       # that fails here, before it is deployed. The size limit was 600 MB until 24 Nov 2026 and is 900 MB since (Mike):
       # with the volumes 2009–2021 the site is about 650 MB, the copy takes seconds since the file count came down, and
       # GitHub publishes a Pages site of up to 1 GB.

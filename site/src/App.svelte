@@ -582,7 +582,7 @@
   /**
    * What a list does not wait for: its filter counts and year chart, for which a first search still has to read the
    * filters, and then, in the background, the records of the next page, so that turning the page shows it at once
-   * (Mike, 24 Nov 2026): at most 50 (about 2 MB), and none for a reader who asked for less data.
+   * (Mike, 24 Nov 2026): at most 50 (about 0.7 MB), and none for a reader who asked for less data.
    */
   async function afterList(response: SearchResponse, ofScope: string, next: SearchResponse["results"], current: () => boolean) {
     try {

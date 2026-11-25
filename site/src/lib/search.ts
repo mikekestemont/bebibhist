@@ -1,4 +1,4 @@
-import type { FilterCounts, Filters } from "./facets.ts";
+import { RECORDS_PER_FILE, type FilterCounts, type Filters } from "./facets.ts";
 import type { Ranking } from "./ranking.ts";
 import { createSearcher, gunzip, type Found, type PagefindModule, type Searcher, type SearchOptions } from "./searcher.ts";
 import { nameWords, personName, personWord } from "./words.js";
@@ -357,40 +357,39 @@ export async function loadEngine(): Promise<Engine> {
   await searcher.init(RANKING);
   recordsBase = `${basePath}records/`;
   // A result's data comes from the record files (``recordOf``), not from Pagefind's fragments, which are not published.
-  const response = ({ ids, search }: Found): SearchResponse => ({
-    results: ids.map((id) => ({ id, data: () => recordOf(id) })),
+  const response = ({ pages, index, search }: Found): SearchResponse => ({
+    results: Array.from(pages, (page) => ({ id: String(page), data: () => recordOf(index, page) })),
     counts: () => searcher.counts(search),
   });
   engine = {
     search: async (query, options) => response(await searcher.search(query, options)),
-    nothing: () => response({ ids: [], search: 0 }),
+    nothing: () => response({ pages: new Uint32Array(0), index: "", search: 0 }),
     warm: () => { searcher.warm().catch(() => {}); },
   };
   return engine;
 }
 
 let recordsBase = "";
-const recordFiles = new Map<string, Promise<Record<string, { m: Hit["meta"]; w?: IndexWords }>>>();
+const recordFiles = new Map<string, Promise<{ m: Hit["meta"]; w?: IndexWords }[]>>();
 
 /**
- * The record of a search result, by its Pagefind id ("und_0083ebf"): from the record file named by the id's first
- * three hex digits (records/008.bin, about 28 kB for some 45 records, ``writeRecordFiles`` in
- * scripts/build-index.mjs). Pagefind's one fragment per record made a deployment of 200,000 files, whose copy on
- * GitHub Pages stalled (10 Nov 2026).
+ * The record of a search result, by the index and the page number in it: from a file of ``RECORDS_PER_FILE`` records
+ * (records/und_8ef9c6be363/12.bin, about 13 kB; scripts/index-files.mjs). A file is of one index, so that a number never
+ * shows another index's record.
  */
-export async function recordOf(id: string): Promise<Hit> {
-  const key = id.slice(id.indexOf("_") + 1, id.indexOf("_") + 4);
-  if (!recordFiles.has(key)) {
-    const loading = fetch(`${recordsBase}${key}.bin`).then(async (response) => {
-      if (!response.ok) throw new Error(`records/${key}.bin: ${response.status}`);
+export async function recordOf(index: string, page: number): Promise<Hit> {
+  const file = `${index}/${Math.floor(page / RECORDS_PER_FILE)}.bin`;
+  if (!recordFiles.has(file)) {
+    const loading = fetch(`${recordsBase}${file}`).then(async (response) => {
+      if (!response.ok) throw new Error(`records/${file}: ${response.status}`);
       return JSON.parse(new TextDecoder().decode(await gunzip(new Uint8Array(await response.arrayBuffer()))));
     });
     // A file that could not be read is asked for again next time.
-    loading.catch(() => recordFiles.delete(key));
-    recordFiles.set(key, loading);
+    loading.catch(() => recordFiles.delete(file));
+    recordFiles.set(file, loading);
   }
-  const record = (await recordFiles.get(key)!)[id];
-  if (!record) throw new Error(`record ${id} is not in records/${key}.bin`);
+  const record = (await recordFiles.get(file)!)[page % RECORDS_PER_FILE];
+  if (!record) throw new Error(`record ${page} is not in records/${file}`);
   return { url: `#/record/${encodeURIComponent(record.m.id)}`, meta: record.m, words: record.w };
 }
 
